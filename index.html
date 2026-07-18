@@ -305,12 +305,31 @@
 const ASSETS={
   saucer:{ url:'models/saucer.glb', scale:5.0, rotY:0,        yOffset:0   },
   sheep: { url:'models/sheep.glb',  scale:1.0, rotY:Math.PI,  yOffset:0   },
+  duck:  { url:'models/duck.glb',   scale:1.0, rotY:Math.PI,  yOffset:0   },
+  camel: { url:'models/camel.glb',  scale:1.0, rotY:Math.PI,  yOffset:0   },
   grass: { url:'textures/grass.jpg', repeat:14 },
   mountain:{ url:'textures/mountain.jpg', repeat:10 }
 };
 const GLTF=(typeof THREE!=='undefined'&&THREE.GLTFLoader)?new THREE.GLTFLoader():null;
 const LOADED={};           // name -> prepared template Object3D
 const TEX={};              // name -> THREE.Texture
+let ENVMAP=null;
+function getEnv(){   // tiny night-sky reflection env so metallic GLB materials show color
+  if(ENVMAP)return ENVMAP;
+  try{
+    const c=document.createElement('canvas');c.width=64;c.height=32;
+    const x=c.getContext('2d');
+    const g=x.createLinearGradient(0,0,0,32);
+    g.addColorStop(0,'#33495c');g.addColorStop(0.5,'#16222b');g.addColorStop(1,'#05080a');
+    x.fillStyle=g;x.fillRect(0,0,64,32);
+    const tex=new THREE.CanvasTexture(c);
+    tex.mapping=THREE.EquirectangularReflectionMapping;
+    const pm=new THREE.PMREMGenerator(renderer);
+    ENVMAP=pm.fromEquirectangular(tex).texture;
+    pm.dispose();tex.dispose();
+  }catch(e){}
+  return ENVMAP;
+}
 function loadGLB(name){
   const cfg=ASSETS[name];
   return new Promise(res=>{
@@ -319,7 +338,16 @@ function loadGLB(name){
       const root=new THREE.Group();
       const m=gltf.scene;
       m.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=false;
-        if(o.material){o.material.fog=true;} } });
+        if(o.material){
+          o.material.fog=true;
+          if(o.material.isMeshStandardMaterial){
+            const env=getEnv();
+            if(env){o.material.envMap=env;o.material.envMapIntensity=1.5;}
+            if(o.material.metalness>0.7)o.material.metalness=0.55;   // pure metal = black without strong env
+            o.material.roughness=Math.max(o.material.roughness??0.5,0.25);
+            o.material.needsUpdate=true;
+          }
+        } } });
       m.scale.setScalar(cfg.scale||1);
       m.rotation.y=cfg.rotY||0;
       m.position.y=cfg.yOffset||0;
@@ -753,7 +781,7 @@ const ANIMALS={
 function buildAnimal(biome){
   const info=ANIMALS[biome];const s=info.size;
   // --- custom model path (currently: sheep on plains) ---
-  const modelName=(biome==='plains')?'sheep':null;
+  const modelName=(biome==='plains')?'sheep':(biome==='water')?'duck':(biome==='desert')?'camel':null;
   if(modelName&&LOADED[modelName]){
     const g=spawnModel(modelName);
     g.scale.setScalar(s);
@@ -2368,6 +2396,8 @@ function diag(line){const d=document.getElementById('assetDiag');if(d)d.textCont
 Promise.all([
   loadGLB('saucer').then(r=>diag('saucer: '+(r?'OK':'fallback'))),
   loadGLB('sheep').then(r=>diag('sheep: '+(r?'OK':'fallback'))),
+  loadGLB('duck').then(r=>diag('duck: '+(r?'OK':'fallback'))),
+  loadGLB('camel').then(r=>diag('camel: '+(r?'OK':'fallback'))),
   loadTex('grass').then(r=>diag('grass: '+(r?'OK':'fallback'))),
   loadTex('mountain').then(r=>diag('mountain: '+(r?'OK':'fallback')))
 ]).then(()=>{

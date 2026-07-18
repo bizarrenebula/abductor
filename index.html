@@ -294,8 +294,55 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/loaders/GLTFLoader.min.js"></script>
 <script>
 "use strict";
+/* =========================================================================
+   CUSTOM ASSETS  — set a URL to null to keep the built-in procedural version.
+   Put your files next to index.html (see the models/ + textures/ folders) and
+   flip the url on.  Tune scale/rot/lift by eye once, then forget them.
+   ========================================================================= */
+const ASSETS={
+  saucer:{ url:'models/saucer.glb', scale:5.0, rotY:0,        yOffset:0   },
+  sheep: { url:'models/sheep.glb',  scale:1.0, rotY:Math.PI,  yOffset:0   },
+  grass: { url:'textures/grass.jpg', repeat:14 }
+};
+const GLTF=(typeof THREE!=='undefined'&&THREE.GLTFLoader)?new THREE.GLTFLoader():null;
+const LOADED={};           // name -> prepared template Object3D
+const TEX={};              // name -> THREE.Texture
+function loadGLB(name){
+  const cfg=ASSETS[name];
+  return new Promise(res=>{
+    if(!GLTF||!cfg||!cfg.url){res(null);return;}
+    GLTF.load(cfg.url,gltf=>{
+      const root=new THREE.Group();
+      const m=gltf.scene;
+      m.traverse(o=>{ if(o.isMesh){o.castShadow=true;o.receiveShadow=false;
+        if(o.material){o.material.fog=true;} } });
+      m.scale.setScalar(cfg.scale||1);
+      m.rotation.y=cfg.rotY||0;
+      m.position.y=cfg.yOffset||0;
+      root.add(m);
+      LOADED[name]=root;
+      res(root);
+    },undefined,err=>{ console.warn('[assets] '+name+' failed:',err&&err.message); res(null); });
+  });
+}
+function loadTex(name){
+  const cfg=ASSETS[name];
+  return new Promise(res=>{
+    if(!cfg||!cfg.url){res(null);return;}
+    new THREE.TextureLoader().load(cfg.url,t=>{
+      t.wrapS=t.wrapT=THREE.RepeatWrapping;t.encoding=THREE.sRGBEncoding;
+      if(cfg.repeat)t.repeat.set(cfg.repeat,cfg.repeat);
+      TEX[name]=t;res(t);
+    },undefined,()=>{res(null);});
+  });
+}
+function spawnModel(name){                 // fresh clone for one entity, or null
+  const tpl=LOADED[name]; if(!tpl)return null;
+  return tpl.clone(true);
+}
 /* =========================================================================
    ABDUCTOR — single file 3D game.  Three.js r128.
    ========================================================================= */
@@ -571,6 +618,8 @@ const saucer=new THREE.Group();
     lights.add(b);
   }
   saucer.add(lights);saucer.userData.lights=lights;
+  // hull/dome/under/rim are the fallback body; tag them so we can hide them
+  saucer.userData.procBody=[hull,rim,dome,under];
 })();
 scene.add(saucer);
 
@@ -701,7 +750,19 @@ const ANIMALS={
   water  :{name:'Duck',  pts:2, size:0.7}
 };
 function buildAnimal(biome){
-  const info=ANIMALS[biome];const s=info.size;const g=new THREE.Group();
+  const info=ANIMALS[biome];const s=info.size;
+  // --- custom model path (currently: sheep on plains) ---
+  const modelName=(biome==='plains')?'sheep':null;
+  if(modelName&&LOADED[modelName]){
+    const g=spawnModel(modelName);
+    g.scale.setScalar(s);
+    g.userData.legY=0;g.userData.biome=biome;g.userData.name=info.name;
+    g.userData.hopTimer=1+Math.random()*2.5;
+    g.userData.hop=null;g.userData.progress=0;g.userData.abducting=0;g.userData.face=Math.random()*6.28;
+    g.userData.pts=info.pts;g.userData.baseS=s;
+    return g;
+  }
+  const g=new THREE.Group();
   const eyeM=new THREE.MeshBasicMaterial({color:0xd8efe0});
   const eyes=(x,y,z,r)=>{g.add(part(new THREE.SphereGeometry(r,6,6),eyeM,-x,y,z));
     g.add(part(new THREE.SphereGeometry(r,6,6),eyeM,x,y,z));};
@@ -1104,7 +1165,7 @@ function chunkKey(cx,cz){return cx+'|'+cz;}
 
 const groundMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,metalness:0.02});
 groundMat.onBeforeCompile=sh=>{
-  sh.uniforms.tGrass={value:grassTex};sh.uniforms.tSand={value:sandTex};sh.uniforms.tRock={value:rockTex};sh.uniforms.tSnow={value:snowTex};
+  sh.uniforms.tGrass={value:TEX.grass||grassTex};sh.uniforms.tSand={value:sandTex};sh.uniforms.tRock={value:rockTex};sh.uniforms.tSnow={value:snowTex};
   sh.vertexShader='attribute float aBiome;varying float vBiome;varying vec2 vDuv;\n'+sh.vertexShader
     .replace('#include <uv_vertex>','#include <uv_vertex>\nvBiome=aBiome;vDuv=uv*14.0;');
   sh.fragmentShader='uniform sampler2D tGrass;uniform sampler2D tSand;uniform sampler2D tRock;uniform sampler2D tSnow;varying float vBiome;varying vec2 vDuv;\n'+sh.fragmentShader
@@ -2293,6 +2354,15 @@ document.getElementById('segFx').addEventListener('click',e=>{
 });
 setFX(IS_IOS?'basic':'full');
 
+/* boot: load optional custom assets, then continue regardless */
+Promise.all([loadGLB('saucer'),loadGLB('sheep'),loadTex('grass')]).then(()=>{
+  const sm=spawnModel('saucer');
+  if(sm){
+    (saucer.userData.procBody||[]).forEach(o=>o.visible=false);  // hide primitive body
+    saucer.userData.lights.visible=false;                        // model brings its own look
+    sm.name='saucerModel';saucer.add(sm);
+  }
+});
 /* boot */
 /* ---- iOS audio unlock: silent looping <audio> flips Safari to playback
    mode (plays despite the ring/silent switch); resume context on any gesture ---- */

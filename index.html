@@ -294,7 +294,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/loaders/GLTFLoader.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 "use strict";
 /* =========================================================================
@@ -305,7 +305,8 @@
 const ASSETS={
   saucer:{ url:'models/saucer.glb', scale:5.0, rotY:0,        yOffset:0   },
   sheep: { url:'models/sheep.glb',  scale:1.0, rotY:Math.PI,  yOffset:0   },
-  grass: { url:'textures/grass.jpg', repeat:14 }
+  grass: { url:'textures/grass.jpg', repeat:14 },
+  mountain:{ url:'textures/mountain.jpg', repeat:10 }
 };
 const GLTF=(typeof THREE!=='undefined'&&THREE.GLTFLoader)?new THREE.GLTFLoader():null;
 const LOADED={};           // name -> prepared template Object3D
@@ -1165,7 +1166,7 @@ function chunkKey(cx,cz){return cx+'|'+cz;}
 
 const groundMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,metalness:0.02});
 groundMat.onBeforeCompile=sh=>{
-  sh.uniforms.tGrass={value:TEX.grass||grassTex};sh.uniforms.tSand={value:sandTex};sh.uniforms.tRock={value:rockTex};sh.uniforms.tSnow={value:snowTex};
+  sh.uniforms.tGrass={value:TEX.grass||grassTex};sh.uniforms.tSand={value:sandTex};sh.uniforms.tRock={value:TEX.mountain||rockTex};sh.uniforms.tSnow={value:snowTex};
   sh.vertexShader='attribute float aBiome;varying float vBiome;varying vec2 vDuv;\n'+sh.vertexShader
     .replace('#include <uv_vertex>','#include <uv_vertex>\nvBiome=aBiome;vDuv=uv*14.0;');
   sh.fragmentShader='uniform sampler2D tGrass;uniform sampler2D tSand;uniform sampler2D tRock;uniform sampler2D tSnow;varying float vBiome;varying vec2 vDuv;\n'+sh.fragmentShader
@@ -2355,7 +2356,21 @@ document.getElementById('segFx').addEventListener('click',e=>{
 setFX(IS_IOS?'basic':'full');
 
 /* boot: load optional custom assets, then continue regardless */
-Promise.all([loadGLB('saucer'),loadGLB('sheep'),loadTex('grass')]).then(()=>{
+(function(){
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99;font:11px monospace;color:#8fe8b8;background:rgba(0,0,0,.6);padding:6px 8px;border-radius:6px;max-width:70vw;white-space:pre-line';
+  d.id='assetDiag';
+  d.textContent='assets: loading…\nGLTFLoader: '+(GLTF?'ready':'MISSING');
+  document.body.appendChild(d);
+  setTimeout(()=>{d.style.transition='opacity 1s';d.style.opacity='0';setTimeout(()=>d.remove(),1200);},9000);
+})();
+function diag(line){const d=document.getElementById('assetDiag');if(d)d.textContent+='\n'+line;}
+Promise.all([
+  loadGLB('saucer').then(r=>diag('saucer: '+(r?'OK':'fallback'))),
+  loadGLB('sheep').then(r=>diag('sheep: '+(r?'OK':'fallback'))),
+  loadTex('grass').then(r=>diag('grass: '+(r?'OK':'fallback'))),
+  loadTex('mountain').then(r=>diag('mountain: '+(r?'OK':'fallback')))
+]).then(()=>{
   const sm=spawnModel('saucer');
   if(sm){
     (saucer.userData.procBody||[]).forEach(o=>o.visible=false);  // hide primitive body

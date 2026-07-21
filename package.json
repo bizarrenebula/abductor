@@ -1,0 +1,10 @@
+{
+  "name": "abductor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ABDUCTOR — single-page Three.js saucer-abduction game. No build step: index.html loads THREE (classic script) then src/main.js as a native ES module. This package.json only marks .js files as ES modules for editors/node tooling; it is NOT required to run or deploy.",
+  "scripts": {
+    "check": "node --check src/main.js || true"
+  }
+}

@@ -214,6 +214,20 @@
   .seg button.on{background:linear-gradient(180deg,#7dffc0,var(--beam));color:#04160f;
     box-shadow:0 0 16px rgba(89,255,176,.4);border-color:transparent;font-weight:700}
 
+  /* language switch */
+  .langSel{max-width:220px}
+  .langRow{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:16px}
+  .langRow .langLbl{font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-soft)}
+  .langRow .langSel{max-width:180px}
+
+  /* how-to-play block on the landing screen */
+  .howto{text-align:left;margin:14px 0 4px;padding:12px 14px;border:1px solid var(--edge);
+    border-radius:12px;background:rgba(255,255,255,.02)}
+  .howto-h{font-size:9px;letter-spacing:.28em;text-transform:uppercase;color:var(--beam-dim);margin-bottom:8px}
+  .howto-t{font-size:11px;line-height:1.65;color:var(--ink-soft);margin-bottom:6px}
+  .howto-t:last-child{margin-bottom:0}
+  .howto-t b{color:var(--beam);font-weight:700}
+
   button.go{width:100%;margin-top:22px;padding:14px;border:none;border-radius:12px;cursor:pointer;
     font-family:inherit;font-size:13px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;
     color:#04160f;background:linear-gradient(180deg,#7dffc0,var(--beam));
@@ -238,20 +252,20 @@
 
 <!-- HUD -->
 <div id="hud">
-  <div class="panel" id="hScore"><div class="lbl">Harvest</div><div class="val" id="scoreV">0</div><div class="lbl" id="specV">0 taken</div></div>
-  <div class="panel" id="hStory" style="display:none"><div class="lbl">Directive</div><div class="mtx" id="sTxt">—</div></div>
-  <div class="panel" id="hMission"><div class="lbl">Side quest</div><div class="mtx" id="mTxt">—</div></div>
-  <div class="panel" id="hClock"><div class="lbl">Survey window</div><div class="val" id="clockV">--:--</div></div>
+  <div class="panel" id="hScore"><div class="lbl" data-i18n="hud.harvest">Harvest</div><div class="val" id="scoreV">0</div><div class="lbl" id="specV">0 taken</div></div>
+  <div class="panel" id="hStory" style="display:none"><div class="lbl" data-i18n="hud.directive">Directive</div><div class="mtx" id="sTxt">—</div></div>
+  <div class="panel" id="hMission"><div class="lbl" data-i18n="hud.sidequest">Side quest</div><div class="mtx" id="mTxt">—</div></div>
+  <div class="panel" id="hClock"><div class="lbl" data-i18n="hud.window">Survey window</div><div class="val" id="clockV">--:--</div></div>
   <div id="hRegion">
     <span class="wx" id="regionV">—</span> · <span class="mult" id="multV">—</span>
   </div>
   <div class="panel" id="hTarget">
-    <div id="tName">acquiring lock</div>
+    <div id="tName" data-i18n="hud.lockAcq">acquiring lock</div>
     <div id="bar"><div id="barFill"></div></div>
   </div>
-  <div class="panel" id="hBuff"><div class="lbl">Boon</div><div class="wx" id="buffName">—</div></div>
+  <div class="panel" id="hBuff"><div class="lbl" data-i18n="hud.boon">Boon</div><div class="wx" id="buffName">—</div></div>
   <button id="pauseBtn" class="hbtn" aria-label="Menu">❚❚</button>
-  <button id="spBtn" aria-label="Special pull">PULL</button>
+  <button id="spBtn" aria-label="Special pull" data-i18n="hud.pull">PULL</button>
 </div>
 
 <canvas id="minimap" width="150" height="150"></canvas>
@@ -275,107 +289,125 @@
 <!-- LANDING SCREEN -->
 <div class="screen" id="landingScreen">
   <div class="card" style="text-align:center">
-    <div class="eyebrow">night harvest protocol</div>
+    <div class="eyebrow" data-i18n="eyebrow.protocol">night harvest protocol</div>
     <h1>ABDUCT<span class="g">OR</span></h1>
-    <div class="sub" style="text-align:center">Pilot the saucer. Harvest the wilds under cover of dark.<br>Three worlds. Three difficulties. One beam.</div>
-    <button class="go" id="freeBtn" style="margin-top:8px">play for free</button>
-    <button class="go ghost" id="loginBtn" style="margin-top:12px">login</button>
+    <div class="sub" style="text-align:center" data-i18n-html="landing.sub">Pilot the saucer. Harvest the wilds under cover of dark.<br>Three worlds. Three difficulties. One beam.</div>
+    <div class="howto">
+      <div class="howto-h" data-i18n="landing.how.title">how to play</div>
+      <div class="howto-t" data-i18n-html="landing.goal"></div>
+      <div class="howto-t" data-i18n-html="landing.how"></div>
+      <div class="howto-t" data-i18n-html="landing.modes"></div>
+    </div>
+    <button class="go" id="freeBtn" style="margin-top:8px" data-i18n="landing.free">play for free</button>
+    <button class="go ghost" id="loginBtn" style="margin-top:12px" data-i18n="landing.login">login</button>
+    <div class="langRow"><span class="langLbl" data-i18n="lang.label">Language</span>
+      <div class="seg langSel">
+        <button data-lang="en">EN</button><button data-lang="ru">RU</button><button data-lang="bg">BG</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- UNDER CONSTRUCTION -->
 <div class="screen hidden" id="constructScreen">
   <div class="card" style="text-align:center">
-    <div class="eyebrow">accounts</div>
-    <h1 style="font-size:26px">UNDER <span class="g">CONSTRUCTION</span></h1>
-    <div class="sub" style="text-align:center">Login isn't ready yet — this feature is still being built.<br>For now, jump straight in and play for free.</div>
-    <button class="go" id="backBtn" style="margin-top:8px">back</button>
+    <div class="eyebrow" data-i18n="eyebrow.accounts">accounts</div>
+    <h1 style="font-size:26px" data-i18n-html="construct.title">UNDER <span class="g">CONSTRUCTION</span></h1>
+    <div class="sub" style="text-align:center" data-i18n-html="construct.sub">Login isn't ready yet — this feature is still being built.<br>For now, jump straight in and play for free.</div>
+    <button class="go" id="backBtn" style="margin-top:8px" data-i18n="construct.back">back</button>
   </div>
 </div>
 
 <div class="screen hidden" id="startScreen">
   <div class="card">
-    <div class="eyebrow">night harvest protocol</div>
+    <div class="eyebrow" data-i18n="eyebrow.protocol">night harvest protocol</div>
     <h1>ABDUCT<span class="g">OR</span></h1>
-    <div class="sub">The valley sleeps. Double-tap and hold to open the beam — the ship grows heavy while it feeds.
+    <div class="sub" data-i18n="start.sub">The valley sleeps. Double-tap and hold to open the beam — the ship grows heavy while it feeds.
       The animals feel the light and bolt one step, and a step outside it breaks the lock.
       The closer to the beam's heart, the faster it takes them.</div>
 
     <div class="field">
-      <div class="row"><span class="name">World</span><span class="out" id="oWorld">Earth</span></div>
+      <div class="row"><span class="name" data-i18n="lang.label">Language</span></div>
+      <div class="seg langSel">
+        <button data-lang="en">EN</button><button data-lang="ru">RU</button><button data-lang="bg">BG</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="row"><span class="name" data-i18n="field.world">World</span><span class="out" id="oWorld">Earth</span></div>
       <div class="seg" id="segWorld">
-        <button data-w="earth" class="on">Earth · Easy</button>
-        <button data-w="moon">Moon · Medium</button>
-        <button data-w="mars">Mars · Hard</button>
+        <button data-w="earth" class="on" data-i18n="world.earthEasy">Earth · Easy</button>
+        <button data-w="moon" data-i18n="world.moonMed">Moon · Medium</button>
+        <button data-w="mars" data-i18n="world.marsHard">Mars · Hard</button>
       </div>
-      <label class="chk" id="hiRow" style="margin-top:10px;display:none"><input type="checkbox" id="cHiDetail"> high detail — load 3D models (may run slow on phones)</label>
+      <label class="chk" id="hiRow" style="margin-top:10px;display:none"><input type="checkbox" id="cHiDetail"> <span data-i18n="opt.hiDetail">high detail — load 3D models (may run slow on phones)</span></label>
     </div>
 
     <div class="field">
-      <div class="row"><span class="name">Mode</span><span class="out" id="oMode">Exploration</span></div>
+      <div class="row"><span class="name" data-i18n="field.mode">Mode</span><span class="out" id="oMode">Exploration</span></div>
       <div class="seg" id="segMode">
-        <button data-m="explore" class="on">Exploration</button>
-        <button data-m="story">Story</button>
+        <button data-m="explore" class="on" data-i18n="mode.explore">Exploration</button>
+        <button data-m="story" data-i18n="mode.story">Story</button>
       </div>
     </div>
 
     <div class="field">
-      <div class="row"><span class="name">Reactor</span><span class="out" id="oEnergy">Drainable</span></div>
+      <div class="row"><span class="name" data-i18n="field.reactor">Reactor</span><span class="out" id="oEnergy">Drainable</span></div>
       <div class="seg" id="segEnergy">
-        <button data-e="drain" class="on">Drainable</button>
-        <button data-e="inf">Infinite</button>
+        <button data-e="drain" class="on" data-i18n="reactor.drain">Drainable</button>
+        <button data-e="inf" data-i18n="reactor.inf">Infinite</button>
       </div>
     </div>
 
     <div class="field">
-      <div class="row"><span class="name">Beam lock time</span><span class="out" id="oLock">2.0 s</span></div>
+      <div class="row"><span class="name" data-i18n="field.lock">Beam lock time</span><span class="out" id="oLock">2.0 s</span></div>
       <input type="range" id="sLock" min="0" max="5" step="0.25" value="2">
     </div>
     <div class="field">
-      <div class="row"><span class="name">Beam diameter</span><span class="out" id="oBeam">16 m</span></div>
+      <div class="row"><span class="name" data-i18n="field.beam">Beam diameter</span><span class="out" id="oBeam">16 m</span></div>
       <input type="range" id="sBeam" min="6" max="40" step="1" value="16">
     </div>
     <div class="field">
-      <div class="row"><span class="name">Survey window</span><span class="out" id="oTime">3 min</span></div>
+      <div class="row"><span class="name" data-i18n="field.time">Survey window</span><span class="out" id="oTime">3 min</span></div>
       <input type="range" id="sTime" min="1" max="15" step="1" value="3">
-      <label class="chk"><input type="checkbox" id="cEndless"> endless — no time limit</label>
+      <label class="chk"><input type="checkbox" id="cEndless"> <span data-i18n="opt.endless">endless — no time limit</span></label>
     </div>
 
     <div class="field">
-      <div class="row"><span class="name">Music volume</span></div>
+      <div class="row"><span class="name" data-i18n="field.music">Music volume</span></div>
       <input type="range" id="sMusicVol" min="0" max="100" step="1" value="60">
     </div>
 
 
     <div class="ctrl" id="ctrlHint"></div>
-    <button class="go" id="startBtn" disabled>play</button>
-    <div class="loading" id="loadNote" style="margin-top:12px">loading assets…</div>
+    <button class="go" id="startBtn" disabled data-i18n="btn.play">play</button>
+    <div class="loading" id="loadNote" style="margin-top:12px" data-i18n="loadNote.loading">loading assets…</div>
   </div>
 </div>
 
 <!-- GAME OVER -->
 <div class="screen hidden" id="overScreen">
   <div class="card">
-    <div class="eyebrow">survey complete</div>
-    <h1>WINDOW <span class="g">CLOSED</span></h1>
-    <div class="stat"><div><div class="n" id="finalScore">0</div><div class="k">harvest points</div></div></div>
+    <div class="eyebrow" data-i18n="eyebrow.complete">survey complete</div>
+    <h1 data-i18n-html="over.title">WINDOW <span class="g">CLOSED</span></h1>
+    <div class="stat"><div><div class="n" id="finalScore">0</div><div class="k" data-i18n="over.points">harvest points</div></div></div>
     <div id="bkList" style="margin:4px 0 10px"></div>
     <div class="sub" style="text-align:center" id="overMsg"></div>
-    <button class="go" id="againBtn">run it back</button>
-    <button class="go ghost" id="settingsBtn">change settings</button>
+    <button class="go" id="againBtn" data-i18n="over.again">run it back</button>
+    <button class="go ghost" id="settingsBtn" data-i18n="over.settings">change settings</button>
   </div>
 </div>
 
 <!-- PAUSE -->
 <div class="screen hidden" id="pauseScreen">
   <div class="card">
-    <div class="eyebrow">hovering</div>
-    <h1>STAND <span class="g">BY</span></h1>
-    <div class="sub">The engines hum. Below, the field pretends nothing happened.</div>
-    <button class="go" id="resumeBtn">resume</button>
-    <button class="go ghost" id="restartBtn">restart run</button>
-    <button class="go ghost" id="pSettingsBtn">settings</button>
-    <button class="go ghost" id="quitBtn" style="margin-top:16px">quit to main menu</button>
+    <div class="eyebrow" data-i18n="eyebrow.hovering">hovering</div>
+    <h1 data-i18n-html="pause.title">STAND <span class="g">BY</span></h1>
+    <div class="sub" data-i18n="pause.sub">The engines hum. Below, the field pretends nothing happened.</div>
+    <button class="go" id="resumeBtn" data-i18n="pause.resume">resume</button>
+    <button class="go ghost" id="restartBtn" data-i18n="pause.restart">restart run</button>
+    <button class="go ghost" id="pSettingsBtn" data-i18n="pause.settings">settings</button>
+    <button class="go ghost" id="quitBtn" style="margin-top:16px" data-i18n="pause.quit">quit to main menu</button>
   </div>
 </div>
 

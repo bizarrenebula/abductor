@@ -11,21 +11,22 @@ import { World } from './world-config.js';
 import { sample } from './terrain.js';
 import { PARTTEX } from './textures.js';
 import { regionV, multV } from '../ui/dom.js';
+import { t } from '../i18n.js';
 
 const LOW_END = env.LOW_END;
 
 export const WEATHER={
-  clear   :{name:'Clear skies', mult:1.0,  vis:false,fog:0.0062},
-  rain    :{name:'Rain',        mult:0.75, vis:true, color:0x9fbccf,size:2.2,fall:70,slant:8,fog:0.0072,tex:'rain'},
-  sunny   :{name:'Moonlit',     mult:1.2,  vis:false,fog:0.0044},
-  sandstorm:{name:'Sandstorm',  mult:0.55, vis:true, color:0xbfa070,size:1.6,fall:14,slant:60,fog:0.0145,tex:'grain'},
-  snow    :{name:'Snowfall',    mult:0.65, vis:true, color:0xbcd0dc,size:1.3,fall:9, slant:3, fog:0.0085,tex:'dot'},
-  snowstorm:{name:'Snow storm', mult:0.55, vis:true, color:0xd8e4ea,size:1.5,fall:18,slant:34,fog:0.0145,tex:'dot'},
-  fog     :{name:'Dense fog',   mult:0.8,  vis:false,fog:0.014},
-  vacuum  :{name:'Vacuum',      mult:1.1,  vis:false,fog:0.002},
-  meteors :{name:'Meteor dust', mult:0.85, vis:true, color:0xcfd8e0,size:1.0,fall:26,slant:20,fog:0.0028,tex:'dot'},
-  calm    :{name:'Still air',   mult:1.0,  vis:false,fog:0.0055},
-  duststorm:{name:'Dust storm', mult:0.6,  vis:true, color:0xc46a3a,size:1.8,fall:10,slant:70,fog:0.011,tex:'grain'}
+  clear   :{name:'weather.clear', mult:1.0,  vis:false,fog:0.0062},
+  rain    :{name:'weather.rain',        mult:0.75, vis:true, color:0x9fbccf,size:2.2,fall:70,slant:8,fog:0.0072,tex:'rain'},
+  sunny   :{name:'weather.sunny',     mult:1.2,  vis:false,fog:0.0044},
+  sandstorm:{name:'weather.sandstorm',  mult:0.55, vis:true, color:0xbfa070,size:1.6,fall:14,slant:60,fog:0.0145,tex:'grain'},
+  snow    :{name:'weather.snow',     mult:0.65, vis:true, color:0xbcd0dc,size:1.3,fall:9, slant:3, fog:0.0085,tex:'dot'},
+  snowstorm:{name:'weather.snowstorm', mult:0.55, vis:true, color:0xd8e4ea,size:1.5,fall:18,slant:34,fog:0.0145,tex:'dot'},
+  fog     :{name:'weather.fog',   mult:0.8,  vis:false,fog:0.014},
+  vacuum  :{name:'weather.vacuum',      mult:1.1,  vis:false,fog:0.002},
+  meteors :{name:'weather.meteors', mult:0.85, vis:true, color:0xcfd8e0,size:1.0,fall:26,slant:20,fog:0.0028,tex:'dot'},
+  calm    :{name:'weather.calm',   mult:1.0,  vis:false,fog:0.0055},
+  duststorm:{name:'weather.duststorm',  mult:0.6,  vis:true, color:0xc46a3a,size:1.8,fall:10,slant:70,fog:0.011,tex:'grain'}
 };
 
 /* shared runtime weather state */
@@ -68,7 +69,11 @@ export function pickWeather(biome){
   if(biome==='water') return 'fog';
   return Math.random()<0.3?'rain':'clear';
 }
-export function curBiomeLabel(){if(World.name==='moon')return 'Mare Umbra';if(World.name==='mars')return 'Red Waste';return {plains:'Grassland',desert:'Desert',mountain:'Highlands',water:'Wetland'}[weather.biome]||'Wilds';}
+export function curBiomeLabel(){
+  if(World.name==='moon')return t('region.mare');
+  if(World.name==='mars')return t('region.redwaste');
+  return t({plains:'region.grassland',desert:'region.desert',mountain:'region.highlands',water:'region.wetland'}[weather.biome]||'region.wilds');
+}
 export function applyWeather(w){
   weather.cur=w;const W=WEATHER[w];
   weather.fogTarget=W.fog||0.0062;
@@ -76,10 +81,10 @@ export function applyWeather(w){
     pMat.map=PARTTEX[W.tex]||null;pMat.needsUpdate=true;
     precip.userData={fall:W.fall,slant:W.slant};}
   else precip.visible=false;
-  const disp=W.name;
+  const disp=t(W.name);
   regionV.textContent=(curBiomeLabel()+' · '+disp);
   const m=W.mult;
-  multV.textContent=(m>=1?'beam +':'beam ')+Math.round((m-1)*100)+'%';
+  multV.textContent=t('hud.beamMult')+' '+(m>=1?'+':'')+Math.round((m-1)*100)+'%';
   multV.className='mult '+(m>=1?'up':'down');
 }
 export function updateWeatherParticles(dt){

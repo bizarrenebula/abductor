@@ -16,6 +16,7 @@ import { spawnPop } from '../ui/pop.js';
 import { scoreV } from '../ui/dom.js';
 import { saucer } from '../systems/saucer.js';
 import { effBeamR } from '../systems/beam.js';
+import { t } from '../i18n.js';
 
 export const Story={
   active:false, world:null, stage:0, _pending:0, _last:'',
@@ -122,7 +123,7 @@ export const Story={
       d.rotation.set(Math.random()*2,Math.random()*6,Math.random()*2);
       scene.add(d);this.debris.push(d);
     }
-    setTimeout(()=>banner('DISTRESS SIGNAL DETECTED'),900);
+    setTimeout(()=>banner(t('banner.distress')),900);
   },
   buildShip(){
     const g=new THREE.Group();
@@ -201,7 +202,7 @@ export const Story={
       sp.userData.baseY=sp.position.y;
       scene.add(sp);this.targets.push(sp);
     }
-    setTimeout(()=>banner('DIRECTIVE — CAPTURE 5 MOON SPYDERS'),900);
+    setTimeout(()=>banner(t('banner.moonDirective')),900);
   },
   buildSpyder(){
     // eerie glowing arachnid: round body + radiating legs
@@ -301,7 +302,7 @@ export const Story={
       gd.position.set(q.x,heightAt(q.x,q.z),q.z);
       scene.add(gd);this.guides.push(gd);
     }
-    setTimeout(()=>banner('DIRECTIVE — LOCATE THE GEM ALTAR'),900);
+    setTimeout(()=>banner(t('banner.marsDirective')),900);
   },
   buildAltar(){
     // round stepped stone dais with 5 holes that light up when filled
@@ -363,27 +364,28 @@ export const Story={
   hud(){
     let txt='';
     const w=this.world;
+    const mn=s=>'<span class="mnum">'+s+'</span>';
     if(w==='earth'){
-      if(this.stage===1)txt='Follow the burning debris';
+      if(this.stage===1)txt=t('story.hud.e1');
       else if(this.stage===2){
         const n=(this.need.crystal?1:0)+(this.need.water?1:0)+(this.need.sand?1:0);
-        txt=n>=3?'Return to the mothership':'Gather samples — <span class="mnum">'+n+'/3</span> (crystal · water · sand)';
+        txt=n>=3?t('story.hud.e2.return'):t('story.hud.e2.gather',{n:mn(n+'/3')});
       }
-      else if(this.stage===3)txt='Feed the core — <span class="mnum">'+this.count+'/50</span> crystals';
-      else txt='The mothership is whole. Roam free.';
+      else if(this.stage===3)txt=t('story.hud.e3',{n:mn(this.count+'/50')});
+      else txt=t('story.hud.e.done');
     }else if(w==='moon'){
-      if(this.stage===1)txt='Capture moon spyders — <span class="mnum">'+this.need.spyders+'/5</span>';
-      else if(this.stage===2)txt='Carry the spyders to the lab — <span class="mnum">follow the beacons</span>';
-      else if(this.stage===3)txt='Collect moon rock samples — <span class="mnum">'+this.need.rocks+'/5</span>';
-      else txt='The lab is operational. Roam free.';
+      if(this.stage===1)txt=t('story.hud.m1',{n:mn(this.need.spyders+'/5')});
+      else if(this.stage===2)txt=t('story.hud.m2',{hint:mn(t('story.hud.m2.hint'))});
+      else if(this.stage===3)txt=t('story.hud.m3',{n:mn(this.need.rocks+'/5')});
+      else txt=t('story.hud.m.done');
     }else if(w==='mars'){
-      if(this.stage===1)txt='Find the gem altar — <span class="mnum">follow the glow</span>';
+      if(this.stage===1)txt=t('story.hud.r1',{hint:mn(t('story.hud.r1.hint'))});
       else if(this.stage===2){
         const n=Object.values(this.need).filter(Boolean).length;
-        txt='Bring the 5 gem crystals — <span class="mnum">'+n+'/5</span>';
+        txt=t('story.hud.r2',{n:mn(n+'/5')});
       }
-      else if(this.stage===3)txt='Bring 5 of each Mars species — <span class="mnum">'+this.count+'/15</span>';
-      else txt='The altar blazes. Roam free.';
+      else if(this.stage===3)txt=t('story.hud.r3',{n:mn(this.count+'/15')});
+      else txt=t('story.hud.r.done');
     }
     if(txt!==this._last){document.getElementById('sTxt').innerHTML=txt;this._last=txt;}
   },
@@ -393,7 +395,7 @@ export const Story={
   crystalHook(){
     if(!this.active)return;
     if(this.world==='earth'){
-      if(this.stage===2&&!this.need.crystal){this.need.crystal=true;banner('CRYSTAL SAMPLE SECURED');this.hud();}
+      if(this.stage===2&&!this.need.crystal){this.need.crystal=true;banner(t('banner.crystalSecured'));this.hud();}
       else if(this.stage===3){this.count++;this.hud();if(this.count>=50)completeStage(3);}
     }
   },
@@ -426,8 +428,8 @@ export const Story={
     p.scale.setScalar(Math.max(0.05,1-u.lift*0.55));
     return u.lift>=1;
   },
-  updateEarth(dt,beamActive,t){
-    for(const d of this.debris)if(d.children[0])d.children[0].material.emissiveIntensity=0.25+0.25*Math.sin(t*2.5+d.position.x);
+  updateEarth(dt,beamActive,tt){
+    for(const d of this.debris)if(d.children[0])d.children[0].material.emissiveIntensity=0.25+0.25*Math.sin(tt*2.5+d.position.x);
     const dx=saucer.position.x-this.shipPos.x,dz=saucer.position.z-this.shipPos.z;
     const near=(dx*dx+dz*dz)<26*26;
     if(this.stage===1&&near){completeStage(1);return;}
@@ -435,25 +437,25 @@ export const Story={
       if(near&&this.need.crystal&&this.need.water&&this.need.sand){completeStage(2);return;}
       for(let i=this.samples.length-1;i>=0;i--){
         const p=this.samples[i],u=p.userData;
-        u.mat.emissiveIntensity=0.6+0.3*Math.sin(t*2+u.phase);
+        u.mat.emissiveIntensity=0.6+0.3*Math.sin(tt*2+u.phase);
         if(this._liftInBeam(p,u,dt,beamActive)){
           scene.remove(p);this.samples.splice(i,1);
-          spawnPop(p.position,'+1','SAMPLE');beep(523,0.12,0.09);
+          spawnPop(p.position,'+1',t('label.SAMPLE'));beep(523,0.12,0.09);
           this.need[u.sampleKind]=true;
-          banner((u.sampleKind==='water'?'WATER':'SAND')+' SAMPLE SECURED');this.hud();
+          banner(t(u.sampleKind==='water'?'banner.waterSecured':'banner.sandSecured'));this.hud();
         }
       }
     }
   },
-  updateMoon(dt,beamActive,t){
+  updateMoon(dt,beamActive,tt){
     if(this.stage===1){
       for(let i=this.targets.length-1;i>=0;i--){
         const p=this.targets[i],u=p.userData;
-        p.scale.setScalar(1+0.05*Math.sin(t*3+u.phase));
+        p.scale.setScalar(1+0.05*Math.sin(tt*3+u.phase));
         if(this._liftInBeam(p,u,dt,beamActive)){
           scene.remove(p);this.targets.splice(i,1);
-          this.need.spyders++;spawnPop(p.position,'+1','SPYDER');beep(660,0.12,0.09);
-          banner('SPYDER CAPTURED — '+this.need.spyders+'/5');this.hud();
+          this.need.spyders++;spawnPop(p.position,'+1',t('label.SPYDER'));beep(660,0.12,0.09);
+          banner(t('banner.spyderCap',{n:this.need.spyders}));this.hud();
           if(this.need.spyders>=5)completeStage(1);
         }
       }
@@ -463,17 +465,17 @@ export const Story={
     }else if(this.stage===3){
       for(let i=this.targets.length-1;i>=0;i--){
         const p=this.targets[i],u=p.userData;
-        if(u.glow)u.glow.material.opacity=0.14+0.1*Math.sin(t*3+u.phase);
+        if(u.glow)u.glow.material.opacity=0.14+0.1*Math.sin(tt*3+u.phase);
         if(this._liftInBeam(p,u,dt,beamActive)){
           scene.remove(p);this.targets.splice(i,1);
-          this.need.rocks++;spawnPop(p.position,'+1','ROCK');beep(523,0.12,0.09);
-          banner('ROCK SAMPLE — '+this.need.rocks+'/5');this.hud();
+          this.need.rocks++;spawnPop(p.position,'+1',t('label.ROCK'));beep(523,0.12,0.09);
+          banner(t('banner.rockSample',{n:this.need.rocks}));this.hud();
           if(this.need.rocks>=5)completeStage(3);
         }
       }
     }
   },
-  updateMars(dt,beamActive,t){
+  updateMars(dt,beamActive,tt){
     if(this.stage===1){
       const dx=saucer.position.x-this.shipPos.x,dz=saucer.position.z-this.shipPos.z;
       if((dx*dx+dz*dz)<30*30)completeStage(1);
@@ -481,15 +483,15 @@ export const Story={
       // collect gems and fill altar holes
       for(let i=this.samples.length-1;i>=0;i--){
         const p=this.samples[i],u=p.userData;
-        u.mat.emissiveIntensity=0.7+0.3*Math.sin(t*2+u.phase);
+        u.mat.emissiveIntensity=0.7+0.3*Math.sin(tt*2+u.phase);
         if(this._liftInBeam(p,u,dt,beamActive)){
           scene.remove(p);this.samples.splice(i,1);
           this.need[u.marsCrystal]=true;
           // light the matching altar hole
           if(this.structure&&this.structure.userData){}
           if(this._holes){const hh=this._holes.find(h=>h.color===u.color&&!h.gem.visible);if(hh)hh.gem.visible=true;}
-          spawnPop(p.position,'+1',u.marsCrystal.toUpperCase());beep(587,0.12,0.09);
-          banner(u.marsCrystal.toUpperCase()+' GEM PLACED');this.hud();
+          spawnPop(p.position,'+1',t('label.'+u.marsCrystal.toUpperCase()));beep(587,0.12,0.09);
+          banner(t('banner.gemPlaced',{gem:t('label.'+u.marsCrystal.toUpperCase())}));this.hud();
           if(Object.values(this.need).filter(Boolean).length>=5){
             const dx=saucer.position.x-this.shipPos.x,dz=saucer.position.z-this.shipPos.z;
             // must return to altar to complete (already near since gems auto-place)
@@ -502,36 +504,20 @@ export const Story={
     // stage 3 handled by animalHook
   }
 };
-const STORY_FLAVOR={
-  earth:{
-    1:['WRECK <span class="g">FOUND</span>','The mothership. Broken. Half-buried in the dirt. Its hull can be knit — it needs raw materials: a crystal, water, and sand.'],
-    2:['HULL <span class="g">SEALED</span>','The repairs hold. But the core is dark and empty. It hungers — feed it fifty crystals.'],
-    3:['CORE <span class="g">ALIVE</span>','The mothership breathes again. The harvest is complete, operator. +150 story bonus banked.']
-  },
-  moon:{
-    1:['SPYDERS <span class="g">TAKEN</span>','Five moon spyders writhe in the hold. The lab will want them — its beacons are lit across the mare. Follow them.'],
-    2:['LAB <span class="g">REACHED</span>','The specimens are delivered. The lab hums to life. Now it needs mineral cores — gather five moon rock samples.'],
-    3:['LAB <span class="g">ONLINE</span>','The cores are seated. The lunar lab wakes fully. The Mare is yours, operator. +150 story bonus banked.']
-  },
-  mars:{
-    1:['ALTAR <span class="g">FOUND</span>','A ring of red stone, five hollows waiting. It hungers for gemlight — find the five colored crystals of Mars.'],
-    2:['ALTAR <span class="g">LIT</span>','Five gems, five colors, seated in stone. The altar glows — now it demands life. Bring five of every Mars species.'],
-    3:['ALTAR <span class="g">ABLAZE</span>','The red world answers. The altar burns with gem and blood. The rite is complete, operator. +150 story bonus banked.']
-  }
-};
 function completeStage(n){
   S.state='storyPause';
   BeamSFX.stop();S.prevBeam=false;
   if(n===3){S.score+=150;scoreV.textContent=S.score;}
-  const fl=(STORY_FLAVOR[Story.world]||STORY_FLAVOR.earth)[n];
-  document.getElementById('stTitle').innerHTML=fl[0];
-  document.getElementById('stFlavor').textContent=fl[1].replace(/<[^>]+>/g,'');
+  const w=Story.world||'earth';
+  const title=t('story.'+w+'.'+n+'.title'), flavor=t('story.'+w+'.'+n+'.flavor');
+  document.getElementById('stTitle').innerHTML=title;
+  document.getElementById('stFlavor').textContent=flavor.replace(/<[^>]+>/g,'');
   const mins=Math.floor(S.elapsed/60),secs=Math.floor(S.elapsed%60);
-  const rows=[['Harvest points',S.score],['Specimens',S.taken],['Crystals',S.crystals],
-    ['Energy',Math.round(S.energy*100)+'%'],['Elapsed',mins+':'+(secs<10?'0':'')+secs]];
+  const rows=[[t('stat.harvest'),S.score],[t('stat.specimens'),S.taken],[t('stat.crystals'),S.crystals],
+    [t('stat.energy'),Math.round(S.energy*100)+'%'],[t('stat.elapsed'),mins+':'+(secs<10?'0':'')+secs]];
   document.getElementById('stStats').innerHTML=
     rows.map(r=>'<div class="bk"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>').join('');
-  document.getElementById('stBtn').textContent=n===3?'continue roaming':'proceed to next mission';
+  document.getElementById('stBtn').textContent=n===3?t('story.roam'):t('story.next');
   document.getElementById('storyScreen').classList.remove('hidden');
   beep(659,0.2,0.09);setTimeout(()=>beep(880,0.25,0.09),150);setTimeout(()=>beep(1318,0.4,0.09),320);
   Story._pending=n;

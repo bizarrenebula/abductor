@@ -13,6 +13,7 @@ import { beep } from '../audio/music.js';
 import { sfxThunderWarn, sfxLightningStrike, BeamSFX } from '../audio/sfx.js';
 import { banner } from '../ui/banner.js';
 import { hazMult, hazCount } from './common.js';
+import { t as tr } from '../i18n.js';   // aliased: `t` is used locally for time in updateLightning
 
 const strikes=[];
 let lightningTimer=6;
@@ -80,7 +81,7 @@ export function updateLightning(dt){
     lightningTimer-=dt;
     if(lightningTimer<=0){
       lightningTimer=(16+Math.random()*14)/hazMult();
-      banner('⚡ LIGHTNING STORM — TAKE COVER!');
+      banner(tr('banner.lightning'));
       sfxThunderWarn();
       const n=hazCount();
       const hitIdx=(Math.random()*n)|0;

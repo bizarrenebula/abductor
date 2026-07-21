@@ -7,6 +7,8 @@ import { pickups } from '../entities/registry.js';
 import { saucer } from '../systems/saucer.js';
 import { Story } from '../story/story.js';
 
+const CRYSTAL_COL='#8fe8b8';
+
 const mmCanvas=document.getElementById('minimap');
 const mmCtx=mmCanvas&&mmCanvas.getContext('2d');
 const MM_RANGE=340;
@@ -38,28 +40,39 @@ export function drawMinimap(dt){
     mmCtx.beginPath();mmCtx.arc(cx+dx,cy+dy,rad*(pulse?(0.8+0.4*Math.sin(performance.now()*0.006)):1),0,7);mmCtx.fill();
     mmCtx.globalAlpha=1;
   };
-  for(const pk of pickups)plot(pk.position.x,pk.position.z,'#8fe8b8',1.7,false);
-  if(typeof Story!=='undefined'&&Story.active){
-    if(Story.world==='earth'){
-      if(Story.stage===1)for(const d of Story.debris)if(!(d.userData&&d.userData.hit))plot(d.position.x,d.position.z,'#ffb060',1.6,false);
-      else if(Story.stage===2)for(const s of Story.samples)plot(s.position.x,s.position.z,'#5cc8ff',2.4,true);
-      if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff5a48',3,true);
-    }else if(Story.world==='moon'){
-      if(Story.stage===1)for(const s of Story.targets)plot(s.position.x,s.position.z,'#ff3b52',2.4,true);   // spyders = red
-      else if(Story.stage===2){
-        for(const g of Story.guides)plot(g.position.x,g.position.z,'#7fffd0',1.4,false);
-        if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#7fffd0',3.2,true);                          // lab
+  // crystal locations — always shown (fuel + collectible)
+  for(const pk of pickups)plot(pk.position.x,pk.position.z,CRYSTAL_COL,1.7,false);
+
+  // current mission's objective markers only (no creature swarm)
+  if(Story.active && Story.stage>=1 && Story.stage<=3){
+    const w=Story.world, st=Story.stage;
+    if(w==='earth'){
+      if(st===1){
+        for(const d of Story.debris)plot(d.position.x,d.position.z,'#ffb060',1.6,false);   // debris trail
+        if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff5a48',3,true);           // mothership
+      }else if(st===2){
+        for(const s of Story.samples)                                                       // water / sand samples
+          plot(s.position.x,s.position.z, s.userData.sampleKind==='water'?'#5cc8ff':'#d8a850',2.4,true);
+        if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff5a48',3,true);            // return point
+      }else if(st===3){
+        if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff5a48',3,true);            // core (crystals already shown)
       }
-      else if(Story.stage===3)for(const r of Story.targets)plot(r.position.x,r.position.z,'#9fe8ff',2.2,true);  // rocks
-    }else if(Story.world==='mars'){
-      if(Story.stage===1){
+    }else if(w==='moon'){
+      if(st===1)for(const s of Story.targets)plot(s.position.x,s.position.z,'#ff3b52',2.4,true);   // spyders
+      else if(st===2){
+        for(const g of Story.guides)plot(g.position.x,g.position.z,'#7fffd0',1.4,false);
+        if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#7fffd0',3.2,true);                 // lab
+      }
+      else if(st===3)for(const r of Story.targets)plot(r.position.x,r.position.z,'#9fe8ff',2.2,true);  // rocks
+    }else if(w==='mars'){
+      if(st===1){
         for(const g of Story.guides)plot(g.position.x,g.position.z,'#ff8050',1.4,false);
-        if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff8050',3.2,true);                          // altar
-      }else if(Story.stage===2){
+        if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff8050',3.2,true);                 // altar
+      }else if(st===2){
         for(const s of Story.samples){const c='#'+(s.userData.color||0xffffff).toString(16).padStart(6,'0');plot(s.position.x,s.position.z,c,2.4,true);}
         if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff8050',3,true);
-      }else if(Story.stage===3){
-        if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff8050',3,true);
+      }else if(st===3){
+        if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff8050',3,true);            // altar (return point)
       }
     }
   }

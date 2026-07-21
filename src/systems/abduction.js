@@ -16,6 +16,7 @@ import { cry } from '../audio/sfx.js';
 import { spawnPop } from '../ui/pop.js';
 import { scoreV, specV, hTarget, barFill, tName } from '../ui/dom.js';
 import { Story } from '../story/story.js';
+import { t } from '../i18n.js';
 
 export function updateAbduction(dt,weatherMult,beamOn){
   const bx=saucer.position.x, bz=saucer.position.z;
@@ -48,7 +49,7 @@ export function updateAbduction(dt,weatherMult,beamOn){
   if(best){
     hTarget.classList.add('show');
     barFill.style.width=Math.min(100,best.userData.progress/S.lockTime*100)+'%';
-    tName.textContent='lock · '+best.userData.name+' · +'+best.userData.pts;
+    tName.textContent=t('hud.lock',{name:t('creature.'+best.userData.name),pts:best.userData.pts});
   }else hTarget.classList.remove('show');
 }
 export function triggerAbduct(a){
@@ -58,12 +59,12 @@ export function triggerAbduct(a){
   S.score+=pts; S.taken++;
   const tl=S.tally[nm]||(S.tally[nm]={c:0,p:pts});tl.c++;
   scoreV.textContent=S.score;
-  specV.textContent=S.taken+' taken';
+  specV.textContent=t('hud.taken',{n:S.taken});
   checkMissions();
   Special.gainAnimal();
   if(Story.active)Story.animalHook(nm);
   if(S.taken%4===0)grantBuff();
-  spawnPop(a.position,'+'+pts,nm);
+  spawnPop(a.position,'+'+pts,t('creature.'+nm));
   cry(nm);
   setTimeout(()=>beep(880,0.14,0.06),160);setTimeout(()=>beep(1320,0.12,0.05),250);
 }

@@ -14,6 +14,7 @@ import { beep } from '../audio/music.js';
 import { sfxMeteorIncoming, sfxMeteorImpact, BeamSFX } from '../audio/sfx.js';
 import { banner } from '../ui/banner.js';
 import { hazMult, hazCount } from './common.js';
+import { t } from '../i18n.js';
 
 const LOW_END = env.LOW_END;
 
@@ -114,7 +115,7 @@ export function clearMeteors(){
 export function resetMeteors(){clearMeteors();meteorTimer=6;meteorWarn=0;}
 function triggerShower(){
   meteorWarn=1.6;                                  // short telegraph before rocks fall
-  banner('⚠ METEOR SHOWER — MOVE!');
+  banner(t('banner.meteors'));
   beep(300,0.18,0.09);setTimeout(()=>beep(300,0.18,0.09),260);setTimeout(()=>beep(300,0.18,0.09),520);
   const n=hazCount();
   const hitIdx=(Math.random()*n)|0;                // one is a bullseye on the ship

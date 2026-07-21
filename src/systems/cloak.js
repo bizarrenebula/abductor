@@ -7,12 +7,13 @@ import { S } from '../core/state.js';
 import { beep } from '../audio/music.js';
 import { banner } from '../ui/banner.js';
 import { saucer } from './saucer.js';
+import { t } from '../i18n.js';
 
 export function toggleCloak(){
   if(S.energyMode==='drain'&&S.energy<0.06&&!S.cloak){beep(160,0.2,0.08);return;}  // no juice
   S.cloak=!S.cloak;
   beep(S.cloak?520:300,0.18,0.07);
-  banner(S.cloak?'CLOAK ENGAGED':'CLOAK OFF');
+  banner(t(S.cloak?'banner.cloakOn':'banner.cloakOff'));
 }
 export function applyCloakVisual(){
   const tgt=S.cloak?0.24:1;

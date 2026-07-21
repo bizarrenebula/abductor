@@ -24,6 +24,7 @@ import { loadAllAssets, spawnModel } from '../assets.js';
 import { banner } from './banner.js';
 import { setFX } from './postfx.js';
 import { scoreV, specV, spBtn } from './dom.js';
+import { t, setLang, onLang } from '../i18n.js';
 
 const startScreen=document.getElementById('startScreen');
 const overScreen=document.getElementById('overScreen');
@@ -34,9 +35,9 @@ const sTime=document.getElementById('sTime'),oTime=document.getElementById('oTim
 const cEndless=document.getElementById('cEndless');
 
 function syncLabels(){
-  oLock.textContent=(+sLock.value===0)?'Instant':(+sLock.value).toFixed(2)+' s';
-  oBeam.textContent=sBeam.value+' m';
-  oTime.textContent=cEndless.checked?'Endless':sTime.value+' min';
+  oLock.textContent=(+sLock.value===0)?t('unit.instant'):t('unit.s',{n:(+sLock.value).toFixed(2)});
+  oBeam.textContent=t('unit.m',{n:sBeam.value});
+  oTime.textContent=cEndless.checked?t('unit.endless'):t('unit.min',{n:sTime.value});
   sTime.disabled=cEndless.checked;
 }
 [sLock,sBeam,sTime].forEach(el=>el.addEventListener('input',syncLabels));
@@ -50,7 +51,7 @@ export function startGame(){
   S.timeLimit=(+sTime.value)*60;
   S.timeLeft=S.timeLimit;
   S.score=0;scoreV.textContent='0';
-  S.taken=0;S.tally={};specV.textContent='0 taken';
+  S.taken=0;S.tally={};specV.textContent=t('hud.taken',{n:0});
   resetBuffs();
   Special.charge=1;Special.active=false;input.spHeld=false;
   S.energy=1;S.vy=0;saucer.rotation.set(0,0,0);
@@ -72,8 +73,8 @@ export function startGame(){
   document.getElementById('pauseScreen').classList.add('hidden');
   hud.classList.add('on');
   Music.set(TRACK_BY_WORLD[S.world]||'drift');
-  if(S.world==='mars')setTimeout(()=>banner('☄ RED WASTE — BEWARE METEOR SHOWERS'),900);
-  if(S.world==='moon')setTimeout(()=>banner('☄ MARE UMBRA — BEWARE DUST GEYSERS'),900);
+  if(S.world==='mars')setTimeout(()=>banner(t('banner.mars')),900);
+  if(S.world==='moon')setTimeout(()=>banner(t('banner.moon')),900);
 }
 export function endGame(reason){
   S.state='over';
@@ -82,17 +83,17 @@ export function endGame(reason){
   document.getElementById('finalScore').textContent=S.score;
   const bk=document.getElementById('bkList');
   const names=Object.keys(S.tally);
-  bk.innerHTML=names.length?names.map(n=>'<div class="bk"><span>'+n+' ×'+S.tally[n].c+'</span><span>'+(S.tally[n].c*S.tally[n].p)+' pts</span></div>').join('')
-    :'<div class="bk"><span>nothing taken</span><span>—</span></div>';
-  const msg=S.taken===0?'The herd out-guessed you. Tighten those predictions.'
-    :S.taken<5?'A modest haul. The mothership expects more.'
-    :S.taken<15?'Solid field work, operator.'
-    :'Exemplary. The archives grow rich with specimens.';
+  bk.innerHTML=names.length?names.map(n=>'<div class="bk"><span>'+t('creature.'+n)+' ×'+S.tally[n].c+'</span><span>'+(S.tally[n].c*S.tally[n].p)+' pts</span></div>').join('')
+    :'<div class="bk"><span>'+t('over.nothing')+'</span><span>—</span></div>';
+  const msg=S.taken===0?t('over.msg.none')
+    :S.taken<5?t('over.msg.few')
+    :S.taken<15?t('over.msg.some')
+    :t('over.msg.many');
   document.getElementById('overMsg').textContent=
-    reason==='meteor'?'A meteor tore through the hull. Critical damage. The dust settles over the wreck.'
-    :reason==='geyser'?'A dust geyser erupted straight into the hull. The ship is buried in regolith.'
-    :reason==='lightning'?'A bolt of lightning split the hull. The storm swallows the wreck.'
-    :(reason==='crash'||reason==='energy')?'The reactor died mid-air. The ship is part of the landscape now.':msg;
+    reason==='meteor'?t('over.msg.meteor')
+    :reason==='geyser'?t('over.msg.geyser')
+    :reason==='lightning'?t('over.msg.lightning')
+    :(reason==='crash'||reason==='energy')?t('over.msg.crash'):msg;
   overScreen.classList.remove('hidden');
 }
 document.getElementById('startBtn').addEventListener('click',startGame);
@@ -128,20 +129,20 @@ document.getElementById('segWorld').addEventListener('click',e=>{
   const b=e.target.closest('[data-w]');if(!b)return;
   S.world=b.dataset.w;
   document.querySelectorAll('#segWorld [data-w]').forEach(x=>x.classList.toggle('on',x===b));
-  document.getElementById('oWorld').textContent=WORLD_CFG[S.world].label;
+  document.getElementById('oWorld').textContent=t('world.'+S.world);
   if(S.state==='menu'){applyWorld(S.world);clearWorld();}
 });
 document.getElementById('segEnergy').addEventListener('click',e=>{
   const b=e.target.closest('[data-e]');if(!b)return;
   S.energyMode=b.dataset.e;
   document.querySelectorAll('#segEnergy [data-e]').forEach(x=>x.classList.toggle('on',x===b));
-  document.getElementById('oEnergy').textContent=S.energyMode==='drain'?'Drainable':'Infinite';
+  document.getElementById('oEnergy').textContent=t(S.energyMode==='drain'?'reactor.drain':'reactor.inf');
 });
 document.getElementById('segMode').addEventListener('click',e=>{
   const b=e.target.closest('[data-m]');if(!b)return;
   S.storyMode=(b.dataset.m==='story');
   document.querySelectorAll('#segMode [data-m]').forEach(x=>x.classList.toggle('on',x===b));
-  document.getElementById('oMode').textContent=S.storyMode?'Story':'Exploration';
+  document.getElementById('oMode').textContent=t(S.storyMode?'mode.story':'mode.explore');
 });
 document.getElementById('stBtn').addEventListener('click',storyProceed);
 
@@ -173,19 +174,31 @@ document.getElementById('cHiDetail').addEventListener('change',e=>{
     e.target.disabled=true;
     const lbl=e.target.parentElement;
     const txt=lbl.childNodes[lbl.childNodes.length-1];
-    if(txt)txt.textContent=' high detail — loading models…';
+    if(txt)txt.textContent=t('hi.loading');
     // block Play until every model + texture is in, so the run starts fully equipped
     const btn=document.getElementById('startBtn');
     const note=document.getElementById('loadNote');
     if(btn)btn.disabled=true;
-    if(note)note.textContent='loading high-detail assets…';
+    if(note)note.textContent=t('loadNote.loadingHi');
     loadAllAssets().then(()=>{
-      if(txt)txt.textContent=' high detail — models loaded ✓';
+      if(txt)txt.textContent=t('hi.loaded');
       const sm=spawnModel('saucer');
       if(sm){(saucer.userData.procBody||[]).forEach(o=>o.visible=false);
         sm.name="saucerModel";saucer.add(sm);}   /* keep rim lights for night blink */
       if(btn)btn.disabled=false;
-      if(note)note.textContent='ready';
+      if(note)note.textContent=t('loadNote.ready');
     });
   }
+});
+
+/* ---------- language switch (landing + settings) ---------- */
+document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLang(b.getAttribute('data-lang'))));
+onLang(()=>{
+  // re-render dynamic menu bits that aren't plain [data-i18n] elements
+  syncLabels();
+  document.getElementById('oWorld').textContent=t('world.'+S.world);
+  document.getElementById('oMode').textContent=t(S.storyMode?'mode.story':'mode.explore');
+  document.getElementById('oEnergy').textContent=t(S.energyMode==='drain'?'reactor.drain':'reactor.inf');
+  if(specV)specV.textContent=t('hud.taken',{n:S.taken});
+  Story._last=''; if(Story.active)Story.hud();
 });

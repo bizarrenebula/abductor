@@ -13,6 +13,7 @@ import { beep } from '../audio/music.js';
 import { sfxGeyserWarn, sfxGeyserErupt, BeamSFX } from '../audio/sfx.js';
 import { banner } from '../ui/banner.js';
 import { hazMult, hazCount } from './common.js';
+import { t as tr } from '../i18n.js';   // aliased: `t` is used locally for time in updateGeysers
 
 const LOW_END = env.LOW_END;
 
@@ -92,7 +93,7 @@ export function updateGeysers(dt){
     geyserTimer-=dt;
     if(geyserTimer<=0){
       geyserTimer=(18+Math.random()*18)/hazMult();
-      banner('⚠ DUST GEYSERS — STAY CLEAR!');
+      banner(tr('banner.geysers'));
       beep(300,0.16,0.08);setTimeout(()=>beep(300,0.16,0.08),240);
       const n=hazCount();
       const hitIdx=(Math.random()*n)|0;             // one erupts right under the ship's path

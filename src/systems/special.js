@@ -8,6 +8,7 @@ import { beep } from '../audio/music.js';
 import { animals } from '../entities/registry.js';
 import { saucer } from './saucer.js';
 import { spBtn } from '../ui/dom.js';
+import { t } from '../i18n.js';
 
 export const Special={
   charge:1,active:false,RADIUS:70,
@@ -37,6 +38,6 @@ export const Special={
     const pct=(this.charge*100)|0;
     spBtn.style.background='conic-gradient(var(--beam) '+(pct*3.6)+'deg, rgba(255,255,255,.05) '+(pct*3.6)+'deg)';
     spBtn.classList.toggle('ready',this.charge>=1&&!this.active);
-    spBtn.textContent=this.active?'···':(this.charge>=1?'PULL':pct+'%');
+    spBtn.textContent=this.active?'···':(this.charge>=1?t('hud.pull'):pct+'%');
   }
 };

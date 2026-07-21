@@ -9,6 +9,7 @@ import { env, assetsOn } from './core/env.js';
 import { ASSETS } from './core/constants.js';
 import { getEnv } from './core/engine.js';
 import { TEX } from './world/textures.js';
+import { t } from './i18n.js';
 
 export const LOADED={};    // name -> prepared template Object3D
 
@@ -101,12 +102,12 @@ export function spawnModel(name){                 // fresh clone for one entity,
 export const LOAD_ORDER=['loader','saucer','sheep','duck','camel','goat','crystal','barn','hiker','tree','grass','mountain','sand'];
 (function diagInit(){
   const d=document.getElementById('splashLog');if(!d)return;
-  if(env.LOW_END){d.innerHTML='<div><b>mobile mode</b></div><div>procedural graphics · optimized for speed</div>';return;}
+  if(env.LOW_END){d.innerHTML=t('splash.mobile');return;}
   d.innerHTML=LOAD_ORDER.map(n=>'<div id="ld-'+n+'">'+n+': <span>…</span></div>').join('');
 })();
 export function diagSet(name,ok){
   const el=document.getElementById('ld-'+name);if(!el)return;
-  el.innerHTML=name+': '+(ok?'<b>OK</b>':'<i>built-in</i>');
+  el.innerHTML=name+': '+(ok?'<b>OK</b>':'<i>'+t('diag.builtin')+'</i>');
 }
 diagSet('loader',!!GLTF);
 export function loadAllAssets(){

@@ -12,6 +12,7 @@ import { scene, renderer, hemi, sun, stars, moon } from '../core/engine.js';
 import { S } from '../core/state.js';
 import { water } from './water.js';
 import { banner } from '../ui/banner.js';
+import { t } from '../i18n.js';
 
 export const World = { name:'earth' };   // the active world
 let worldHemiBase=0.42;
@@ -23,7 +24,7 @@ export function dayNightUpdate(dt){
   const wantDay=(phase%2===0);                            // first half = day, then alternate
   if(wantDay!==S.isDay){
     S.isDay=wantDay;
-    banner(wantDay?'DAYBREAK':'NIGHTFALL');
+    banner(t(wantDay?'banner.daybreak':'banner.nightfall'));
   }
   S.dayF=lerp(S.dayF,wantDay?1:0,Math.min(1,dt*0.6));     // smooth transition
 }
@@ -79,6 +80,6 @@ export function applyWorld(w){
   water.visible=cfg.water;
   stars.material.opacity=cfg.stars;
   moon.material.color.setHex(cfg.moonTint);
-  if(w==='mars'&&S&&S.state==='playing')setTimeout(()=>banner('☄ RED WASTE — BEWARE METEOR SHOWERS'),700);
-  if(w==='moon'&&S&&S.state==='playing')setTimeout(()=>banner('☄ MARE UMBRA — BEWARE DUST GEYSERS'),700);
+  if(w==='mars'&&S&&S.state==='playing')setTimeout(()=>banner(t('banner.mars')),700);
+  if(w==='moon'&&S&&S.state==='playing')setTimeout(()=>banner(t('banner.moon')),700);
 }

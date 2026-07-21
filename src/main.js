@@ -45,6 +45,7 @@ import { renderFrame, allocRT } from './ui/postfx.js';
 import { endGame } from './ui/screens.js';
 
 import { LOAD_ORDER, loadAllAssets, spawnModel } from './assets.js';
+import { t as tr, applyStaticDOM, onLang } from './i18n.js';   // aliased: `t` is used locally for time in animate()
 
 const _v=new THREE.Vector3();
 
@@ -162,9 +163,9 @@ function animate(){
       const lvl=S.energy<0.10?3:S.energy<0.25?2:S.energy<0.50?1:0;
       if(lvl>S.warnLevel){
         S.warnLevel=lvl;
-        if(lvl===1)banner('ENERGY 50% · FIND CRYSTALS');
-        else if(lvl===2){banner('ENERGY 25% · CRYSTALS NEEDED');beep(330,0.3,0.08);}
-        else if(lvl===3){banner('CRITICAL 10% · HARVEST NOW');beep(220,0.4,0.1);setTimeout(()=>beep(180,0.4,0.1),260);}
+        if(lvl===1)banner(tr('banner.energy50'));
+        else if(lvl===2){banner(tr('banner.energy25'));beep(330,0.3,0.08);}
+        else if(lvl===3){banner(tr('banner.energy10'));beep(220,0.4,0.1);setTimeout(()=>beep(180,0.4,0.1),260);}
       }else if(lvl<S.warnLevel){S.warnLevel=lvl;}   // re-arm after refuelling
       if(S.cloak&&S.energy<0.02)S.cloak=false;       // forced decloak when empty
       if(S.energy<=0){
@@ -249,7 +250,7 @@ let assetsReady=false;
 function enablePlay(){
   if(assetsReady)return;assetsReady=true;
   const b=document.getElementById('startBtn');if(b)b.disabled=false;
-  const n=document.getElementById('loadNote');if(n)n.textContent='ready';
+  const n=document.getElementById('loadNote');if(n)n.textContent=tr('loadNote.ready');
   // resolve any still-pending lines so the list is complete before the splash closes
   LOAD_ORDER.forEach(nm=>{
     const el=document.getElementById('ld-'+nm);
@@ -291,9 +292,11 @@ document.addEventListener('visibilitychange',()=>{
   if(!document.hidden&&Music.ac&&Music.ac.state==='suspended')Music.ac.resume();
 });
 
-document.getElementById('ctrlHint').innerHTML=matchMedia('(pointer:coarse)').matches
-  ?'<b>drag</b> to fly &nbsp;·&nbsp; <b>double-tap &amp; hold</b> to beam &nbsp;·&nbsp; <b>PULL</b> when charged'
-  :'<b>WASD</b> / drag to fly &nbsp;·&nbsp; <b>double-click hold</b> or <b>space</b> to beam &nbsp;·&nbsp; <b>Q</b> pulls';
+const _touch=matchMedia('(pointer:coarse)').matches;
+function setCtrlHint(){ document.getElementById('ctrlHint').innerHTML=tr(_touch?'ctrl.touch':'ctrl.desktop'); }
+setCtrlHint();
+applyStaticDOM();   // apply the saved language to every static [data-i18n] element on load
+onLang(()=>{ setCtrlHint(); const n=document.getElementById('loadNote'); if(n&&assetsReady)n.textContent=tr('loadNote.ready'); });
 reseed();updateChunks(0,0);
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);allocRT();});

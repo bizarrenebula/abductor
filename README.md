@@ -1,7 +1,7 @@
 # ABDUCTOR
 
 play link:
-https://bizarrenebula.github.io/abductor/ or https://abductor.lol
+https://abductor.lol
 
 A dark, atmospheric 3D flying-saucer game that runs entirely in the browser. Pilot a UFO over an endless, procedurally generated wilderness, lower your tractor beam, and harvest the local wildlife — while managing your reactor, dodging the daylight, and unravelling the fate of a fallen mothership.
 

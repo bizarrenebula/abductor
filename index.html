@@ -272,7 +272,28 @@
   <div id="splashLog"></div>
 </div>
 
-<div class="screen" id="startScreen">
+<!-- LANDING SCREEN -->
+<div class="screen" id="landingScreen">
+  <div class="card" style="text-align:center">
+    <div class="eyebrow">night harvest protocol</div>
+    <h1>ABDUCT<span class="g">OR</span></h1>
+    <div class="sub" style="text-align:center">Pilot the saucer. Harvest the wilds under cover of dark.<br>Three worlds. Three difficulties. One beam.</div>
+    <button class="go" id="freeBtn" style="margin-top:8px">play for free</button>
+    <button class="go ghost" id="loginBtn" style="margin-top:12px">login</button>
+  </div>
+</div>
+
+<!-- UNDER CONSTRUCTION -->
+<div class="screen hidden" id="constructScreen">
+  <div class="card" style="text-align:center">
+    <div class="eyebrow">accounts</div>
+    <h1 style="font-size:26px">UNDER <span class="g">CONSTRUCTION</span></h1>
+    <div class="sub" style="text-align:center">Login isn't ready yet — this feature is still being built.<br>For now, jump straight in and play for free.</div>
+    <button class="go" id="backBtn" style="margin-top:8px">back</button>
+  </div>
+</div>
+
+<div class="screen hidden" id="startScreen">
   <div class="card">
     <div class="eyebrow">night harvest protocol</div>
     <h1>ABDUCT<span class="g">OR</span></h1>
@@ -2003,7 +2024,7 @@ function updateGeysers(dt){
   if(WORLD!=='moon'){if(geysers.length)clearGeysers();return;}
   geyserTimer-=dt;
   if(geyserTimer<=0){
-    geyserTimer=(14+Math.random()*14)/hazMult();
+    geyserTimer=(7+Math.random()*7)/hazMult();
     banner('⚠ DUST GEYSERS — STAY CLEAR!');
     beep(300,0.16,0.08);setTimeout(()=>beep(300,0.16,0.08),240);
     const n=hazCount();
@@ -2274,7 +2295,7 @@ function updateMeteors(dt){
   if(meteorWarn>0)meteorWarn-=dt;
   meteorTimer-=dt;
   if(meteorTimer<=0){
-    meteorTimer=(18+Math.random()*16)/hazMult();   // more frequent on harder worlds / story
+    meteorTimer=(9+Math.random()*8)/hazMult();   // more frequent on harder worlds / story
     triggerShower();
   }
   for(let i=meteors.length-1;i>=0;i--){
@@ -3571,6 +3592,21 @@ document.getElementById('segMode').addEventListener('click',e=>{
   document.getElementById('oMode').textContent=S.storyMode?'Story':'Exploration';
 });
 document.getElementById('stBtn').addEventListener('click',storyProceed);
+
+/* ---------- landing screen: login (under construction) / play for free ---------- */
+document.getElementById('loginBtn').addEventListener('click',()=>{
+  document.getElementById('landingScreen').classList.add('hidden');
+  document.getElementById('constructScreen').classList.remove('hidden');
+});
+document.getElementById('backBtn').addEventListener('click',()=>{
+  document.getElementById('constructScreen').classList.add('hidden');
+  document.getElementById('landingScreen').classList.remove('hidden');
+});
+document.getElementById('freeBtn').addEventListener('click',()=>{
+  document.getElementById('landingScreen').classList.add('hidden');
+  document.getElementById('constructScreen').classList.add('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+});
 
 /* single tuned graphics mode — auto-drops to basic only if the GPU rejects post-fx */
 setFX('full');

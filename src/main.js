@@ -5,8 +5,10 @@
    ========================================================================= */
 import { THREE } from './core/three.js';
 import { env } from './core/env.js';
-import { lerp } from './core/math.js';
-import { S, camOffset } from './core/state.js';
+import { lerp, clamp, ramp } from './core/math.js';
+import { HOVER_BASE, HOVER_MIN, HOVER_MAX, HOVER_KEY_RATE, CAM_ZOOM_LOW, CAM_ZOOM_HIGH,
+         BEAM_STR_LOW, BEAM_STR_HIGH, DRAIN_ALT_LOW, DRAIN_ALT_HIGH } from './core/constants.js';
+import { S, camOffset, camLook } from './core/state.js';
 import { renderer, scene, camera, sun, stars, moon } from './core/engine.js';
 import { keys, input } from './core/input.js';
 
@@ -14,7 +16,7 @@ import { reseed } from './world/noise.js';
 import { sample, heightAt } from './world/terrain.js';
 import { World, dayNightUpdate, applyDayNightLight } from './world/world-config.js';
 import { updateChunks, chunks } from './world/chunks.js';
-import { WEATHER, weather, updateDust, pickWeather, applyWeather, updateWeatherParticles } from './world/weather.js';
+import { WEATHER, weather, updateDust, pickWeather, applyWeather, updateWeatherParticles, setBeamMultHUD } from './world/weather.js';
 
 import { updateAnimals } from './entities/animals.js';
 import { updateCrystals } from './entities/crystals.js';
@@ -25,6 +27,7 @@ import { beam, beamMat, disc, discMat, effBeamR } from './systems/beam.js';
 import { updateAbduction } from './systems/abduction.js';
 import { buff, updateBuff } from './systems/buffs.js';
 import { applyCloakVisual } from './systems/cloak.js';
+import { updateCollision } from './systems/collision.js';
 import { Special } from './systems/special.js';
 
 import { updateMeteors } from './hazards/meteors.js';
@@ -38,13 +41,13 @@ import { BeamSFX } from './audio/sfx.js';
 
 import { waterMat } from './world/water.js';
 import { banner } from './ui/banner.js';
-import { clockV } from './ui/dom.js';
+import { clockV, cloakRing, cloakArc, altScale, altKnob, altVal } from './ui/dom.js';
 import { drawMinimap } from './ui/minimap.js';
 import { updateFlare } from './ui/flare.js';
 import { renderFrame, allocRT } from './ui/postfx.js';
 import { endGame } from './ui/screens.js';
 
-import { LOAD_ORDER, loadAllAssets, spawnModel } from './assets.js';
+import { diagFinish, loadAllAssets, spawnModel } from './assets.js';
 import { t as tr, applyStaticDOM, onLang } from './i18n.js';   // aliased: `t` is used locally for time in animate()
 
 const _v=new THREE.Vector3();
@@ -53,6 +56,29 @@ const _v=new THREE.Vector3();
    MAIN LOOP
    ========================================================================= */
 const clock=new THREE.Clock();
+
+/* Ship-gesture feedback: the cloak hold ring and the altitude scale. Both are
+   driven off `input`, and both hide themselves when their gesture is idle. */
+const RING_LEN=2*Math.PI*19;   // r=19 in the SVG viewBox
+let altHudT=0;                 // keeps the altitude scale up briefly after W/S release
+let camZoom=1;                 // chase-camera distance multiplier, eased toward altitude
+function updateShipGestureHUD(){
+  if(cloakRing){
+    const p=input.cloakProg;
+    cloakRing.classList.toggle('on',p>0.02);
+    if(cloakArc)cloakArc.style.strokeDashoffset=(RING_LEN*(1-p)).toFixed(1);
+  }
+  if(altScale){
+    const swiping=input.shipSwiping||altHudT>0;   // touch swipe or W/S
+    altScale.classList.toggle('on',swiping);
+    if(swiping){
+      const f=(S.hover-HOVER_MIN)/(HOVER_MAX-HOVER_MIN);   // 0 at floor, 1 at ceiling
+      altKnob.style.top=((1-f)*100).toFixed(1)+'%';
+      altVal.textContent=Math.round(S.hover)+'m';
+    }
+  }
+}
+
 function animate(){
   requestAnimationFrame(animate);
   const dt=Math.min(0.05,clock.getDelta());
@@ -78,10 +104,12 @@ function animate(){
     S.prevBeam=beamOn;
     BeamSFX.set(S.beamPower);
 
-    /* ---- movement input ---- */
+    /* ---- movement input ----
+       W/S are altitude (below), not forward/back. The arrows keep all four
+       ground directions, and A/D still strafe. */
     let ix=0,iz=0;
-    if(keys['w']||keys['arrowup'])iz-=1;
-    if(keys['s']||keys['arrowdown'])iz+=1;
+    if(keys['arrowup'])iz-=1;
+    if(keys['arrowdown'])iz+=1;
     if(keys['a']||keys['arrowleft'])ix-=1;
     if(keys['d']||keys['arrowright'])ix+=1;
     if(input.dragActive){ix+=input.dragVX;iz+=input.dragVY;}
@@ -94,10 +122,27 @@ function animate(){
     saucer.position.x+=S.vel.x*dt;
     saucer.position.z+=S.vel.z*dt;
 
-    // altitude: float, rise above terrain
+    // altitude: float S.hover above the terrain. Swipe the ship on touch, or
+    // hold W / S on desktop — both write the same commanded height.
+    let ah=0;
+    if(keys['w'])ah+=1;
+    if(keys['s'])ah-=1;
+    if(ah){S.hover=clamp(S.hover+ah*HOVER_KEY_RATE*dt,HOVER_MIN,HOVER_MAX);altHudT=0.8;}
+    else altHudT=Math.max(0,altHudT-dt);
+    // The absolute floor scales with the commanded hover, otherwise it would
+    // pin the ship at 26 and descending would do nothing over low ground.
     const gh=heightAt(saucer.position.x,saucer.position.z);
-    const targetY=Math.max(26,gh+15)+Math.sin(t*1.4)*0.5;
+    const floorY=26*(S.hover/HOVER_BASE);
+    const targetY=Math.max(floorY,gh+S.hover)+Math.sin(t*1.4)*0.5;
     saucer.position.y=lerp(saucer.position.y,targetY,Math.min(1,dt*3));
+
+    /* Altitude trade-off, derived once from the ship's true height above ground
+       and shared by the beam, the reactor and the camera. Low = strong beam,
+       cheap flight, lethal scenery. High = weak beam, thirsty reactor, safe. */
+    S.agl=saucer.position.y-gh;
+    S.beamStr=ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,BEAM_STR_LOW,1,BEAM_STR_HIGH);
+    const drainAlt=ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,DRAIN_ALT_LOW,1,DRAIN_ALT_HIGH);
+    updateShipGestureHUD();
 
     // banking swing
     S.tiltZ=lerp(S.tiltZ,-S.vel.x*0.012,Math.min(1,dt*4));
@@ -111,8 +156,11 @@ function animate(){
     const h=saucer.position.y-groundY-1;
     const bp=S.beamPower;
     beam.visible=disc.visible=bp>0.02;
-    beamMat.uniforms.uPow.value=bp;
-    discMat.uniforms.uPow.value=bp;
+    // Show the altitude falloff: a high beam reads visibly thinner and paler.
+    // Kept partial (never below ~0.6x) so the beam stays legible when it matters.
+    const bvis=bp*(0.6+0.4*Math.min(1,S.beamStr));
+    beamMat.uniforms.uPow.value=bvis;
+    discMat.uniforms.uPow.value=bvis;
     const eR=effBeamR();
     beam.position.set(saucer.position.x,(saucer.position.y-1+groundY)/2,saucer.position.z);
     beam.scale.set(eR*(0.55+0.45*bp),h,eR*(0.55+0.45*bp));
@@ -145,6 +193,7 @@ function animate(){
     updateWeatherParticles(dt);
 
     updateAbduction(dt,WEATHER[weather.cur].mult,beamOn&&bp>0.5);
+    setBeamMultHUD(WEATHER[weather.cur].mult*S.beamStr);   // weather x altitude
     updateBuff(dt);
     Special.update(dt,input.spHeld||!!keys['q']);
     updateCrystals(dt,beamOn&&bp>0.5);
@@ -152,12 +201,15 @@ function animate(){
     updateMeteors(dt);
     updateGeysers(dt);
     updateLightning(dt);
+    updateCollision();          // trees / barns are solid — may flip state to 'crashing'
     Story.update(dt,beamOn&&bp>0.5);
 
     /* ---- energy ---- */
     if(S.energyMode==='drain'){
       const im=Math.min(1,Math.hypot(ix,iz));
-      const dr=1/160+(beamOn?1/70:0)+(Special.active?1/45:0)+im/220+(S.cloak?1/55:0);
+      // drainAlt scales the whole rate: holding a high hover costs the reactor
+      // more, and projecting the beam that much further costs more again.
+      const dr=(1/160+(beamOn?1/70:0)+(Special.active?1/45:0)+im/220+(S.cloak?1/55:0))*drainAlt;
       S.energy=Math.max(0,S.energy-dr*dt);
       // tiered low-energy warnings (fire once per threshold as it drops)
       const lvl=S.energy<0.10?3:S.energy<0.25?2:S.energy<0.50?1:0;
@@ -181,10 +233,17 @@ function animate(){
     sun.target.position.copy(saucer.position);
     sun.position.set(saucer.position.x+60,saucer.position.y+90,saucer.position.z+30);
 
-    /* ---- camera ---- */
-    const desired=_v.set(saucer.position.x+camOffset.x,saucer.position.y+camOffset.y,saucer.position.z+camOffset.z);
+    /* ---- camera ----
+       Zoom with altitude: low = tight and close for threading between trees,
+       high = pulled back for a wide survey view. Driven off the *actual* height
+       above ground rather than the commanded S.hover, so the camera eases with
+       the ship instead of snapping the moment a key is pressed. */
+    // Anchored so zoom is exactly 1.0 at HOVER_BASE — the resting framing stays
+    // what camOffset was tuned for, and only leaving that height moves it.
+    camZoom=lerp(camZoom,ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,CAM_ZOOM_LOW,1,CAM_ZOOM_HIGH),Math.min(1,dt*2));
+    const desired=_v.set(saucer.position.x+camOffset.x*camZoom,saucer.position.y+camOffset.y*camZoom,saucer.position.z+camOffset.z*camZoom);
     camera.position.lerp(desired,Math.min(1,dt*2.4));
-    camera.lookAt(saucer.position.x,saucer.position.y-6,saucer.position.z);
+    camera.lookAt(saucer.position.x+camLook.x,saucer.position.y+camLook.y,saucer.position.z+camLook.z);
 
     /* ---- clock ---- */
     S.elapsed+=dt;
@@ -209,7 +268,7 @@ function animate(){
     updateEnergyBar(dt,false);
     updateProps(dt,false);updateCrystals(dt,false);updateAnimals(dt);
     camera.position.lerp(_v.set(saucer.position.x+camOffset.x,saucer.position.y+camOffset.y,saucer.position.z+camOffset.z),Math.min(1,dt*2.4));
-    camera.lookAt(saucer.position);
+    camera.lookAt(saucer.position.x+camLook.x,saucer.position.y+camLook.y,saucer.position.z+camLook.z);
     const gh=heightAt(saucer.position.x,saucer.position.z);
     if(saucer.position.y<=gh+2.5){
       saucer.position.y=gh+2.5;
@@ -230,8 +289,8 @@ function animate(){
     shipLight.position.set(saucer.position.x,saucer.position.y+1.5,saucer.position.z);shipLight.intensity=0.85;
     ebarBG.material.opacity=0;ebarFill3.material.opacity=0;
     const ang=t*0.12;
-    camera.position.set(saucer.position.x+Math.sin(ang)*70,72,saucer.position.z+Math.cos(ang)*70);
-    camera.lookAt(saucer.position.x,saucer.position.y-8,saucer.position.z);
+    camera.position.set(saucer.position.x+Math.sin(ang)*76,58,saucer.position.z+Math.cos(ang)*76);
+    camera.lookAt(saucer.position.x,saucer.position.y-2,saucer.position.z);
     if(chunks.size===0)updateChunks(0,0);
     updateAnimals(dt);
   }
@@ -251,14 +310,10 @@ function enablePlay(){
   if(assetsReady)return;assetsReady=true;
   const b=document.getElementById('startBtn');if(b)b.disabled=false;
   const n=document.getElementById('loadNote');if(n)n.textContent=tr('loadNote.ready');
-  // resolve any still-pending lines so the list is complete before the splash closes
-  LOAD_ORDER.forEach(nm=>{
-    const el=document.getElementById('ld-'+nm);
-    if(el&&el.innerHTML.indexOf('…')>=0)el.innerHTML=nm+': <i>built-in</i>';
-  });
+  diagFinish();   // settle the splash line even if some assets fell back
   const sp=document.getElementById('splash');
   if(sp){
-    // hold the splash at least ~1.8s total so fast loads don't blink past the list
+    // hold the splash at least ~1.8s total so fast loads don't blink past it
     const wait=Math.max(700,1800-(performance.now()-SPLASH_T0));
     setTimeout(()=>{sp.classList.add('done');setTimeout(()=>sp.remove(),900);},wait);
   }

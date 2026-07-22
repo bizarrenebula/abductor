@@ -4,7 +4,7 @@
    ========================================================================= */
 import { THREE } from '../core/three.js';
 import { OBJ_SCALE, ASSETS } from '../core/constants.js';
-import { mat, part } from '../core/mesh.js';
+import { mat, part, measureSolid } from '../core/mesh.js';
 import { scene } from '../core/engine.js';
 import { World } from '../world/world-config.js';
 import { LOADED, spawnModel } from '../assets.js';
@@ -26,7 +26,8 @@ export function buildProp(biome){
       const r=part(new THREE.DodecahedronGeometry(1,0),mat(0x5c5c60,0.95),0,0.7,0);
       r.scale.set(1.2,0.8,1);r.rotation.set(Math.random(),Math.random(),Math.random());g.add(r);
     }else{
-      // tree
+      // tree — solid: the ship crashes into it (slim = collide with the trunk)
+      u.solid=true;u.slim=true;
       if(LOADED.tree){
         const tm=spawnModel('tree');tm.scale.setScalar((ASSETS.tree.scale||1)*(0.85+Math.random()*0.5));
         tm.rotation.y=Math.random()*6.28;g.add(tm);
@@ -53,6 +54,7 @@ export function buildProp(biome){
     }
   }
   u.lift=0;u.spin=Math.random()*2-1;g.scale.multiplyScalar(OBJ_SCALE);
+  if(u.solid)measureSolid(g);
   return g;
 }
 export function updateProps(dt,beamActive){

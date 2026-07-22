@@ -5,6 +5,7 @@
    ========================================================================= */
 import { env } from '../core/env.js';
 import { S } from '../core/state.js';
+import { HOVER_BASE } from '../core/constants.js';
 import { input } from '../core/input.js';
 import { reseed } from '../world/noise.js';
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
@@ -57,7 +58,7 @@ export function startGame(){
   S.energy=1;S.vy=0;saucer.rotation.set(0,0,0);
   applyWorld(S.world);
   S.crystals=0;S.missionIdx=0;S.crashReason=null;
-  S.isDay=true;S.dayF=1;S.cloak=false;S.warnLevel=0;
+  S.isDay=true;S.dayF=1;S.cloak=false;S.warnLevel=0;S.hover=HOVER_BASE;S.agl=HOVER_BASE;S.beamStr=1;
   resetMeteors();
   resetGeysers();
   resetLightning();
@@ -93,6 +94,7 @@ export function endGame(reason){
     reason==='meteor'?t('over.msg.meteor')
     :reason==='geyser'?t('over.msg.geyser')
     :reason==='lightning'?t('over.msg.lightning')
+    :reason==='impact'?t('over.msg.impact')
     :(reason==='crash'||reason==='energy')?t('over.msg.crash'):msg;
   overScreen.classList.remove('hidden');
 }

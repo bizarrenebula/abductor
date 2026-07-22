@@ -6,4 +6,5 @@
 export const animals=[];    // creatures + humans (abductable)
 export const pickups=[];    // energy crystals
 export const props=[];      // beam-fodder scenery, no reward
+export const buildings=[];  // barns / camps — solid, the ship crashes into them
 export const shelters=[];    // {x,z} points humans flee toward

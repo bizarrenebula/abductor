@@ -26,7 +26,7 @@ export const Special={
         if(d<this.RADIUS&&d>0.6){
           const pull=Math.min(1,dt*2.4);
           a.position.x+=dx*pull;a.position.z+=dz*pull;
-          a.userData.hop=null;a.userData.hopTimer=0.8+Math.random();
+          a.userData.hop=null;a.userData.phase='idle';a.userData.hopTimer=0.8+Math.random();
           const gh2=heightAt(a.position.x,a.position.z);
           a.position.y=(a.userData.biome==='water'&&gh2<WATER_Y)?WATER_Y+0.15:gh2;
           a.rotation.y=Math.atan2(dx,dz);

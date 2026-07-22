@@ -39,7 +39,9 @@ export function updateAbduction(dt,weatherMult,beamOn){
     if(inBeam){
       if(S.lockTime<=0.001){ triggerAbduct(a); continue; }
       const closeness=1-Math.sqrt(d2)/R;            // 0 at edge, 1 at center
-      a.userData.progress+=dt*weatherMult*(0.6+1.6*closeness)*(buff==='lock'?2:1);
+      // S.beamStr falls off with altitude: the same creature takes far longer
+      // to lock from a high hover than from a low pass.
+      a.userData.progress+=dt*weatherMult*(0.6+1.6*closeness)*(buff==='lock'?2:1)*(S.beamStr||1);
       if(a.userData.progress>=S.lockTime){ triggerAbduct(a); continue; }
     }else{
       a.userData.progress=0;

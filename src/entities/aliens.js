@@ -104,6 +104,7 @@ export function buildAlien(form){
   g.scale.setScalar(s);
   u.biome=World.name;u.name=info.name;u.pts=info.pts;u.baseS=s;
   u.hopTimer=1+Math.random()*2;u.hop=null;u.progress=0;u.abducting=0;u.face=Math.random()*6.28;
+  u.phase='idle';u.turnRate=u.turnRate||(1.8+Math.random()*2.2);g.rotation.y=u.face;
   return g;
 }
 export function updateWorm(a,u,dt){

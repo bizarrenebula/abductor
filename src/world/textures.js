@@ -4,11 +4,15 @@
    later by the asset loader (name -> THREE.Texture).
    ========================================================================= */
 import { THREE } from '../core/three.js';
+import { renderer } from '../core/engine.js';
 
 export const TEX = {};   // name -> THREE.Texture (populated by the asset loader)
 
+const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
+
 function canvasTex(draw,size){size=size||256;const c=document.createElement('canvas');c.width=c.height=size;
-  draw(c.getContext('2d'),size);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;}
+  draw(c.getContext('2d'),size);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  t.anisotropy=MAX_ANISO;return t;}
 
 export const grassTex=canvasTex((x,s)=>{x.fillStyle='#5c6b52';x.fillRect(0,0,s,s);
   for(let i=0;i<5200;i++){const l=55+Math.random()*85;

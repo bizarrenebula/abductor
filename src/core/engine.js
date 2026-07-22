@@ -37,8 +37,8 @@ if(LOW_END)scene.fog.density=0.0092;
   const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;scene.background=tex;
 })();
 
-export const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,0.5,1400);
-camera.position.set(0,60,80);
+export const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,0.5,1400);
+camera.position.set(0,50,90);
 
 /* lights */
 export const hemi=new THREE.HemisphereLight(0x2c4450,0x050708,0.42);scene.add(hemi);

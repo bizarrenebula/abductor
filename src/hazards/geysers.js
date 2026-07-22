@@ -68,7 +68,7 @@ function makeGeyserPlume(){
   g.userData={core,outer,cap,chunks};return g;
 }
 function spawnGeyser(nearShip){
-  if(S.state!=='playing'||World.name!=='moon')return;
+  if(S.state!=='playing'||World.name!=='mars')return;
   // target a spot: near the ship's lead position, or scattered around it
   const lead=1.4;
   const ax=saucer.position.x+S.vel.x*lead, az=saucer.position.z+S.vel.z*lead;
@@ -86,7 +86,7 @@ function spawnGeyser(nearShip){
 export function clearGeysers(){for(let i=geysers.length-1;i>=0;i--){scene.remove(geysers[i].grp);geysers.splice(i,1);}}
 export function resetGeysers(){clearGeysers();geyserTimer=7;}
 export function updateGeysers(dt){
-  if(World.name!=='moon'){if(geysers.length)clearGeysers();return;}
+  if(World.name!=='mars'){if(geysers.length)clearGeysers();return;}
   // geysers only erupt during daytime — night is a safe window to work the herd.
   // Pause the countdown at night so waves don't bunch up at daybreak.
   if(S.dayF>=0.5){

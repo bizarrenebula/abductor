@@ -5,7 +5,7 @@
    ========================================================================= */
 import { THREE } from '../core/three.js';
 import { OBJ_SCALE, WATER_Y } from '../core/constants.js';
-import { lerp } from '../core/math.js';
+import { lerp, wrapAngle, turnToward } from '../core/math.js';
 import { mat, part } from '../core/mesh.js';
 import { S } from '../core/state.js';
 import { heightAt } from '../world/terrain.js';
@@ -14,11 +14,13 @@ import { animals } from './registry.js';
 import { updateHuman } from './humans.js';
 import { updateWorm } from './aliens.js';
 
+/* turn = yaw speed in rad/s while pivoting in place. Heavier animals swing
+   round slowly, which is most of what sells the weight difference. */
 export const ANIMALS={
-  desert :{name:'Camel', pts:3, size:1.3},
-  plains :{name:'Sheep', pts:1, size:1.1},
-  mountain:{name:'Goat', pts:4, size:0.95},
-  water  :{name:'Duck',  pts:2, size:0.7}
+  desert :{name:'Camel', pts:3, size:1.3,  turn:1.5},
+  plains :{name:'Sheep', pts:1, size:1.1,  turn:2.6},
+  mountain:{name:'Goat', pts:4, size:0.95, turn:3.4},
+  water  :{name:'Duck',  pts:2, size:0.7,  turn:2.2}
 };
 export function buildAnimal(biome){
   const info=ANIMALS[biome];const s=info.size*OBJ_SCALE;
@@ -31,6 +33,7 @@ export function buildAnimal(biome){
     g.userData.hopTimer=1+Math.random()*2.5;
     g.userData.hop=null;g.userData.progress=0;g.userData.abducting=0;g.userData.face=Math.random()*6.28;
     g.userData.pts=info.pts;g.userData.baseS=s;
+    g.userData.phase='idle';g.userData.turnRate=info.turn;g.rotation.y=g.userData.face;
     return g;
   }
   const g=new THREE.Group();
@@ -100,45 +103,79 @@ export function buildAnimal(biome){
   g.userData.hopTimer=1+Math.random()*2.5;
   g.userData.hop=null; g.userData.progress=0; g.userData.abducting=0; g.userData.face=Math.random()*6.28;
   g.userData.pts=info.pts; g.userData.baseS=s;
+  g.userData.phase='idle'; g.userData.turnRate=info.turn; g.rotation.y=g.userData.face;
   return g;
 }
 
-/* ---------- animal hop / idle update (also dispatches humans + worms) ---------- */
+/* ---------- animal movement (also dispatches humans + worms) ----------
+
+   Creatures move like animals rather than like sprites: they never strafe.
+   Each cycle is idle -> turn -> step. During `turn` the body pivots in place
+   toward a new heading; only once it is facing that way does it `step`, and
+   the step travels along the direction the model is actually pointing
+   (+Z local, which is the model's nose after the per-asset rotY correction
+   in assets.js). Interrupting by clearing u.hop still works — see special.js.
+*/
+const TURN_EPS=0.02;      // radians: close enough to "facing that way"
+
+// Idle bob / float, shared by the idle and turning phases.
+function settle(a,u){
+  if(u.biome==='water'){
+    const tt=performance.now()*0.001;
+    a.position.y=WATER_Y+0.15+Math.sin(a.position.x*0.15+tt*1.1)*0.22+Math.cos(a.position.z*0.19+tt*1.4)*0.18;
+  }else{
+    const g=heightAt(a.position.x,a.position.z)+(u.hover||0);
+    a.position.y=g+Math.sin(performance.now()*0.003+u.face)*(u.hover?0.3:0.05);
+  }
+  if(u.pulse)a.scale.setScalar(u.baseS*(1+0.07*Math.sin(performance.now()*0.003+u.face)));
+}
+
 export function updateAnimals(dt){
   for(const a of animals){
     if(a.userData.abducting>0) continue;
     const u=a.userData;
     if(u.humanKind){updateHuman(a,u,dt);continue;}
     if(u.wormKind){updateWorm(a,u,dt);continue;}
-    if(u.hop){
+
+    // special.js cancels movement by nulling u.hop; drop out of stepping too.
+    if(u.phase==='step'&&!u.hop)u.phase='idle';
+
+    if(u.phase==='turn'){
+      a.rotation.y=turnToward(a.rotation.y,u.turnTo,(u.turnRate||2.8)*dt);
+      settle(a,u);
+      if(Math.abs(wrapAngle(u.turnTo-a.rotation.y))<TURN_EPS){
+        // Facing the new heading — now commit the step along the nose.
+        const dspd=0.7+0.55*(S?S.dayF:1);              // day faster, night slower
+        const dist=(u.hopDist||3)+Math.random()*(u.hopRng||2.5);
+        const fx=Math.sin(a.rotation.y), fz=Math.cos(a.rotation.y);
+        u.hop={fx:a.position.x,fz:a.position.z,
+               tx:a.position.x+fx*dist,tz:a.position.z+fz*dist,
+               t:0,dur:(u.hopDur||0.55)/dspd};
+        u.phase='step';
+      }
+    }else if(u.phase==='step'){
       u.hop.t+=dt/u.hop.dur;
       const t=Math.min(1,u.hop.t);
       const x=lerp(u.hop.fx,u.hop.tx,t), z=lerp(u.hop.fz,u.hop.tz,t);
       const ground=(u.biome==='water'?WATER_Y+0.1:heightAt(x,z))+(u.hover||0);
       a.position.set(x,ground+Math.sin(Math.PI*t)*0.5,z);
-      // face travel dir
-      a.rotation.y=lerp(a.rotation.y,u.hop.face,Math.min(1,dt*8));
-      if(u.roll)a.rotation.x+=dt*16;
-      if(t>=1){u.hop=null;const rf=(S?(1.6-0.7*S.dayF):1);u.hopTimer=((u.restMin||1.4)+Math.random()*(u.restRng||2.6))*rf;}
-    }else{
-      u.hopTimer-=dt;
-      // gentle idle bob
-      if(u.biome==='water'){
-        const tt=performance.now()*0.001;
-        a.position.y=WATER_Y+0.15+Math.sin(a.position.x*0.15+tt*1.1)*0.22+Math.cos(a.position.z*0.19+tt*1.4)*0.18;
-        a.rotation.y+=Math.sin(tt*0.7+u.face)*0.003;
-      }else{
-        const g=heightAt(a.position.x,a.position.z)+(u.hover||0);
-        a.position.y=g+Math.sin(performance.now()*0.003+u.face)*(u.hover?0.3:0.05);
+      if(u.roll)a.rotation.x+=dt*16;                   // tumblers spin as they go
+      if(t>=1){
+        u.hop=null;u.phase='idle';
+        const rf=(S?(1.6-0.7*S.dayF):1);
+        u.hopTimer=((u.restMin||1.4)+Math.random()*(u.restRng||2.6))*rf;
       }
-      if(u.pulse)a.scale.setScalar(u.baseS*(1+0.07*Math.sin(performance.now()*0.003+u.face)));
+    }else{
+      settle(a,u);
+      if(u.biome==='water')a.rotation.y+=Math.sin(performance.now()*0.001*0.7+u.face)*0.003;   // drift
+      u.hopTimer-=dt;
       if(u.hopTimer<=0){
-        const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-        const d=dirs[(Math.random()*4)|0];
-        const dspd=0.7+0.55*(S?S.dayF:1);   // day faster, night slower
-        const dist=(u.hopDist||3)+Math.random()*(u.hopRng||2.5);
-        u.hop={fx:a.position.x,fz:a.position.z,tx:a.position.x+d[0]*dist,tz:a.position.z+d[1]*dist,
-          t:0,dur:(u.hopDur||0.55)/dspd,face:Math.atan2(d[0],d[1])};
+        // Mostly small course corrections, occasionally a real about-face, so
+        // the herd doesn't read as a grid of things flipping 90 degrees.
+        const big=Math.random()<0.3;
+        const swing=(Math.random()*2-1)*(big?Math.PI:Math.PI/3);
+        u.turnTo=wrapAngle(a.rotation.y+swing);
+        u.phase='turn';
       }
     }
   }

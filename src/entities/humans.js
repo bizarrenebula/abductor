@@ -4,7 +4,7 @@
    ========================================================================= */
 import { THREE } from '../core/three.js';
 import { OBJ_SCALE, ASSETS } from '../core/constants.js';
-import { mat, part } from '../core/mesh.js';
+import { mat, part, measureSolid } from '../core/mesh.js';
 import { S } from '../core/state.js';
 import { heightAt } from '../world/terrain.js';
 import { LOADED, spawnModel } from '../assets.js';
@@ -16,6 +16,7 @@ export function buildBuilding(kind){
   if(kind==='barn'&&LOADED.barn){
     const g=spawnModel('barn');
     g.scale.setScalar((ASSETS.barn.scale||1)*OBJ_SCALE);
+    g.userData.solid=true;measureSolid(g);   // barns are solid: the ship crashes into them
     return g;
   }
   const g=new THREE.Group();
@@ -33,6 +34,8 @@ export function buildBuilding(kind){
     g.add(part(new THREE.SphereGeometry(0.2,8,6),new THREE.MeshStandardMaterial({color:0x662200,emissive:0xff6820,emissiveIntensity:0.9,roughness:0.6}),1.8,0.15,0.6));
     g.add(part(new THREE.CylinderGeometry(0.07,0.07,0.9,5),mat(0x2c1e12,0.95),2.1,0.1,0.3));g.scale.multiplyScalar(OBJ_SCALE);
   }
+  // Barns are solid; camps are low canvas tents you can safely skim over.
+  if(kind==='barn'){g.userData.solid=true;measureSolid(g);}
   return g;
 }
 

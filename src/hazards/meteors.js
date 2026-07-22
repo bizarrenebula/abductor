@@ -63,7 +63,7 @@ function buildMeteorTrail(){
   return trail;
 }
 function spawnMeteor(bullseye){
-  if(S.state!=='playing'||World.name!=='mars')return;
+  if(S.state!=='playing'||World.name!=='moon')return;
   const m=buildMeteorRock();
   const trail=buildMeteorTrail();scene.add(trail);
   // aim point: lead the saucer's motion, then either a near-miss ring or a direct hit
@@ -122,7 +122,7 @@ function triggerShower(){
   for(let k=0;k<n;k++)setTimeout(()=>spawnMeteor(k===hitIdx),1600+k*260);
 }
 export function updateMeteors(dt){
-  if(World.name!=='mars'){if(meteors.length)clearMeteors();meteorWarn=0;return;}
+  if(World.name!=='moon'){if(meteors.length)clearMeteors();meteorWarn=0;return;}
   if(meteorWarn>0)meteorWarn-=dt;
   // meteors only fall at night — daytime is a safe window to work the herd.
   // Pause the countdown by day so showers don't bunch up at nightfall.

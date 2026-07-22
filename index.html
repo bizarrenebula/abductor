@@ -34,6 +34,30 @@
   .val{font-size:18px;font-weight:700;letter-spacing:.04em;color:var(--beam);
     text-shadow:0 0 8px rgba(143,232,184,.3);line-height:1.1}
 
+  /* hold-to-cloak ring + altitude scale: both fade in only while the
+     corresponding ship gesture is active, so the HUD stays clean otherwise */
+  #cloakRing{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:74px;height:74px;opacity:0;transition:opacity .18s ease;pointer-events:none}
+  #cloakRing.on{opacity:1}
+  #cloakRing svg{width:100%;height:100%;transform:rotate(-90deg)}
+  #cloakRing circle{fill:none;stroke-width:3;stroke-linecap:round}
+  #cloakRing .bg{stroke:rgba(143,232,184,.15)}
+  #cloakRing .fg{stroke:var(--beam);stroke-dasharray:119.4;
+    filter:drop-shadow(0 0 6px rgba(143,232,184,.6))}
+  #cloakRing .cap{position:absolute;inset:0;display:flex;align-items:center;
+    justify-content:center;font-size:8px;letter-spacing:.2em;color:var(--beam)}
+
+  #altScale{position:absolute;right:20px;top:50%;transform:translateY(-50%);
+    width:34px;height:150px;opacity:0;transition:opacity .18s ease;pointer-events:none}
+  #altScale.on{opacity:1}
+  #altTrack{position:absolute;left:14px;top:0;bottom:0;width:3px;border-radius:2px;
+    background:rgba(143,232,184,.15)}
+  #altKnob{position:absolute;left:8px;width:15px;height:3px;border-radius:2px;
+    background:var(--beam);box-shadow:0 0 8px rgba(143,232,184,.7);
+    transform:translateY(-50%)}
+  #altVal{position:absolute;right:36px;top:50%;transform:translateY(-50%);
+    font-size:10px;letter-spacing:.1em;color:var(--beam);white-space:nowrap}
+
   /* film veil: vignette + grain over the scene, under the HUD */
   #veil{position:fixed;inset:0;pointer-events:none;z-index:5;
     background:radial-gradient(ellipse at 50% 42%,transparent 48%,rgba(0,0,0,.62) 100%)}
@@ -63,10 +87,10 @@
   .sp-title{font-size:22px;font-weight:800;letter-spacing:.42em;color:var(--ink);
     text-shadow:0 0 20px rgba(143,232,184,.3)}
   .sp-title span{color:var(--beam)}
-  #splashLog{min-height:110px;font-size:10px;letter-spacing:.14em;color:var(--ink-soft);
+  /* single progress line — was min-height:110px to fit a 13-row asset roll call */
+  #splashLog{min-height:26px;font-size:10px;letter-spacing:.14em;color:var(--ink-soft);
     line-height:1.8;text-align:center;text-transform:uppercase}
   #splashLog b{color:var(--beam);font-weight:700}
-  #splashLog i{color:var(--warn);font-style:normal}
 
   #hBuff{top:118px;right:16px;text-align:right;display:none}
   #hBuff .wx{font-size:11px;font-weight:700;color:var(--good)}
@@ -266,6 +290,13 @@
   <div class="panel" id="hBuff"><div class="lbl" data-i18n="hud.boon">Boon</div><div class="wx" id="buffName">—</div></div>
   <button id="pauseBtn" class="hbtn" aria-label="Menu">❚❚</button>
   <button id="spBtn" aria-label="Special pull" data-i18n="hud.pull">PULL</button>
+  <div id="cloakRing" aria-hidden="true">
+    <svg viewBox="0 0 44 44"><circle class="bg" cx="22" cy="22" r="19"/><circle class="fg" cx="22" cy="22" r="19"/></svg>
+    <div class="cap" data-i18n="hud.cloaking">CLOAK</div>
+  </div>
+  <div id="altScale" aria-hidden="true">
+    <div id="altTrack"></div><div id="altKnob"></div><div id="altVal">0m</div>
+  </div>
 </div>
 
 <canvas id="minimap" width="150" height="150"></canvas>
@@ -422,26 +453,95 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 "use strict";
-/* surface any fatal error on screen instead of letting the tab silently reload */
+/* Surface any fatal error on screen instead of letting the tab silently reload.
+   Registered BEFORE the CDN tags below so it also catches their load failures
+   and parse-time throws — previously it loaded after them and could not. */
+/* Appends rather than replaces: the first failure is usually the informative
+   one, and a later generic error used to overwrite it. */
+var _errN=0;
 function _errBox(msg){
   let box=document.getElementById('errBox');
   if(!box){box=document.createElement('div');box.id='errBox';
     box.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:9999;font:11px monospace;color:#ffb4a8;background:rgba(20,0,0,.9);padding:8px 10px;border-radius:8px;white-space:pre-wrap;max-height:40vh;overflow:auto';
     (document.body||document.documentElement).appendChild(box);}
-  box.textContent=msg;
+  if(_errN++>12)return;
+  if(_errN===1)box.textContent='ENV: '+_envLine();
+  box.textContent+='\n\n['+_errN+'] '+msg;
+}
+/* One-line snapshot of the things that actually differ between a normal browser
+   and a restricted webview. Printed above the first error so a single screenshot
+   is enough to tell what the environment was. */
+function _envLine(){
+  var gl='no',ctx=null;
+  try{var c=document.createElement('canvas');
+    if(c.getContext('webgl2'))gl='webgl2';
+    else if(c.getContext('webgl')||c.getContext('experimental-webgl'))gl='webgl1';
+  }catch(e){gl='threw:'+e.message;}
+  var r='?';
+  try{r=(typeof THREE!=='undefined'&&THREE.REVISION)?('r'+THREE.REVISION):'undefined';}catch(e){r='undefined';}
+  var loader='?';
+  try{loader=(typeof THREE!=='undefined'&&THREE.GLTFLoader)?'yes':'no';}catch(e){loader='no';}
+  return 'THREE='+r+' GLTFLoader='+loader+' WebGL='+gl+
+         ' origin='+location.origin+' secure='+window.isSecureContext;
 }
 window.addEventListener('error',function(ev){
-  _errBox('ERROR: '+(ev.message||ev.error&&ev.error.message||ev)+'\n'+((ev.error&&ev.error.stack)||'').split('\n').slice(0,4).join('\n'));
+  // Capture phase (below) reports failed script/img loads; those don't bubble.
+  var m=ev.message||(ev.error&&ev.error.message)||String(ev);
+  if(m==='Script error.'||m==='Script error')
+    m='Script error. (opaque cross-origin throw — a CDN script failed. '+
+      'Check the Console/Network tab: the CDN is likely blocked or unreachable here.)';
+  _errBox('ERROR: '+m+'\n'+((ev.error&&ev.error.stack)||'').split('\n').slice(0,4).join('\n'));
 });
+window.addEventListener('error',function(ev){
+  var el=ev.target;
+  if(el&&el!==window&&(el.tagName==='SCRIPT'||el.tagName==='IMG'||el.tagName==='LINK'))
+    _errBox('ERROR: failed to load '+el.tagName.toLowerCase()+': '+(el.src||el.href)+
+            '\nNo network access to that host from this browser context.');
+},true);   // capture: resource load errors fire at the target and never bubble
 window.addEventListener('unhandledrejection',function(ev){
   const r=ev.reason;_errBox('ERROR: '+((r&&r.message)||r)+'\n'+((r&&r.stack)||'').split('\n').slice(0,4).join('\n'));
 });
 </script>
-<!-- Game logic lives in src/ as native ES modules (no build step). Entry: src/main.js -->
-<script type="module" src="src/main.js"></script>
+<!-- crossorigin="anonymous" is what makes throws inside these readable instead of
+     the opaque "Script error." Both CDNs send Access-Control-Allow-Origin: *. -->
+<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script crossorigin="anonymous" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+"use strict";
+/* Fail loudly and specifically, rather than letting src/main.js die on a
+   missing global. Both of these are real failure modes inside restricted
+   webviews (VS Code Simple Browser), which may block the CDN or have no GPU. */
+(function(){
+  if(typeof THREE==='undefined'){
+    _errBox('ERROR: THREE failed to load from cdnjs.\n'+
+            'This browser context blocked or could not reach the CDN.\n'+
+            'Open http://localhost:5173 in a normal browser, or vendor three.min.js locally.');
+    return;
+  }
+  if(!THREE.GLTFLoader)
+    _errBox('WARNING: GLTFLoader failed to load from jsdelivr — 3D models will fall back to procedural shapes.');
+  try{
+    var c=document.createElement('canvas');
+    if(!(c.getContext('webgl2')||c.getContext('webgl')||c.getContext('experimental-webgl')))
+      _errBox('ERROR: WebGL is unavailable in this browser context.\n'+
+              'VS Code\'s Simple Browser often has no GPU access. Open http://localhost:5173 in a normal browser.');
+  }catch(e){
+    _errBox('ERROR: WebGL check threw: '+e.message);
+  }
+})();
+</script>
+<!-- Game logic lives in src/ as native ES modules (no build step). Entry: src/main.js
+     Loaded via dynamic import() rather than a static module tag, purely so a
+     throw anywhere in the module graph arrives as a catchable rejection with a
+     real message and stack. A static module tag reports some failures through
+     window.onerror with the message stripped, which is unusable for debugging. -->
+<script type="module">
+import('./src/main.js').catch(function(e){
+  _errBox('MODULE LOAD FAILED: '+((e&&e.message)||e)+'\n'+
+          ((e&&e.stack)||'(no stack)').split('\n').slice(0,6).join('\n'));
+});
+</script>
 </body>
 </html>

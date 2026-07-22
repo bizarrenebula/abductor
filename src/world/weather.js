@@ -83,8 +83,13 @@ export function applyWeather(w){
   else precip.visible=false;
   const disp=t(W.name);
   regionV.textContent=(curBiomeLabel()+' · '+disp);
-  const m=W.mult;
-  multV.textContent=t('hud.beamMult')+' '+(m>=1?'+':'')+Math.round((m-1)*100)+'%';
+  setBeamMultHUD(W.mult);
+}
+/* The `beam ±%` readout. Altitude now moves it too, so the main loop refreshes
+   this every frame with weather × altitude rather than only on weather change. */
+export function setBeamMultHUD(m){
+  const pct=Math.round((m-1)*100);
+  multV.textContent=t('hud.beamMult')+' '+(pct>=0?'+':'')+pct+'%';
   multV.className='mult '+(m>=1?'up':'down');
 }
 export function updateWeatherParticles(dt){

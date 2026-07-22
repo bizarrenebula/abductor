@@ -7,7 +7,7 @@
 import { THREE, GLTF } from './core/three.js';
 import { env, assetsOn } from './core/env.js';
 import { ASSETS } from './core/constants.js';
-import { getEnv } from './core/engine.js';
+import { getEnv, renderer } from './core/engine.js';
 import { TEX } from './world/textures.js';
 import { t } from './i18n.js';
 
@@ -60,6 +60,9 @@ export function loadTex(name){
     const tl=new THREE.TextureLoader();
     const finish=t=>{
       t.wrapS=t.wrapT=THREE.RepeatWrapping;t.encoding=THREE.sRGBEncoding;
+      // Ground is viewed at grazing angles, where isotropic mipmapping blurs it
+      // to mush. Max anisotropy is what actually keeps distant detail readable.
+      t.anisotropy=renderer.capabilities.getMaxAnisotropy();
       if(cfg.repeat)t.repeat.set(cfg.repeat,cfg.repeat);
       TEX[name]=t;res(t);
     };
@@ -98,18 +101,32 @@ export function spawnModel(name){                 // fresh clone for one entity,
   }catch(e){ console.warn('[assets] clone failed for '+name+':',e&&e.message); return null; }
 }
 
-/* ---------- splash load diagnostics ---------- */
-export const LOAD_ORDER=['loader','saucer','sheep','duck','camel','goat','crystal','barn','hiker','tree','grass','mountain','sand'];
+/* ---------- splash load progress ----------
+   One line, not a per-asset roll call. The individual results are still useful
+   when something is missing, so they go to the console rather than the splash.
+   A count is kept because the GLB set is large and a static string would look
+   hung; it collapses to a single label once everything has resolved. */
+export const ASSET_COUNT=12;      // the GLB + texture loads tracked below
+let diagDone=0;
+function diagLine(){return document.getElementById('splashLine');}
 (function diagInit(){
   const d=document.getElementById('splashLog');if(!d)return;
   if(env.LOW_END){d.innerHTML=t('splash.mobile');return;}
-  d.innerHTML=LOAD_ORDER.map(n=>'<div id="ld-'+n+'">'+n+': <span>…</span></div>').join('');
+  d.innerHTML='<div id="splashLine">'+t('loadNote.loading')+'</div>';
 })();
 export function diagSet(name,ok){
-  const el=document.getElementById('ld-'+name);if(!el)return;
-  el.innerHTML=name+': '+(ok?'<b>OK</b>':'<i>'+t('diag.builtin')+'</i>');
+  if(!ok)console.warn('[assets] '+name+': falling back to built-in');
+  const el=diagLine();if(!el)return;
+  if(diagDone<ASSET_COUNT)diagDone++;
+  el.textContent=diagDone>=ASSET_COUNT
+    ? t('loadNote.ready')
+    : t('loadNote.loading')+'  '+diagDone+'/'+ASSET_COUNT;
 }
-diagSet('loader',!!GLTF);
+/* Force the line to its finished state — used when the splash closes early. */
+export function diagFinish(){
+  const el=diagLine();if(el)el.textContent=t('loadNote.ready');
+}
+if(!GLTF)console.warn('[assets] GLTFLoader unavailable — procedural shapes only');
 export function loadAllAssets(){
   return Promise.all([
     loadGLB('saucer').then(r=>diagSet('saucer',!!r)),

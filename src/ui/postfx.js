@@ -46,12 +46,16 @@ const compMat=new THREE.ShaderMaterial({uniforms:{tScene:{value:null},tBloom:{va
     void main(){vec3 sc=texture2D(tScene,vUv).rgb;vec3 bl=texture2D(tBloom,vUv).rgb;
     vec3 col=sc+bl*bloomK;
     float l=dot(col,vec3(0.299,0.587,0.114));
-    col=mix(vec3(l),col,0.86);           // keep more chroma
-    col*=vec3(0.9,0.98,1.08);            // cool tint
-    col=(col-0.5)*1.1+0.5;               // contrast
-    col=max(col-0.02,0.0);               // crush blacks
-    vec2 q=vUv-0.5;float vig=1.0-smoothstep(0.32,0.98,length(q));
-    col*=mix(0.68,1.0,vig);              // vignette (CSS veil adds more)
+    // --- Tim Burton grade: a near-monochrome silver/gothic world, so the
+    //     emissive greens (beam, crystals, HUD) pop as almost the only colour ---
+    col=mix(vec3(l),col,0.58);                       // heavy desaturation toward silver
+    vec3 shadowT=vec3(0.78,0.90,1.16);               // cold moonlit blue in the shadows
+    vec3 highT =vec3(1.08,1.05,1.00);                // pale bone-silver in the lights
+    col*=mix(shadowT,highT,smoothstep(0.05,0.85,l)); // split-tone
+    col=(col-0.5)*1.22+0.5;                          // expressionist contrast
+    col=max(col-0.035,0.0);                          // deep crushed blacks
+    vec2 q=vUv-0.5;float vig=1.0-smoothstep(0.26,0.95,length(q));
+    col*=mix(0.55,1.0,vig);                          // heavy, tight vignette (CSS veil adds more)
     gl_FragColor=vec4(col,1.0);}`});
 function fxPass(m,target){fxQuad.material=m;renderer.setRenderTarget(target||null);renderer.render(fxScene,fxCam);}
 function composeRender(){

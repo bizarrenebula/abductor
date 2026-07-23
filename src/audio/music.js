@@ -15,6 +15,51 @@ export function beep(freq,dur,vol){
   }catch(e){}
 }
 
+/* THEREMIN — the wailing, gliding voice of every 50s/80s alien picture (Burton's
+   Mars Attacks! is wall-to-wall with it). A single continuous oscillator with a
+   slow vibrato that portamento-slides between eerie notes and swells in and out,
+   sent through the shared reverb + echo so it howls across the valley. Layered
+   over whatever world track is playing. */
+export const Theremin={
+  on:false,osc:null,vib:null,amp:null,phraseT:0,
+  start(){
+    const ac=Music.ac;if(this.on||!ac)return;this.on=true;
+    const o=ac.createOscillator();o.type='triangle';o.frequency.value=330;
+    const filt=ac.createBiquadFilter();filt.type='lowpass';filt.frequency.value=1700;filt.Q.value=5;
+    const amp=ac.createGain();amp.gain.value=0.0001;
+    // expressive vibrato — the hand-wavering wobble that defines the instrument
+    const vib=ac.createOscillator();vib.type='sine';vib.frequency.value=5.4;
+    const vibG=ac.createGain();vibG.gain.value=9;vib.connect(vibG);vibG.connect(o.frequency);
+    o.connect(filt);filt.connect(amp);
+    amp.connect(Music.musicBus);amp.connect(Music.echoIn);   // dry + echo; musicBus feeds the reverb
+    o.start();vib.start();
+    this.osc=o;this.vib=vib;this.amp=amp;this.phraseT=ac.currentTime+1.5;
+  },
+  stop(){
+    const ac=Music.ac;if(!this.on||!ac)return;this.on=false;
+    try{this.amp.gain.setTargetAtTime(0.0001,ac.currentTime,0.3);}catch(e){}
+    [this.osc,this.vib].forEach(n=>{try{n.stop(ac.currentTime+0.6);}catch(e){}});
+    this.osc=this.vib=this.amp=null;
+  },
+  // Called from Music.schedule(); when the gap elapses it lays down one glissando
+  // phrase — a few slow, sliding, swelling notes from an eerie scale.
+  update(now){
+    if(!this.on||!this.osc||now<this.phraseT)return;
+    const SCALE=[196,220,246.94,311.13,349.23,415.30,523.25,622.25];   // minor/whole-tone flavour
+    const n=2+((Math.random()*3)|0);
+    let t=now;
+    this.amp.gain.cancelScheduledValues(t);
+    this.amp.gain.setTargetAtTime(0.085,t,0.7);            // swell in
+    for(let i=0;i<n;i++){
+      const tgt=SCALE[(Math.random()*SCALE.length)|0];
+      this.osc.frequency.setTargetAtTime(tgt,t,0.16);      // portamento glide between notes
+      t+=0.55+Math.random()*0.8;
+    }
+    this.amp.gain.setTargetAtTime(0.0001,t,0.9);           // fade the tail
+    this.phraseT=t+3.0+Math.random()*5.0;                  // rest before the next wail
+  }
+};
+
 export const Music={
   ac:null,master:null,musicBus:null,sfx:null,conv:null,revWet:null,delay:null,delayFb:null,echoIn:null,
   track:'off',playing:false,vol:0.6,timer:null,step:0,nextT:0,spb:0.25,drone:[],
@@ -102,16 +147,19 @@ export const Music={
       else if(this.track==='pulse')this.stepPulse(this.step,this.nextT);
       else if(this.track==='void')this.stepVoid(this.step,this.nextT);
       this.step++;this.nextT+=this.spb;
-    }},
+    }
+    Theremin.update(this.ac.currentTime);   // lay the 80s-alien theremin over the top
+  },
   startTrack(name){
     this.ensure();this.track=name;this.step=0;this.playing=true;
     if(name==='drift'){this.spb=60/52/2;this.startDrone();}
     else if(name==='void'){this.spb=60/40/2;}
     else{this.spb=60/96/4;}
     this.nextT=this.ac.currentTime+0.1;
+    Theremin.start();
     clearInterval(this.timer);this.timer=setInterval(()=>this.schedule(),25);
   },
-  stopAll(){clearInterval(this.timer);this.timer=null;this.stopDrone();this.playing=false;},
+  stopAll(){clearInterval(this.timer);this.timer=null;this.stopDrone();Theremin.stop();this.playing=false;},
   setVolume(v){this.vol=v;if(this.musicBus)this.musicBus.gain.setTargetAtTime(Math.max(0.0001,v),this.ac.currentTime,0.1);},
   set(name){
     this.ensure();if(this.ac.state==='suspended')this.ac.resume();

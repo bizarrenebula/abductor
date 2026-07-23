@@ -62,9 +62,15 @@ const clock=new THREE.Clock();
 
 /* Ship-gesture feedback: the cloak hold ring and the altitude scale. Both are
    driven off `input`, and both hide themselves when their gesture is idle. */
+const RING_LEN=2*Math.PI*19;   // r=19 in the cloak-ring SVG viewBox
 let altHudT=0;                 // keeps the altitude scale up briefly after an altitude change
 let camZoom=1;                 // chase-camera distance multiplier, eased toward altitude
 function updateShipGestureHUD(){
+  if(cloakRing){               // hold-the-ship-to-cloak progress ring
+    const p=input.cloakProg||0;
+    cloakRing.classList.toggle('on',p>0.02);
+    if(cloakArc)cloakArc.style.strokeDashoffset=(RING_LEN*(1-p)).toFixed(1);
+  }
   if(altScale){
     const showBar=altHudT>0;   // W/S or the left joystick's vertical axis
     altScale.classList.toggle('on',showBar);
@@ -277,7 +283,7 @@ function animate(){
     camZoom=lerp(camZoom,ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,CAM_ZOOM_LOW,1,CAM_ZOOM_HIGH),Math.min(1,dt*2));
     // Chase camera rides behind the nose: rotate the offset by the heading so the
     // view swings with the ship and "forward" stays into the screen. input.zoom
-    // is the pinch-to-zoom multiplier layered on top of the altitude zoom.
+    // is the zoom-slider multiplier layered on top of the altitude zoom.
     const z=camZoom*input.zoom;
     const cs=Math.sin(S.yaw), cc=Math.cos(S.yaw);
     const ox=(camOffset.x*cc+camOffset.z*cs)*z;

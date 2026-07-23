@@ -125,13 +125,11 @@
     background:rgba(5,12,10,.5);border:1px solid var(--edge);border-radius:20px;padding:5px 8px;
     backdrop-filter:blur(3px);text-shadow:0 0 10px rgba(0,0,0,.8);transition:opacity .15s}
   #joyR.beaming .joy-hint{opacity:0}
-  .tbtn{position:absolute;pointer-events:auto;cursor:pointer;border:1px solid var(--edge);
-    border-radius:50%;color:#dff5e8;font-family:inherit;font-weight:800;letter-spacing:.08em;
-    background:var(--panel);backdrop-filter:blur(8px);box-shadow:0 0 20px rgba(0,0,0,.4);
-    text-shadow:0 1px 3px rgba(0,0,0,.9)}
-  #cloakBtn{top:66px;right:16px;width:46px;height:46px;font-size:8px;letter-spacing:.04em}
-  /* touch-only: hide the on-screen action buttons on true mouse/desktop */
-  @media (hover:hover) and (pointer:fine){ #cloakBtn{display:none} }
+  /* zoom slider, top-right under the pause button */
+  #zoomCtl{top:68px;right:16px;display:flex;align-items:center;gap:8px;pointer-events:auto;
+    padding:6px 10px}
+  #zoomCtl .lbl{font-size:9px}
+  #zoomCtl input[type=range]{width:104px;height:4px}
 
   #hBuff{top:118px;right:16px;text-align:right;display:none}
   #hBuff .wx{font-size:11px;font-weight:700;color:var(--good)}
@@ -343,7 +341,8 @@
   <div class="panel" id="hBuff"><div class="lbl" data-i18n="hud.boon">Boon</div><div class="wx" id="buffName">—</div></div>
   <button id="pauseBtn" class="hbtn" aria-label="Menu">❚❚</button>
   <button id="spBtn" aria-label="Special pull" data-i18n="hud.pull">PULL</button>
-  <button id="cloakBtn" class="tbtn" aria-label="Cloak" data-i18n="hud.cloakBtn">CLOAK</button>
+  <div class="panel" id="zoomCtl"><span class="lbl" data-i18n="hud.zoom">Zoom</span>
+    <input type="range" id="zoomSlider" min="0.5" max="2.5" step="0.05" value="1" aria-label="Zoom"></div>
   <div id="cloakRing" aria-hidden="true">
     <svg viewBox="0 0 44 44"><circle class="bg" cx="22" cy="22" r="19"/><circle class="fg" cx="22" cy="22" r="19"/></svg>
     <div class="cap" data-i18n="hud.cloaking">CLOAK</div>

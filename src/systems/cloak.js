@@ -10,6 +10,8 @@ import { saucer } from './saucer.js';
 import { t } from '../i18n.js';
 
 export function toggleCloak(){
+  // Cloak is the summit of the upgrade ladder — locked until earned (req).
+  if(!S.upCloak&&!S.cloak){beep(160,0.2,0.08);banner(t('upg.locked.cloak'));return;}
   if(S.energyMode==='drain'&&S.energy<0.06&&!S.cloak){beep(160,0.2,0.08);return;}  // no juice
   S.cloak=!S.cloak;
   beep(S.cloak?520:300,0.18,0.07);

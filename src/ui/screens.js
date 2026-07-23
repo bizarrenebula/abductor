@@ -13,6 +13,8 @@ import { applyWeather, weather } from '../world/weather.js';
 import { saucer } from '../systems/saucer.js';
 import { Special } from '../systems/special.js';
 import { resetBuffs } from '../systems/buffs.js';
+import { Upgrades } from '../systems/upgrades.js';
+import { spawnUpgradeItems, clearUpgradeItems } from '../entities/upgradeItems.js';
 import { updateMissionHUD } from '../systems/missions.js';
 import { resetMeteors } from '../hazards/meteors.js';
 import { resetGeysers } from '../hazards/geysers.js';
@@ -45,7 +47,12 @@ function syncLabels(){
 cEndless.addEventListener('change',syncLabels);
 syncLabels();
 
-export function startGame(){
+/* opts.keep — "run it back" after a crash keeps the ship's earned upgrades
+   (the save point survives a crash / disaster, per spec). Any other entry
+   point (menu Play, restart, settings) passes no opts and starts grounded.
+   Called directly as a click handler too, where the arg is an Event → no .keep. */
+export function startGame(opts){
+  const keepUpgrades=!!(opts&&opts.keep===true);
   S.lockTime=+sLock.value;
   S.beamR=(+sBeam.value)/2;
   S.endless=cEndless.checked;
@@ -65,6 +72,10 @@ export function startGame(){
   resetLightning();
   S.vel.set(0,0,0);saucer.position.set(0,40,0);
   reseed();clearWorld();updateChunks(0,0);
+  // Ship upgrades: keep them through a "run it back" after a crash, otherwise
+  // start grounded. Then scatter whichever field parts aren't installed yet.
+  if(keepUpgrades)Upgrades.restore(); else Upgrades.reset();
+  spawnUpgradeItems();
   updateMissionHUD();
   Story.reset();
   if(S.storyMode)Story.begin(S.world);
@@ -118,8 +129,9 @@ export function endGame(reason){
     :(reason==='crash'||reason==='energy')?t('over.msg.crash'):msg;
   overScreen.classList.remove('hidden');
 }
-document.getElementById('startBtn').addEventListener('click',startGame);
-document.getElementById('againBtn').addEventListener('click',startGame);
+document.getElementById('startBtn').addEventListener('click',()=>startGame());
+// "run it back" continues the same ship — a crash never costs your upgrades.
+document.getElementById('againBtn').addEventListener('click',()=>startGame({keep:true}));
 document.getElementById('settingsBtn').addEventListener('click',()=>{
   overScreen.classList.add('hidden');startScreen.classList.remove('hidden');S.state='menu';
   resetSaucerMenu();
@@ -131,7 +143,7 @@ export function pauseGame(){ if(S.state!=='playing')return; S.state='paused'; Be
 function resumeGame(){ if(S.state!=='paused')return; S.state='playing'; pauseScreen.classList.add('hidden'); }
 function toMenu(){ pauseScreen.classList.add('hidden'); overScreen.classList.add('hidden');
   startScreen.classList.remove('hidden'); hud.classList.remove('on'); S.state='menu';
-  BeamSFX.stop();S.prevBeam=false;Music.set('off');Story.reset();resetSaucerMenu(); }
+  BeamSFX.stop();S.prevBeam=false;Music.set('off');Story.reset();clearUpgradeItems();resetSaucerMenu(); }
 document.getElementById('pauseBtn').addEventListener('click',pauseGame);
 // The floating PULL button (shown by special.js only when charged) is a
 // press-and-hold trigger. Track the pressing pointer so the pull stops when

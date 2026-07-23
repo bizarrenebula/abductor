@@ -14,6 +14,7 @@ import { chunks } from '../world/chunks.js';
 import { saucer } from '../systems/saucer.js';
 import { effBeamR } from '../systems/beam.js';
 import { checkMissions } from '../systems/missions.js';
+import { Upgrades } from '../systems/upgrades.js';
 import { beep } from '../audio/music.js';
 import { spawnPop } from '../ui/pop.js';
 import { Story } from '../story/story.js';
@@ -70,6 +71,7 @@ export function updateCrystals(dt,beamActive){
       scene.remove(p);pickups.splice(i,1);
       for(const [k,c] of chunks){const j=c.pickups.indexOf(p);if(j>=0){c.pickups.splice(j,1);break;}}
       checkMissions();
+      Upgrades.gain(3);       // crystals count toward the ship-upgrade ladder too
     }
   }
 }

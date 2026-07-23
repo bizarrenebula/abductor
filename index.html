@@ -145,10 +145,27 @@
   #zoomCtl .lbl{font-size:9px}
   #zoomCtl input[type=range]{width:104px;height:4px}
 
-  #hBuff{top:118px;right:16px;text-align:right;display:none}
+  #hBuff{top:238px;right:16px;text-align:right;display:none}
   #hBuff .wx{font-size:11px;font-weight:700;color:var(--good)}
   #hBuff.expiring{animation:buffPulse .8s ease-in-out infinite}
   @keyframes buffPulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* ship-upgrade readout: current beam/cloak tier + bar, plus a pip per
+     installed field part (Thrusters / Engine / Ring) */
+  #hUpgrade{top:112px;right:16px;text-align:right;min-width:152px}
+  #hUpgrade .upgName{font-size:13px;font-weight:800;letter-spacing:.05em;color:var(--beam);
+    text-shadow:0 0 8px rgba(143,232,184,.3);margin-top:2px}
+  #upgBar{height:5px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;margin:6px 0 4px}
+  #upgFill{height:100%;width:0%;background:linear-gradient(90deg,var(--beam-dim),var(--beam));
+    box-shadow:0 0 10px var(--beam);transition:width .25s ease}
+  #hUpgrade .upgNext{font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+  #upgPips{display:flex;gap:5px;justify-content:flex-end;margin-top:7px}
+  .upgPip{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:8px;font-weight:800;border:1px solid var(--edge);color:var(--ink-soft);
+    background:rgba(255,255,255,.03)}
+  .upgPip.got{color:#04140e;border-color:var(--beam);
+    background:radial-gradient(circle at 40% 35%,#b9ffdd,var(--beam) 70%);
+    box-shadow:0 0 10px rgba(143,232,184,.6)}
   /* "great pull" trigger — a fixed target above the centre of the right half
      (75% across, above mid-height), revealed (.show) only while fully charged */
   #spBtn{position:fixed;left:75%;top:38%;transform:translate(-50%,-50%) scale(.6);
@@ -191,6 +208,24 @@
     24%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1)}}
   @media (max-width:600px){#banner b{font-size:15px;letter-spacing:.18em}}
   @media (max-width:380px){#banner b{font-size:13px;letter-spacing:.12em}}
+
+  /* ship-upgrade achievement toast — a cheerful card that pops, holds, fades */
+  #achv{position:fixed;left:0;right:0;top:40%;z-index:32;display:flex;justify-content:center;
+    padding:0 24px;pointer-events:none}
+  .achv-card{max-width:min(420px,88vw);text-align:center;
+    background:linear-gradient(180deg,rgba(10,26,20,.94),rgba(6,16,12,.94));
+    border:1px solid rgba(143,232,184,.5);border-radius:14px;padding:16px 20px;
+    box-shadow:0 0 40px rgba(89,255,176,.35),inset 0 0 24px rgba(89,255,176,.06);
+    opacity:0;transform:translateY(14px) scale(.9)}
+  #achv.show .achv-card{animation:achvIn 5.2s ease forwards}
+  @keyframes achvIn{0%{opacity:0;transform:translateY(14px) scale(.9)}
+    7%{opacity:1;transform:translateY(0) scale(1.03)}13%{transform:scale(1)}
+    88%{opacity:1;transform:scale(1)}100%{opacity:0;transform:translateY(-8px) scale(.98)}}
+  .achv-eyebrow{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--ink-soft)}
+  .achv-title{font-size:19px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--beam);text-shadow:0 0 20px rgba(143,232,184,.7);margin:6px 0 8px}
+  .achv-guide{font-size:12px;line-height:1.5;letter-spacing:.03em;color:var(--ink)}
+  @media (max-width:600px){.achv-title{font-size:16px;letter-spacing:.1em}.achv-guide{font-size:11px}}
   @media (max-width:700px){
     .panel{padding:6px 9px}.val{font-size:16px}
     #hMission{top:auto;bottom:14px;left:16px;max-width:72vw;
@@ -202,6 +237,12 @@
     #hStory .lbl{display:none}
     #hStory .mtx{font-size:9px;letter-spacing:.12em;margin-top:0}
     #minimap{width:88px;height:88px;left:16px;bottom:80px}
+    #hUpgrade{top:104px;right:12px;min-width:0}
+    #hUpgrade .lbl{display:none}
+    #hUpgrade .upgName{font-size:11px}
+    #hUpgrade .upgNext{font-size:8px;letter-spacing:.1em}
+    .upgPip{width:15px;height:15px}
+    #hBuff{top:206px}
   }
 
   #hScore{top:16px;left:16px;min-width:96px}
@@ -452,6 +493,17 @@
     <div id="bar"><div id="barFill"></div></div>
   </div>
   <div class="panel" id="hBuff"><div class="lbl" data-i18n="hud.boon">Boon</div><div class="wx" id="buffName">—</div></div>
+  <div class="panel" id="hUpgrade">
+    <div class="lbl" data-i18n="upg.hud.label">Ship</div>
+    <div class="upgName" id="upgName">—</div>
+    <div id="upgBar"><div id="upgFill"></div></div>
+    <div class="upgNext" id="upgNext">—</div>
+    <div id="upgPips">
+      <span class="upgPip" id="upgPip_thrusters" title="Thrusters">T</span>
+      <span class="upgPip" id="upgPip_highEngine" title="Engine">E</span>
+      <span class="upgPip" id="upgPip_magRing" title="Ring">M</span>
+    </div>
+  </div>
   <button id="pauseBtn" class="hbtn" aria-label="Menu">❚❚</button>
   <button id="spBtn" aria-label="Special pull" data-i18n="hud.pull">PULL</button>
   <div class="panel" id="zoomCtl"><span class="lbl" data-i18n="hud.zoom">Zoom</span>
@@ -471,6 +523,14 @@
 <div id="joyR" class="joy"><div class="joy-hint" data-i18n="hud.dblBeam">double-tap to beam</div><div class="joy-base"></div><div class="joy-knob"></div></div>
 <div id="pop"></div>
 <div id="banner"></div>
+<!-- cheerful ship-upgrade achievement toast: what it grants + how to use it -->
+<div id="achv" aria-hidden="true">
+  <div class="achv-card">
+    <div class="achv-eyebrow">SHIP UPGRADE</div>
+    <div class="achv-title">—</div>
+    <div class="achv-guide">—</div>
+  </div>
+</div>
 
 <!-- START -->
 <!-- SPLASH / LOADER -->

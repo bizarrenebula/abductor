@@ -32,8 +32,9 @@ const _dayHemi=new THREE.Color(), _nightHemi=new THREE.Color();
 export function applyDayNightLight(){
   const f=S.dayF;                                   // 0 night, 1 day
   const wc=WORLD_CFG[World.name];
-  // ambient: soft lift, not a flood
-  hemi.intensity=worldHemiBase*(env.usePost?1.2:1.48)*(0.7+1.15*f);
+  // ambient: kept low in Cinematic so shadows stay deep and mysterious (the
+  // drama comes from the directional key against dark fill, not a flat flood)
+  hemi.intensity=worldHemiBase*(env.usePost?1.02:1.48)*(0.62+1.18*f);
   // warm sky fill by day; keep the world's cool night tint
   if(wc){_nightHemi.setHex(wc.hemi[0]);_dayHemi.setHex(World.name==='mars'?0xcaa080:0xbfd4e0);
     hemi.color.copy(_nightHemi).lerp(_dayHemi,f);}
@@ -54,7 +55,7 @@ export function applyDayNightLight(){
   if(moon)moon.material.opacity=0.9*(1-f)+0.15;
 }
 export const WORLD_CFG={
-  earth:{sky:['#010203','#040a0d','#0a1416'],fog:0x070e10,hemi:[0x2c4450,0.42],sun:[0x8fb2c8,0.7],
+  earth:{sky:['#010203','#040a0d','#0a1416'],fog:0x070e10,hemi:[0x264a5a,0.42],sun:[0x8fb2c8,0.7],
     water:true,stars:0.7,moonTint:0xffffff,label:'Earth'},
   moon:{sky:['#000000','#010203','#040608'],fog:0x04060a,hemi:[0x40454e,0.35],sun:[0xdfe8f4,0.95],
     water:false,stars:1.0,moonTint:0x7fa8d8,label:'Moon'},
@@ -70,7 +71,7 @@ function makeSky(cols){
   ctx.fillStyle=g;ctx.fillRect(0,0,8,256);
   const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;
 }
-export function refreshHemi(){hemi.intensity=worldHemiBase*(env.usePost?1.2:1.48)*(0.55+1.15*(S?S.dayF:1));}
+export function refreshHemi(){hemi.intensity=worldHemiBase*(env.usePost?1.02:1.48)*(0.62+1.18*(S?S.dayF:1));}
 export function applyWorld(w){
   World.name=w;const cfg=WORLD_CFG[w];
   scene.background=skyCache[w]||(skyCache[w]=makeSky(cfg.sky));

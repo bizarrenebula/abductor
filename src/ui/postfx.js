@@ -10,10 +10,10 @@ import { env } from '../core/env.js';
 import { renderer, scene, camera, getEnv } from '../core/engine.js';
 import { refreshHemi } from '../world/world-config.js';
 
-const BLOOM_THRESHOLD=0.82;   // luminance above which pixels bloom (high, so only
-                              // the beam, crystals, lights + sun hotspots glow —
-                              // not the whole daylit/foggy ground)
-const BLOOM_STRENGTH=0.5;     // how much bloom is added back
+const BLOOM_THRESHOLD=0.80;   // luminance above which pixels bloom (high, so mostly
+                              // the beam, crystals, lights + hotspots glow — not the
+                              // whole daylit/foggy ground)
+const BLOOM_STRENGTH=0.62;    // how much bloom is added back (bright alien glows)
 const BLOOM_ITERS=2;          // blur passes (more = softer, wider glow)
 
 let rtScene,rtHalfA,rtHalfB,rtComp;
@@ -52,16 +52,20 @@ const compMat=new THREE.ShaderMaterial({uniforms:{tScene:{value:null},tBloom:{va
     void main(){vec3 sc=texture2D(tScene,vUv).rgb;vec3 bl=texture2D(tBloom,vUv).rgb;
     vec3 col=sc+bl*bloomK;
     float l=dot(col,vec3(0.299,0.587,0.114));
-    // --- Tim Burton grade: a near-monochrome silver/gothic world, so the
-    //     emissive greens (beam, crystals, HUD) pop as almost the only colour ---
-    col=mix(vec3(l),col,0.58);                       // heavy desaturation toward silver
-    vec3 shadowT=vec3(0.78,0.90,1.16);               // cold moonlit blue in the shadows
-    vec3 highT =vec3(1.08,1.05,1.00);                // pale bone-silver in the lights
-    col*=mix(shadowT,highT,smoothstep(0.05,0.85,l)); // split-tone
-    col=(col-0.5)*1.22+0.5;                          // expressionist contrast
-    col=max(col-0.035,0.0);                          // deep crushed blacks
-    vec2 q=vUv-0.5;float vig=1.0-smoothstep(0.26,0.95,length(q));
-    col*=mix(0.55,1.0,vig);                          // heavy, tight vignette (CSS veil adds more)
+    // --- dark, alien, mysterious — with BRIGHT colour where it matters ---
+    // Vibrance: mute dull areas for mood, but push already-colourful pixels
+    // (beam, crystals, alien glows) much more saturated so they read as vivid
+    // colour against the gloom.
+    float mx=max(col.r,max(col.g,col.b)),mn=min(col.r,min(col.g,col.b));
+    float sat=(mx-mn)/(mx+0.02);
+    col=mix(vec3(l),col,0.85+0.95*sat);
+    // Alien tint: teal-cyan in the shadows, faintly cool in the lights.
+    col*=mix(vec3(0.72,0.95,1.13),vec3(1.06,1.03,1.02),smoothstep(0.03,0.80,l));
+    col=(col-0.5)*1.24+0.5;                          // deep, moody contrast
+    col=max(col-0.045,0.0);                          // crushed blacks (the dark)
+    col*=0.96;                                       // a touch darker overall
+    vec2 q=vUv-0.5;float vig=1.0-smoothstep(0.24,0.95,length(q));
+    col*=mix(0.5,1.0,vig);                           // tight vignette frames the mystery
     gl_FragColor=vec4(col,1.0);}`});
 /* FXAA — final edge-smoothing pass over the composited image. The offscreen
    render targets aren't MSAA-antialiased the way the direct canvas is, so this

@@ -36,4 +36,6 @@ export const discMat=new THREE.ShaderMaterial({
 export const disc=new THREE.Mesh(new THREE.CircleGeometry(1,64),discMat);
 disc.rotation.x=-Math.PI/2;scene.add(disc);
 
-export function effBeamR(){return S.beamR*(buff==='wide'?1.6:1);}
+// S.upBeam is the gradual beam-width upgrade (1 at the start); the WIDE MAW buff
+// stacks a temporary ×1.6 on top of whatever the ship has earned.
+export function effBeamR(){return S.beamR*(S.upBeam||1)*(buff==='wide'?1.6:1);}

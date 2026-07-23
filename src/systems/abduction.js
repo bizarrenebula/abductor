@@ -11,6 +11,7 @@ import { effBeamR } from './beam.js';
 import { buff, grantBuff } from './buffs.js';
 import { Special } from './special.js';
 import { checkMissions } from './missions.js';
+import { Upgrades } from './upgrades.js';
 import { beep } from '../audio/music.js';
 import { cry } from '../audio/sfx.js';
 import { spawnPop } from '../ui/pop.js';
@@ -63,6 +64,7 @@ export function triggerAbduct(a){
   scoreV.textContent=S.score;
   specV.textContent=t('hud.taken',{n:S.taken});
   checkMissions();
+  Upgrades.gain(pts);       // every catch feeds the ship-upgrade ladder
   Special.gainAnimal();
   if(Story.active)Story.animalHook(nm);
   if(S.taken%4===0)grantBuff();

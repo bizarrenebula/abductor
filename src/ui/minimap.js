@@ -4,6 +4,7 @@
    ========================================================================= */
 import { S } from '../core/state.js';
 import { pickups } from '../entities/registry.js';
+import { upgradeItems } from '../entities/upgradeItems.js';
 import { saucer } from '../systems/saucer.js';
 import { Story } from '../story/story.js';
 
@@ -42,6 +43,12 @@ export function drawMinimap(dt){
   };
   // crystal locations — always shown (fuel + collectible)
   for(const pk of pickups)plot(pk.position.x,pk.position.z,CRYSTAL_COL,1.7,false);
+
+  // findable ship-upgrade parts — special pulsing markers, larger when in sight
+  for(const it of upgradeItems){
+    const col='#'+it.userData.col.toString(16).padStart(6,'0');
+    plot(it.position.x,it.position.z,col,it.userData.onScreen?3.8:2.6,true);
+  }
 
   // current mission's objective markers only (no creature swarm)
   if(Story.active && Story.stage>=1 && Story.stage<=3){

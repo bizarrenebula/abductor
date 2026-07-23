@@ -16,6 +16,10 @@ export const S={
   crystals:0, missionIdx:0, prevBeam:false, crashReason:null,
   isDay:true, dayF:1, storyMode:false,
   cloak:false, warnLevel:0, elapsed:0,
+  // Ship upgrade perk (see systems/upgrades.js). The ship starts "grounded":
+  // no altitude control, standard engines, basic beam, cloak locked. Collecting
+  // raises upBeam/upSpeed multipliers and flips upAltitude/upCloak on.
+  upBeam:1, upSpeed:1, upAltitude:false, upCloak:false,
   hover:HOVER_BASE,        // commanded height above terrain; swipe on the ship to change
   hoverV:0,                // climb/dive rate (world u/s) — integrated with momentum
   agl:HOVER_BASE,          // actual height above ground, recomputed each frame

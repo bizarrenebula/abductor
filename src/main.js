@@ -24,6 +24,7 @@ import { updateAnimals } from './entities/animals.js';
 import { updateCrystals } from './entities/crystals.js';
 import { updateProps } from './entities/props.js';
 import { updateVehicles } from './entities/vehicles.js';
+import { updateUpgradeItems } from './entities/upgradeItems.js';
 
 import { saucer, beamLight, shipLight, ebarBG, ebarFill3, updateEnergyBar } from './systems/saucer.js';
 import { beam, beamMat, disc, discMat, effBeamR } from './systems/beam.js';
@@ -32,6 +33,7 @@ import { buff, updateBuff } from './systems/buffs.js';
 import { applyCloakVisual } from './systems/cloak.js';
 import { updateCollision } from './systems/collision.js';
 import { Special } from './systems/special.js';
+import { Upgrades } from './systems/upgrades.js';
 
 import { updateMeteors } from './hazards/meteors.js';
 import { updateGeysers } from './hazards/geysers.js';
@@ -139,7 +141,7 @@ function animate(){
     const ax=rx*side+fx*fwd, az=rz*side+fz*fwd;
     // Beaming keeps full steering but cuts thrust (BEAM_MOVE) — you fly slower
     // while feeding, not stuck. Handling (drag) stays the same so it still glides.
-    const ACC=MOVE_ACC*(beamOn?BEAM_MOVE:1)*(buff==='speed'?1.6:1)*(World.name==='moon'?1.4:1)*(1.2-0.35*S.dayF);   // faster at night
+    const ACC=MOVE_ACC*(S.upSpeed||1)*(beamOn?BEAM_MOVE:1)*(buff==='speed'?1.6:1)*(World.name==='moon'?1.4:1)*(1.2-0.35*S.dayF);   // faster at night; S.upSpeed is the earned engine upgrade
     S.vel.x+=ax*ACC*dt; S.vel.z+=az*ACC*dt;
     // drag / gradual stop with delay
     const drag=Math.pow(World.name==='moon'?0.05:0.08,dt);
@@ -154,6 +156,9 @@ function animate(){
     if(keys['w'])ah+=1;
     if(keys['s'])ah-=1;
     ah=clamp(ah,-1,1);
+    // Grounded start: altitude is locked until the THRUSTERS upgrade. Any climb
+    // intent is ignored (and gently explained once) so the ship holds base hover.
+    if(!S.upAltitude){ if(ah)Upgrades.altBlockedHint(); ah=0; }
     S.hoverV+=ah*HOVER_ACC*dt;
     S.hoverV*=Math.pow(HOVER_DRAG,dt);
     S.hoverV=clamp(S.hoverV,-HOVER_VMAX,HOVER_VMAX);
@@ -254,6 +259,7 @@ function animate(){
     updateGeysers(dt);
     updateLightning(dt);
     updateVehicles(dt,beamOn&&bp>0.5);
+    updateUpgradeItems(dt);     // findable ship-part pickups (thrusters / engine / ring)
     updateCollision();          // trees / barns / stations are solid — may flip state to 'crashing'
     Story.update(dt,beamOn&&bp>0.5);
 

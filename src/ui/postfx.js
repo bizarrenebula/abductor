@@ -1,13 +1,20 @@
 /* =========================================================================
-   POST FX — self-contained half-res color grade + vignette (bloom scaffolding
-   retained but disabled). Post is fragile on iOS Safari, so setFX('basic')
-   falls back to direct rendering; renderFrame catches a failed compose and
-   drops to basic automatically.
+   POST FX — the "Cinematic" pipeline: a half-res threshold + separable blur
+   BLOOM, composited over the scene with a filmic-ish colour grade + vignette,
+   plus image-based reflections (scene.environment). setFX('basic') skips it all
+   and renders direct — lighter, and the safe path on iOS Safari, where post is
+   fragile; renderFrame also catches a failed compose and drops to basic.
    ========================================================================= */
 import { THREE } from '../core/three.js';
 import { env } from '../core/env.js';
-import { renderer, scene, camera } from '../core/engine.js';
+import { renderer, scene, camera, getEnv } from '../core/engine.js';
 import { refreshHemi } from '../world/world-config.js';
+
+const BLOOM_THRESHOLD=0.82;   // luminance above which pixels bloom (high, so only
+                              // the beam, crystals, lights + sun hotspots glow —
+                              // not the whole daylit/foggy ground)
+const BLOOM_STRENGTH=0.5;     // how much bloom is added back
+const BLOOM_ITERS=2;          // blur passes (more = softer, wider glow)
 
 let rtScene,rtHalfA,rtHalfB;
 function makeRT(w,h){return new THREE.WebGLRenderTarget(w,h,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat});}
@@ -48,9 +55,22 @@ const compMat=new THREE.ShaderMaterial({uniforms:{tScene:{value:null},tBloom:{va
     gl_FragColor=vec4(col,1.0);}`});
 function fxPass(m,target){fxQuad.material=m;renderer.setRenderTarget(target||null);renderer.render(fxScene,fxCam);}
 function composeRender(){
-  // bloom removed: render the scene, then apply only the color grade + vignette
+  // 1) render the scene at full res
   renderer.setRenderTarget(rtScene);renderer.render(scene,camera);
-  compMat.uniforms.tScene.value=rtScene.texture;compMat.uniforms.tBloom.value=rtScene.texture;
+  // 2) extract bright areas at half res
+  brightMat.uniforms.threshold.value=BLOOM_THRESHOLD;
+  brightMat.uniforms.tDiffuse.value=rtScene.texture;
+  fxPass(brightMat,rtHalfA);
+  // 3) separable gaussian blur, ping-ponging H then V (a few iterations widen it)
+  const bw=rtHalfA.width, bh=rtHalfA.height;
+  for(let i=0;i<BLOOM_ITERS;i++){
+    blurMat.uniforms.tDiffuse.value=rtHalfA.texture; blurMat.uniforms.dir.value.set(1/bw,0); fxPass(blurMat,rtHalfB);
+    blurMat.uniforms.tDiffuse.value=rtHalfB.texture; blurMat.uniforms.dir.value.set(0,1/bh); fxPass(blurMat,rtHalfA);
+  }
+  // 4) composite bloom over the scene + colour grade + vignette
+  compMat.uniforms.tScene.value=rtScene.texture;
+  compMat.uniforms.tBloom.value=rtHalfA.texture;
+  compMat.uniforms.bloomK.value=BLOOM_STRENGTH;
   fxPass(compMat,null);
   renderer.setRenderTarget(null);
 }
@@ -61,6 +81,8 @@ export function setFX(name){
   env.usePost=(name==='full');
   // basic mode loses bloom+grade, so lift exposure/ambience to stay readable
   renderer.toneMappingExposure=env.usePost?1.08:1.18;
+  // image-based reflections: only in Cinematic, so Basic stays a pure direct render
+  try{ scene.environment = env.usePost ? getEnv() : null; }catch(e){}
   refreshHemi();
 }
 export function renderFrame(){

@@ -16,6 +16,7 @@ export const S={
   crystals:0, missionIdx:0, prevBeam:false, crashReason:null,
   isDay:true, dayF:1, storyMode:false,
   cloak:false, warnLevel:0, elapsed:0,
+  gfx:'full',              // graphics quality: 'full' (cinematic) | 'basic' — set by screens.js
   // Ship upgrade perk (see systems/upgrades.js). The ship starts "grounded":
   // no altitude control, standard engines, basic beam, cloak locked. Collecting
   // raises upBeam/upSpeed multipliers and flips upAltitude/upCloak on.

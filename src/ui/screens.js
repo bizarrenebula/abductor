@@ -5,6 +5,7 @@
    ========================================================================= */
 import { S } from '../core/state.js';
 import { HOVER_BASE } from '../core/constants.js';
+import { env } from '../core/env.js';
 import { input, resetInputTouch } from '../core/input.js';
 import { reseed } from '../world/noise.js';
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
@@ -247,8 +248,24 @@ document.getElementById('confirmBtn').addEventListener('click',()=>closeSaucerPa
 
 /* The splash now hands straight to the setup screen — no landing gate. */
 
-/* single tuned graphics mode — auto-drops to basic only if the GPU rejects post-fx */
-setFX('full');
+/* ---------- graphics quality toggle (Tuning sector) ----------
+   Cinematic = bloom + colour grade + IBL reflections; Basic = direct render.
+   Default follows the device (desktop → Cinematic, mobile → Basic), overridable
+   here and remembered. renderFrame still auto-drops to Basic if a GPU rejects
+   post-fx mid-run. */
+const segGfx=document.getElementById('segGfx');
+const oGraphics=document.getElementById('oGraphics');
+export function applyGfx(mode){
+  S.gfx=(mode==='full')?'full':'basic';
+  setFX(S.gfx==='full'?'full':'basic');
+  if(segGfx)segGfx.querySelectorAll('[data-g]').forEach(x=>x.classList.toggle('on',x.dataset.g===S.gfx));
+  if(oGraphics)oGraphics.textContent=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
+  try{localStorage.setItem('abductor.gfx',S.gfx);}catch(e){}
+}
+if(segGfx)segGfx.addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(b)applyGfx(b.dataset.g);});
+let _gfx0=null; try{_gfx0=localStorage.getItem('abductor.gfx');}catch(e){}
+if(_gfx0!=='full'&&_gfx0!=='basic')_gfx0=env.LOW_END?'basic':'full';
+applyGfx(_gfx0);
 
 /* Asset quality is decided by the device in core/env.js — no toggle here. */
 
@@ -260,6 +277,7 @@ onLang(()=>{
   document.getElementById('oWorld').textContent=t('world.'+S.world);
   document.getElementById('oMode').textContent=t(S.storyMode?'mode.story':'mode.explore');
   document.getElementById('oEnergy').textContent=t(S.energyMode==='drain'?'reactor.drain':'reactor.inf');
+  if(oGraphics)oGraphics.textContent=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
   if(specV)specV.textContent=t('hud.taken',{n:S.taken});
   Story._last=''; if(Story.active)Story.hud();
 });

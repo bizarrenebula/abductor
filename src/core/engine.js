@@ -72,18 +72,33 @@ export const moon=(function(){
   sp.scale.set(130,130,1);scene.add(sp);return sp;
 })();
 
-/* tiny night-sky reflection env so metallic GLB materials show color */
+/* Night-sky reflection env so metallic surfaces catch colour + a moon highlight.
+   A small procedural equirect (dark horizon gradient, a soft moon glow, a few
+   star specks) is PMREM-prefiltered into a proper IBL map — no external HDRI,
+   so it stays a single self-contained file. Used both as per-material envMap
+   (assets.js) and, in Cinematic mode, as scene.environment (postfx.setFX). */
 let ENVMAP=null;
 export function getEnv(){
   if(ENVMAP)return ENVMAP;
   try{
-    const c=document.createElement('canvas');c.width=64;c.height=32;
+    const W=256,H=128;
+    const c=document.createElement('canvas');c.width=W;c.height=H;
     const x=c.getContext('2d');
-    const g=x.createLinearGradient(0,0,0,32);
-    g.addColorStop(0,'#33495c');g.addColorStop(0.5,'#16222b');g.addColorStop(1,'#05080a');
-    x.fillStyle=g;x.fillRect(0,0,64,32);
+    // deep sky → moonlit horizon gradient (kept dark to preserve the mood)
+    const g=x.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#0a1420');g.addColorStop(0.42,'#16303f');g.addColorStop(0.62,'#1d3b4b');
+    g.addColorStop(0.8,'#0c161c');g.addColorStop(1,'#04070a');
+    x.fillStyle=g;x.fillRect(0,0,W,H);
+    // faint stars in the upper band
+    x.fillStyle='rgba(180,205,215,0.5)';
+    for(let i=0;i<70;i++){const sx=Math.random()*W, sy=Math.random()*H*0.4;x.fillRect(sx,sy,1,1);}
+    // a soft moon glow — a bright spot the metal saucer can catch as a highlight
+    const mx=W*0.72, my=H*0.34, gr=x.createRadialGradient(mx,my,1,mx,my,26);
+    gr.addColorStop(0,'rgba(220,232,236,0.95)');gr.addColorStop(0.4,'rgba(150,180,192,0.5)');gr.addColorStop(1,'rgba(150,180,192,0)');
+    x.fillStyle=gr;x.beginPath();x.arc(mx,my,26,0,7);x.fill();
     const tex=new THREE.CanvasTexture(c);
     tex.mapping=THREE.EquirectangularReflectionMapping;
+    tex.encoding=THREE.sRGBEncoding;
     const pm=new THREE.PMREMGenerator(renderer);
     ENVMAP=pm.fromEquirectangular(tex).texture;
     pm.dispose();tex.dispose();

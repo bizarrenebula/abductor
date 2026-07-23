@@ -600,6 +600,13 @@
         <div class="pan" id="panExtra">
           <div class="pan-h" data-i18n="field.tuning">Tuning</div>
           <div class="field">
+            <div class="row"><span class="name" data-i18n="field.graphics">Graphics</span><span class="out" id="oGraphics">Cinematic</span></div>
+            <div class="seg" id="segGfx">
+              <button data-g="full" class="on" data-i18n="gfx.cinematic">Cinematic</button>
+              <button data-g="basic" data-i18n="gfx.basic">Basic</button>
+            </div>
+          </div>
+          <div class="field">
             <div class="row"><span class="name" data-i18n="field.reactor">Reactor</span><span class="out" id="oEnergy">Drainable</span></div>
             <div class="seg" id="segEnergy">
               <button data-e="drain" class="on" data-i18n="reactor.drain">Drainable</button>
@@ -618,6 +625,13 @@
             <div class="row"><span class="name" data-i18n="field.time">Survey window</span><span class="out" id="oTime">3 min</span></div>
             <input type="range" id="sTime" min="1" max="15" step="1" value="3">
             <label class="chk"><input type="checkbox" id="cEndless"> <span data-i18n="opt.endless">endless — no time limit</span></label>
+          </div>
+          <div class="field">
+            <div class="row"><span class="name" data-i18n="field.musicSrc">Music</span><span class="out" id="oMusicSrc">Soundtrack</span></div>
+            <div class="seg" id="segMusic">
+              <button data-ms="soundtrack" class="on" data-i18n="music.soundtrack">Soundtrack</button>
+              <button data-ms="procedural" data-i18n="music.procedural">Procedural</button>
+            </div>
           </div>
           <div class="field">
             <div class="row"><span class="name" data-i18n="field.music">Music volume</span></div>

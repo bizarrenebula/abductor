@@ -108,11 +108,17 @@ A round radar in the corner shows your surroundings, with green blips for crysta
 
 ## Audio
 
-Everything is synthesized live in the browser — no audio files:
+Two music sources, switchable in settings (**Music: Soundtrack / Procedural**):
 
-- A distinct **soundtrack per world** — ambient dread on Earth, a vast empty drift on the Moon, a driving pulse on Mars.
+- **Soundtrack** (default) — a bundled orchestral track (`audio/soundtrack.mp3`), looped.
+- **Procedural** — the original live-synthesized, per-world themes: ambient dread on Earth, a vast empty drift on the Moon, a driving pulse on Mars.
+
+Over either source, a synthesized **theremin** wails and glides for that 50s/80s alien-movie (*Mars Attacks!*) atmosphere. The rest is still synthesized live — no files:
+
 - The **beam** ignites, hums while it feeds, and powers down.
 - Abducted creatures let out a short, sharp **cry**.
+
+The bundled MP3 is the only audio asset; if it fails to load, the game falls back to the procedural engine, so there's always music.
 
 (iOS note: audio needs one tap to unlock, and plays even with the silent switch on.)
 

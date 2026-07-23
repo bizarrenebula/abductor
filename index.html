@@ -149,14 +149,20 @@
   #hBuff .wx{font-size:11px;font-weight:700;color:var(--good)}
   #hBuff.expiring{animation:buffPulse .8s ease-in-out infinite}
   @keyframes buffPulse{0%,100%{opacity:1}50%{opacity:.4}}
-  #spBtn{position:absolute;left:16px;top:96px;width:72px;height:72px;border-radius:50%;
-    pointer-events:auto;cursor:pointer;border:1px solid var(--edge);
-    color:#dff5e8;text-shadow:0 1px 3px rgba(0,0,0,.9);
-    font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.1em;
-    background:conic-gradient(var(--beam) 360deg, rgba(255,255,255,.05) 360deg);
-    box-shadow:0 0 24px rgba(0,0,0,.5)}
-  #spBtn.ready{animation:spPulse 1.6s infinite}
-  @keyframes spPulse{0%,100%{box-shadow:0 0 14px rgba(143,232,184,.35)}50%{box-shadow:0 0 34px rgba(143,232,184,.8)}}
+  /* floating "great pull" trigger — parked at the last right-stick point by
+     special.js, revealed (.show) only while the special is fully charged */
+  #spBtn{position:fixed;left:0;top:0;transform:translate(-50%,-50%) scale(.6);
+    width:84px;height:84px;border-radius:50%;
+    pointer-events:none;opacity:0;cursor:pointer;border:1.5px solid var(--beam);
+    color:#eafff4;text-shadow:0 1px 3px rgba(0,0,0,.9);
+    font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.12em;
+    background:radial-gradient(circle at 42% 36%,rgba(143,232,184,.85),rgba(30,120,86,.6) 70%);
+    box-shadow:0 0 26px rgba(143,232,184,.6),inset 0 0 16px rgba(0,0,0,.3);
+    transition:opacity .18s ease,transform .18s ease;z-index:15}
+  #spBtn.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);
+    animation:spPulse 1.4s infinite}
+  @keyframes spPulse{0%,100%{box-shadow:0 0 20px rgba(143,232,184,.5),inset 0 0 16px rgba(0,0,0,.3)}
+    50%{box-shadow:0 0 42px rgba(143,232,184,.95),inset 0 0 16px rgba(0,0,0,.3)}}
   .balloon .bsp{display:block;font-size:9px;letter-spacing:.2em;text-transform:uppercase;font-weight:800;opacity:.8}
   .bk{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.12em;
     text-transform:uppercase;color:var(--ink-soft);padding:5px 2px;border-bottom:1px dashed var(--edge)}

@@ -11,10 +11,12 @@
    TOUCH — two dynamic joysticks, one per screen half:
      · RIGHT stick: y = forward/back, x = strafe   (fly the ship around)
      · LEFT  stick: x = rotate,       y = altitude (steer facing + height)
-     · double-tap + hold the RIGHT stick opens the beam (fly while beaming)
+     · double-tap + hold EITHER stick opens the beam (fly while beaming), so the
+       beam is reachable from any point on the screen with either thumb
      · press-and-hold the SAUCER itself for 2s to toggle cloak
      · the ZOOM slider (top-right) sets the camera distance
-     · PULL button fires the special
+     · when the special is charged, a glowing PULL button floats at the last
+       right-stick press point; press-and-hold it to unleash the Great Pull
 
    The module only produces intents on `input.*`; the main loop integrates them
    with momentum, so nothing here ever writes a position.
@@ -29,6 +31,7 @@ export const keys={};
 export const input={
   tFwd:0, tStrafe:0, tTurn:0, tClimb:0,   // touch joystick axes, each -1..1
   beamHold:false, spHeld:false,
+  pullX:null, pullY:null,                  // last right-stick press point; where the PULL button floats when charged
   zoom:1,                                  // camera-zoom multiplier, driven by the slider
   cloakProg:0,                             // 0..1 progress of the hold-the-ship-to-cloak timer
 };
@@ -49,7 +52,7 @@ function joy(h){ if(joyEl[h]===null)joyEl[h]=document.getElementById(h==='L'?'jo
 function showJoy(h,ox,oy){ const el=joy(h); if(!el)return; el.style.left=ox+'px';el.style.top=oy+'px';el.classList.add('on'); moveKnob(h,0,0); }
 function moveKnob(h,dx,dy){ const el=joy(h); if(!el)return; const k=el.querySelector('.joy-knob'); if(k)k.style.transform='translate('+dx+'px,'+dy+'px)'; }
 function hideJoy(h){ const el=joy(h); if(el)el.classList.remove('on'); }
-function setBeaming(on){ const el=joy('R'); if(el)el.classList.toggle('beaming',on); }   // hides the "double-tap" hint while beaming
+function setBeaming(h,on){ const el=joy(h); if(el)el.classList.toggle('beaming',on); }   // hides the "double-tap" hint while beaming
 
 // RIGHT stick = move the ship in the plane (forward/back + strafe); LEFT stick =
 // rotate the nose + altitude. So the right thumb flies the saucer around and the
@@ -66,7 +69,7 @@ function dz(v){ const d=0.12, a=Math.abs(v); return a<d?0:Math.sign(v)*((a-d)/(1
 // per-half state; `ids` holds the active pointer ids that started in that half.
 // The right half also tracks a double-tap so it can open the beam (see below).
 const half={
-  L:{ids:[],ox:0,oy:0,downT:0,moved:0},
+  L:{ids:[],ox:0,oy:0,downT:0,moved:0,beamPtr:null,lastWasTap:false,lastTapT:0,lastTapX:0,lastTapY:0},
   R:{ids:[],ox:0,oy:0,downT:0,moved:0,beamPtr:null,lastWasTap:false,lastTapT:0,lastTapX:0,lastTapY:0},
 };
 const ptrHalf=new Map();   // pointerId -> 'L' | 'R'
@@ -100,11 +103,16 @@ renderer.domElement.addEventListener('pointerdown',e=>{
   if(H.ids.length===1){
     H.ox=e.clientX;H.oy=e.clientY;H.downT=now;H.moved=0;
     showJoy(h,e.clientX,e.clientY);
-    // Right stick: a double-tap (this press soon after a quick tap nearby) opens
+    // Remember where the right stick was last pressed — the floating PULL button
+    // parks itself there so it appears right under the player's thumb when the
+    // special charges (see special.js).
+    if(h==='R'){ input.pullX=e.clientX; input.pullY=e.clientY; }
+    // Either stick: a double-tap (this press soon after a quick tap nearby) opens
     // the beam. It stays on while this finger is held, and the stick still moves,
     // so you can beam and fly with the same thumb. Releasing stops the beam.
-    if(h==='R'&&H.lastWasTap&&now-H.lastTapT<DTAP_MS&&Math.hypot(e.clientX-H.lastTapX,e.clientY-H.lastTapY)<DTAP_DIST){
-      H.beamPtr=e.pointerId;input.beamHold=true;setBeaming(true);H.lastWasTap=false;
+    // Mirroring it to both halves lets either thumb beam from any point on screen.
+    if(H.lastWasTap&&now-H.lastTapT<DTAP_MS&&Math.hypot(e.clientX-H.lastTapX,e.clientY-H.lastTapY)<DTAP_DIST){
+      H.beamPtr=e.pointerId;input.beamHold=true;setBeaming(h,true);H.lastWasTap=false;
     }
   }
 });
@@ -133,8 +141,11 @@ function endPtr(e){
   const wasAnchor=(H.ids[0]===e.pointerId);
   ptrHalf.delete(e.pointerId); pos.delete(e.pointerId);
   const i=H.ids.indexOf(e.pointerId); if(i>=0)H.ids.splice(i,1);
-  if(h==='R'&&e.pointerId===H.beamPtr){ input.beamHold=false;H.beamPtr=null;setBeaming(false); }
-  if(h==='R'&&wasAnchor){                                  // remember whether this press was a quick tap
+  if(e.pointerId===H.beamPtr){                             // this finger was holding the beam
+    H.beamPtr=null;setBeaming(h,false);
+    input.beamHold=(half.L.beamPtr!=null||half.R.beamPtr!=null);   // keep on if the other thumb still holds
+  }
+  if(wasAnchor){                                           // remember whether this press was a quick tap
     H.lastWasTap=(now-H.downT<TAP_MS&&H.moved<TAP_MOVE);
     H.lastTapT=now;H.lastTapX=H.ox;H.lastTapY=H.oy;
   }
@@ -160,9 +171,11 @@ if(zoomSlider){
 /* Reset all touch intents (called by startGame / respawn). */
 export function resetInputTouch(){
   input.tFwd=input.tStrafe=input.tTurn=input.tClimb=0;
-  input.beamHold=false;input.cloakProg=0;
-  half.L.ids.length=0;half.R.ids.length=0;half.R.beamPtr=null;half.R.lastWasTap=false;
+  input.beamHold=false;input.spHeld=false;input.cloakProg=0;
+  input.pullX=input.pullY=null;
+  half.L.ids.length=0;half.R.ids.length=0;
+  half.L.beamPtr=null;half.L.lastWasTap=false;half.R.beamPtr=null;half.R.lastWasTap=false;
   ptrHalf.clear();pos.clear();cancelCloakHold();
-  hideJoy('L');hideJoy('R');setBeaming(false);
+  hideJoy('L');hideJoy('R');setBeaming('L',false);setBeaming('R',false);
   if(zoomSlider){ zoomSlider.value='1'; input.zoom=1; }
 }

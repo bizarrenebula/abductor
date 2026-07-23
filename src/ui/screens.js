@@ -130,7 +130,16 @@ function toMenu(){ pauseScreen.classList.add('hidden'); overScreen.classList.add
   startScreen.classList.remove('hidden'); hud.classList.remove('on'); S.state='menu';
   BeamSFX.stop();S.prevBeam=false;Music.set('off');Story.reset(); }
 document.getElementById('pauseBtn').addEventListener('click',pauseGame);
-spBtn.addEventListener('pointerdown',e=>{e.preventDefault();input.spHeld=true;});
+// The floating PULL button (shown by special.js only when charged) is a
+// press-and-hold trigger. Track the pressing pointer so the pull stops when
+// THAT finger lifts — even after the button hides itself mid-drain, and even
+// while the other thumb keeps flying. Listening on the window (not the button)
+// guarantees we still catch the release once the button is hidden.
+let spPtr=null;
+spBtn.addEventListener('pointerdown',e=>{e.preventDefault();input.spHeld=true;spPtr=e.pointerId;});
+const spRelease=e=>{ if(e.pointerId===spPtr){input.spHeld=false;spPtr=null;} };
+addEventListener('pointerup',spRelease);
+addEventListener('pointercancel',spRelease);
 spBtn.addEventListener('contextmenu',e=>e.preventDefault());
 document.getElementById('resumeBtn').addEventListener('click',resumeGame);
 document.getElementById('restartBtn').addEventListener('click',startGame);

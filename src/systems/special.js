@@ -8,6 +8,7 @@ import { beep } from '../audio/music.js';
 import { animals } from '../entities/registry.js';
 import { saucer } from './saucer.js';
 import { spBtn } from '../ui/dom.js';
+import { input } from '../core/input.js';
 import { t } from '../i18n.js';
 
 export const Special={
@@ -35,9 +36,18 @@ export const Special={
     }else{
       this.charge=Math.min(1,this.charge+dt/60);
     }
-    const pct=(this.charge*100)|0;
-    spBtn.style.background='conic-gradient(var(--beam) '+(pct*3.6)+'deg, rgba(255,255,255,.05) '+(pct*3.6)+'deg)';
-    spBtn.classList.toggle('ready',this.charge>=1&&!this.active);
-    spBtn.textContent=this.active?'···':(this.charge>=1?t('hud.pull'):pct+'%');
+    // The PULL button only exists while the special is fully charged and idle.
+    // It floats at the last spot the right stick was pressed (so it lands under
+    // the player's thumb); press-and-hold fires the pull, which starts draining
+    // the charge — dropping below full — and so the button hides itself until it
+    // recharges. Until the first right-stick press we park it lower-right.
+    const show=this.charge>=1&&!this.active;
+    if(show){
+      const x=input.pullX!=null?input.pullX:innerWidth*0.72;
+      const y=input.pullY!=null?input.pullY:innerHeight*0.6;
+      spBtn.style.left=x+'px';spBtn.style.top=y+'px';
+      spBtn.textContent=t('hud.pull');
+    }
+    spBtn.classList.toggle('show',show);
   }
 };

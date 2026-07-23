@@ -32,12 +32,14 @@ const sLock=document.getElementById('sLock'),oLock=document.getElementById('oLoc
 const sBeam=document.getElementById('sBeam'),oBeam=document.getElementById('oBeam');
 const sTime=document.getElementById('sTime'),oTime=document.getElementById('oTime');
 const cEndless=document.getElementById('cEndless');
+const oExtra=document.getElementById('oExtra');   // "Tuning" sector chip summary
 
 function syncLabels(){
   oLock.textContent=(+sLock.value===0)?t('unit.instant'):t('unit.s',{n:(+sLock.value).toFixed(2)});
   oBeam.textContent=t('unit.m',{n:sBeam.value});
   oTime.textContent=cEndless.checked?t('unit.endless'):t('unit.min',{n:sTime.value});
   sTime.disabled=cEndless.checked;
+  if(oExtra)oExtra.textContent=cEndless.checked?t('unit.endless'):t('unit.min',{n:sTime.value});
 }
 [sLock,sBeam,sTime].forEach(el=>el.addEventListener('input',syncLabels));
 cEndless.addEventListener('change',syncLabels);
@@ -120,6 +122,7 @@ document.getElementById('startBtn').addEventListener('click',startGame);
 document.getElementById('againBtn').addEventListener('click',startGame);
 document.getElementById('settingsBtn').addEventListener('click',()=>{
   overScreen.classList.add('hidden');startScreen.classList.remove('hidden');S.state='menu';
+  resetSaucerMenu();
 });
 
 /* ---------- pause / navigation ---------- */
@@ -128,7 +131,7 @@ export function pauseGame(){ if(S.state!=='playing')return; S.state='paused'; Be
 function resumeGame(){ if(S.state!=='paused')return; S.state='playing'; pauseScreen.classList.add('hidden'); }
 function toMenu(){ pauseScreen.classList.add('hidden'); overScreen.classList.add('hidden');
   startScreen.classList.remove('hidden'); hud.classList.remove('on'); S.state='menu';
-  BeamSFX.stop();S.prevBeam=false;Music.set('off');Story.reset(); }
+  BeamSFX.stop();S.prevBeam=false;Music.set('off');Story.reset();resetSaucerMenu(); }
 document.getElementById('pauseBtn').addEventListener('click',pauseGame);
 // The floating PULL button (shown by special.js only when charged) is a
 // press-and-hold trigger. Track the pressing pointer so the pull stops when
@@ -175,6 +178,60 @@ document.getElementById('segMode').addEventListener('click',e=>{
   document.getElementById('oMode').textContent=t(S.storyMode?'mode.story':'mode.explore');
 });
 document.getElementById('stBtn').addEventListener('click',storyProceed);
+
+/* ---------- radial "saucer" setup menu ----------
+   The setup screen is a saucer seen from above: three sectors on the rim
+   (World / Mode / Tuning) and a live core in the middle. Slide a finger around
+   the rim and release on a sector — its controls pop up in the core. A small
+   "confirm" button closes the panel and turns the core back into a PLAY button;
+   pick another sector to tweak more, confirm again, then press PLAY. */
+const saucerMenu=document.getElementById('saucerMenu');
+const saucerHit=document.getElementById('saucerHit');
+const saucerHi=document.getElementById('saucerHi');
+const saucerCore=document.getElementById('saucerCore');
+const saucerPanel=document.getElementById('saucerPanel');
+// per-sector: the highlight wedge's conic start angle + the panel it opens
+const SECTORS={ world:{wedge:300,pan:'panWorld'}, mode:{wedge:60,pan:'panMode'}, extra:{wedge:180,pan:'panExtra'} };
+
+// Which sector a screen point falls in, by angle from the saucer centre
+// (atan2: 0°=east, +90°=south). Top third = world, right = mode, left = extra.
+function sectorAt(x,y){
+  const r=saucerMenu.getBoundingClientRect();
+  const a=Math.atan2(y-(r.top+r.height/2),x-(r.left+r.width/2))*180/Math.PI;
+  if(a>=-150&&a<-30)return 'world';
+  if(a>=-30&&a<90)return 'mode';
+  return 'extra';
+}
+function highlight(sec){
+  if(sec)saucerHi.style.setProperty('--a',SECTORS[sec].wedge+'deg');
+  saucerHi.classList.toggle('on',!!sec);
+  saucerMenu.querySelectorAll('.sector').forEach(el=>el.classList.toggle('hot',el.dataset.sector===sec));
+}
+function openSector(sec){
+  saucerPanel.querySelectorAll('.pan').forEach(p=>p.classList.toggle('on',p.id===SECTORS[sec].pan));
+  saucerPanel.classList.remove('hidden');
+  saucerMenu.classList.add('editing');   // hides the core PLAY until confirmed
+  saucerPanel.scrollTop=0;
+  highlight(sec);
+}
+function closeSaucerPanel(ready){
+  saucerPanel.classList.add('hidden');
+  saucerMenu.classList.remove('editing');
+  highlight(null);
+  if(ready)saucerCore.classList.add('ready');   // pulse PLAY once something's been confirmed
+}
+function resetSaucerMenu(){ closeSaucerPanel(false); saucerCore.classList.remove('ready'); }
+
+let sDrag=false;
+saucerHit.addEventListener('pointerdown',e=>{
+  e.preventDefault(); sDrag=true;
+  try{saucerHit.setPointerCapture(e.pointerId);}catch(_){}
+  highlight(sectorAt(e.clientX,e.clientY));
+});
+saucerHit.addEventListener('pointermove',e=>{ if(sDrag)highlight(sectorAt(e.clientX,e.clientY)); });
+saucerHit.addEventListener('pointerup',e=>{ if(!sDrag)return; sDrag=false; openSector(sectorAt(e.clientX,e.clientY)); });
+saucerHit.addEventListener('pointercancel',()=>{ sDrag=false; if(saucerPanel.classList.contains('hidden'))highlight(null); });
+document.getElementById('confirmBtn').addEventListener('click',()=>closeSaucerPanel(true));
 
 /* The splash now hands straight to the setup screen — no landing gate. */
 

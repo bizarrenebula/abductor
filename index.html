@@ -339,6 +339,99 @@
   .stat .n{font-size:40px;font-weight:800;color:var(--beam);text-shadow:0 0 20px rgba(89,255,176,.5)}
   .stat .k{font-size:9px;letter-spacing:.26em;text-transform:uppercase;color:var(--ink-soft);text-align:center}
   .loading{font-size:11px;letter-spacing:.24em;color:var(--ink-soft);text-align:center}
+
+  /* ---------- radial "saucer" setup menu ---------- */
+  .setup{width:min(460px,94vw);text-align:center;margin:auto}
+  .setup h1{font-size:30px}
+  .setup .slogan{margin:2px 0 12px}
+  .setup .howto{margin:10px 0 4px}
+
+  #saucerMenu{position:relative;width:min(84vw,360px);aspect-ratio:1;margin:16px auto 8px;
+    touch-action:none;-webkit-user-select:none;user-select:none}
+  /* the disc: a domed saucer seen from above, with a rim and sector dividers */
+  .saucer-rim{position:absolute;inset:0;border-radius:50%;
+    background:
+      radial-gradient(circle at 50% 40%,rgba(143,232,184,.10),transparent 46%),
+      radial-gradient(circle at 50% 50%,#12291f 0 44%,#0c1f18 45% 66%,#081511 67% 100%);
+    border:1px solid var(--edge);
+    box-shadow:0 18px 50px rgba(0,0,0,.6),inset 0 0 40px rgba(0,0,0,.55),
+      inset 0 0 0 1px rgba(143,232,184,.06)}
+  /* thin radial dividers at the three sector boundaries (conic 60/180/300°) */
+  .saucer-rim::after{content:'';position:absolute;inset:0;border-radius:50%;
+    background:conic-gradient(from 0deg,
+      transparent 58deg,rgba(150,190,170,.20) 60deg,transparent 62deg,
+      transparent 178deg,rgba(150,190,170,.20) 180deg,transparent 182deg,
+      transparent 298deg,rgba(150,190,170,.20) 300deg,transparent 302deg);
+    -webkit-mask:radial-gradient(circle,transparent 32%,#000 33%);
+            mask:radial-gradient(circle,transparent 32%,#000 33%)}
+  /* highlighted 120° wedge under the finger (start angle set via --a) */
+  #saucerHi{position:absolute;inset:0;border-radius:50%;opacity:0;transition:opacity .15s;
+    background:conic-gradient(from var(--a,0deg),
+      rgba(143,232,184,.30),rgba(143,232,184,.06) 120deg,transparent 120deg);
+    -webkit-mask:radial-gradient(circle,transparent 32%,#000 33%);
+            mask:radial-gradient(circle,transparent 32%,#000 33%)}
+  #saucerHi.on{opacity:1}
+
+  .sector{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:34%;pointer-events:none;text-align:center;z-index:2;transition:.15s}
+  .sector[data-sector=world]{top:15%}
+  .sector[data-sector=mode]{left:79%;top:70%}
+  .sector[data-sector=extra]{left:21%;top:70%}
+  .sector .s-name{display:block;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft)}
+  .sector .s-val{display:block;font-size:12px;font-weight:700;color:var(--ink);margin-top:2px}
+  .sector.hot .s-name{color:var(--beam)}
+  .sector.hot .s-val{color:var(--beam);text-shadow:0 0 12px rgba(143,232,184,.6)}
+
+  /* transparent hit layer: drives the radial navigation. Sits above the rim/
+     chips but below the core, so ring drags hit it and centre taps hit the core */
+  #saucerHit{position:absolute;inset:0;border-radius:50%;z-index:3;
+    pointer-events:auto;cursor:pointer;touch-action:none}
+
+  /* core: holds the PLAY button when idle */
+  #saucerCore{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:46%;aspect-ratio:1;border-radius:50%;z-index:4;
+    display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 38%,#123024,#0a1c15 72%);
+    border:1px solid rgba(143,232,184,.18);box-shadow:inset 0 0 22px rgba(0,0,0,.6),0 0 26px rgba(0,0,0,.4);
+    transition:opacity .18s}
+  #saucerCore .play{width:100%;height:100%;margin:0;border-radius:50%;font-size:15px;letter-spacing:.22em;
+    box-shadow:0 0 26px rgba(89,255,176,.45)}
+  #saucerMenu.editing #saucerCore{opacity:0;pointer-events:none}
+  #saucerMenu:not(.editing) #saucerCore.ready .play:not(:disabled){animation:corePulse 1.5s infinite}
+  @keyframes corePulse{0%,100%{box-shadow:0 0 22px rgba(89,255,176,.4)}50%{box-shadow:0 0 42px rgba(89,255,176,.85)}}
+
+  /* the pop-up panel that appears in the middle of the saucer. Capped to the
+     saucer's own height and vertically centred, so it never spills up over the
+     controls above or the loading line below — tall content scrolls instead. */
+  #saucerPanel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:min(300px,78vw);max-height:min(84vw,360px);overflow-y:auto;z-index:6;text-align:left;
+    background:rgba(6,12,10,.94);border:1px solid var(--edge);border-radius:16px;
+    padding:16px 16px 12px;box-shadow:0 0 46px rgba(0,0,0,.75),inset 0 0 26px rgba(89,255,176,.05);
+    backdrop-filter:blur(8px)}
+  #saucerPanel.hidden{display:none}
+  /* while a panel is open, fade the rim chips so they don't peek past its edges */
+  #saucerMenu.editing .sector{opacity:0;pointer-events:none}
+  .pan{display:none}
+  .pan.on{display:block}
+  .pan-h{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--beam-dim);
+    text-align:center;margin-bottom:12px}
+  .seg.col{flex-direction:column}
+  #saucerPanel .field{margin:10px 0}
+  #saucerPanel .field:first-of-type{margin-top:0}
+  /* keep the confirm button pinned to the panel's bottom while content scrolls */
+  .confirm{position:sticky;bottom:-12px;width:100%;margin-top:14px;padding:11px;
+    border:1px solid transparent;border-radius:11px;cursor:pointer;
+    font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
+    color:#04160f;background:linear-gradient(180deg,#7dffc0,var(--beam));
+    box-shadow:0 -8px 16px rgba(6,12,10,.94),0 0 22px rgba(89,255,176,.4);transition:transform .1s,box-shadow .2s}
+  .confirm:active{transform:scale(.98)}
+
+  @media (max-height:760px), (max-width:430px){
+    .setup h1{font-size:24px}
+    #saucerMenu{width:min(78vw,300px)}
+    #saucerCore .play{font-size:13px}
+    #saucerPanel{max-height:min(78vw,300px)}
+  }
 </style>
 </head>
 <body>
@@ -397,9 +490,9 @@
   <div class="sp-hint" id="splashHint" data-i18n="splash.pick">select a language to begin</div>
 </div>
 
-<!-- LANDING SCREEN -->
+<!-- LANDING SCREEN — radial "saucer" setup menu -->
 <div class="screen" id="startScreen">
-  <div class="card">
+  <div class="setup">
     <div class="eyebrow" data-i18n="eyebrow.protocol">night harvest protocol</div>
     <h1>ABDUCT<span class="g">OR</span></h1>
     <div class="slogan" data-i18n="start.slogan">A silent sky. A hungry light. Take the sleeping world.</div>
@@ -410,53 +503,74 @@
       <div class="howto-t"><b data-i18n="ctrl.mobile">Mobile</b> — <span data-i18n-html="ctrl.touch"></span></div>
     </div>
 
-    <div class="field">
-      <div class="row"><span class="name" data-i18n="field.world">World</span><span class="out" id="oWorld">Earth</span></div>
-      <div class="seg" id="segWorld">
-        <button data-w="earth" class="on" data-i18n="world.earthEasy">Earth · Easy</button>
-        <button data-w="moon" class="locked" disabled data-i18n="world.moonMed">Moon · Medium</button>
-        <button data-w="mars" class="locked" disabled data-i18n="world.marsHard">Mars · Hard</button>
+    <!-- the saucer: three sectors on the rim, a live core in the middle.
+         Slide a finger around the rim; releasing on a sector opens its panel
+         in the core. Confirm returns the core to a PLAY button. -->
+    <div id="saucerMenu">
+      <div class="saucer-rim"></div>
+      <div id="saucerHi"></div>
+      <div class="sector" data-sector="world"><span class="s-name" data-i18n="field.world">World</span><span class="s-val" id="oWorld">Earth</span></div>
+      <div class="sector" data-sector="mode"><span class="s-name" data-i18n="field.mode">Mode</span><span class="s-val" id="oMode">Exploration</span></div>
+      <div class="sector" data-sector="extra"><span class="s-name" data-i18n="field.tuning">Tuning</span><span class="s-val" id="oExtra">3 min</span></div>
+      <div id="saucerHit"></div>
+
+      <!-- core: the PLAY button lives here when idle -->
+      <div id="saucerCore">
+        <button class="go play" id="startBtn" disabled data-i18n="btn.play">play</button>
+      </div>
+
+      <!-- pop-up: the chosen sector's controls, centred over the saucer -->
+      <div id="saucerPanel" class="hidden">
+        <div class="pan" id="panWorld">
+          <div class="pan-h" data-i18n="field.world">World</div>
+          <div class="seg col" id="segWorld">
+            <button data-w="earth" class="on" data-i18n="world.earthEasy">Earth · Easy</button>
+            <button data-w="moon" class="locked" disabled data-i18n="world.moonMed">Moon · Medium</button>
+            <button data-w="mars" class="locked" disabled data-i18n="world.marsHard">Mars · Hard</button>
+          </div>
+        </div>
+
+        <div class="pan" id="panMode">
+          <div class="pan-h" data-i18n="field.mode">Mode</div>
+          <div class="seg col" id="segMode">
+            <button data-m="explore" class="on" data-i18n="mode.explore">Exploration</button>
+            <button data-m="story" data-i18n="mode.story">Story</button>
+          </div>
+        </div>
+
+        <div class="pan" id="panExtra">
+          <div class="pan-h" data-i18n="field.tuning">Tuning</div>
+          <div class="field">
+            <div class="row"><span class="name" data-i18n="field.reactor">Reactor</span><span class="out" id="oEnergy">Drainable</span></div>
+            <div class="seg" id="segEnergy">
+              <button data-e="drain" class="on" data-i18n="reactor.drain">Drainable</button>
+              <button data-e="inf" data-i18n="reactor.inf">Infinite</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="row"><span class="name" data-i18n="field.lock">Beam lock time</span><span class="out" id="oLock">2.0 s</span></div>
+            <input type="range" id="sLock" min="0" max="5" step="0.25" value="2">
+          </div>
+          <div class="field">
+            <div class="row"><span class="name" data-i18n="field.beam">Beam diameter</span><span class="out" id="oBeam">16 m</span></div>
+            <input type="range" id="sBeam" min="6" max="40" step="1" value="16">
+          </div>
+          <div class="field">
+            <div class="row"><span class="name" data-i18n="field.time">Survey window</span><span class="out" id="oTime">3 min</span></div>
+            <input type="range" id="sTime" min="1" max="15" step="1" value="3">
+            <label class="chk"><input type="checkbox" id="cEndless"> <span data-i18n="opt.endless">endless — no time limit</span></label>
+          </div>
+          <div class="field">
+            <div class="row"><span class="name" data-i18n="field.music">Music volume</span></div>
+            <input type="range" id="sMusicVol" min="0" max="100" step="1" value="60">
+          </div>
+        </div>
+
+        <button class="confirm" id="confirmBtn" data-i18n="btn.confirm">confirm changes</button>
       </div>
     </div>
 
-    <div class="field">
-      <div class="row"><span class="name" data-i18n="field.mode">Mode</span><span class="out" id="oMode">Exploration</span></div>
-      <div class="seg" id="segMode">
-        <button data-m="explore" class="on" data-i18n="mode.explore">Exploration</button>
-        <button data-m="story" data-i18n="mode.story">Story</button>
-      </div>
-    </div>
-
-    <div class="field">
-      <div class="row"><span class="name" data-i18n="field.reactor">Reactor</span><span class="out" id="oEnergy">Drainable</span></div>
-      <div class="seg" id="segEnergy">
-        <button data-e="drain" class="on" data-i18n="reactor.drain">Drainable</button>
-        <button data-e="inf" data-i18n="reactor.inf">Infinite</button>
-      </div>
-    </div>
-
-    <div class="field">
-      <div class="row"><span class="name" data-i18n="field.lock">Beam lock time</span><span class="out" id="oLock">2.0 s</span></div>
-      <input type="range" id="sLock" min="0" max="5" step="0.25" value="2">
-    </div>
-    <div class="field">
-      <div class="row"><span class="name" data-i18n="field.beam">Beam diameter</span><span class="out" id="oBeam">16 m</span></div>
-      <input type="range" id="sBeam" min="6" max="40" step="1" value="16">
-    </div>
-    <div class="field">
-      <div class="row"><span class="name" data-i18n="field.time">Survey window</span><span class="out" id="oTime">3 min</span></div>
-      <input type="range" id="sTime" min="1" max="15" step="1" value="3">
-      <label class="chk"><input type="checkbox" id="cEndless"> <span data-i18n="opt.endless">endless — no time limit</span></label>
-    </div>
-
-    <div class="field">
-      <div class="row"><span class="name" data-i18n="field.music">Music volume</span></div>
-      <input type="range" id="sMusicVol" min="0" max="100" step="1" value="60">
-    </div>
-
-
-    <button class="go" id="startBtn" disabled data-i18n="btn.play">play</button>
-    <div class="loading" id="loadNote" style="margin-top:12px" data-i18n="loadNote.loading">loading assets…</div>
+    <div class="loading" id="loadNote" data-i18n="loadNote.loading">loading assets…</div>
   </div>
 </div>
 

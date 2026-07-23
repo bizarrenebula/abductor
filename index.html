@@ -149,9 +149,9 @@
   #hBuff .wx{font-size:11px;font-weight:700;color:var(--good)}
   #hBuff.expiring{animation:buffPulse .8s ease-in-out infinite}
   @keyframes buffPulse{0%,100%{opacity:1}50%{opacity:.4}}
-  /* floating "great pull" trigger — parked at the last right-stick point by
-     special.js, revealed (.show) only while the special is fully charged */
-  #spBtn{position:fixed;left:0;top:0;transform:translate(-50%,-50%) scale(.6);
+  /* "great pull" trigger — a fixed target above the centre of the right half
+     (75% across, above mid-height), revealed (.show) only while fully charged */
+  #spBtn{position:fixed;left:75%;top:38%;transform:translate(-50%,-50%) scale(.6);
     width:84px;height:84px;border-radius:50%;
     pointer-events:none;opacity:0;cursor:pointer;border:1.5px solid var(--beam);
     color:#eafff4;text-shadow:0 1px 3px rgba(0,0,0,.9);

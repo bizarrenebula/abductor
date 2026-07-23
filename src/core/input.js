@@ -15,8 +15,8 @@
        beam is reachable from any point on the screen with either thumb
      · press-and-hold the SAUCER itself for 2s to toggle cloak
      · the ZOOM slider (top-right) sets the camera distance
-     · when the special is charged, a glowing PULL button floats at the last
-       right-stick press point; press-and-hold it to unleash the Great Pull
+     · when the special is charged, a glowing PULL button appears above the
+       centre of the right half; press-and-hold it to unleash the Great Pull
 
    The module only produces intents on `input.*`; the main loop integrates them
    with momentum, so nothing here ever writes a position.
@@ -31,7 +31,6 @@ export const keys={};
 export const input={
   tFwd:0, tStrafe:0, tTurn:0, tClimb:0,   // touch joystick axes, each -1..1
   beamHold:false, spHeld:false,
-  pullX:null, pullY:null,                  // last right-stick press point; where the PULL button floats when charged
   zoom:1,                                  // camera-zoom multiplier, driven by the slider
   cloakProg:0,                             // 0..1 progress of the hold-the-ship-to-cloak timer
 };
@@ -103,10 +102,6 @@ renderer.domElement.addEventListener('pointerdown',e=>{
   if(H.ids.length===1){
     H.ox=e.clientX;H.oy=e.clientY;H.downT=now;H.moved=0;
     showJoy(h,e.clientX,e.clientY);
-    // Remember where the right stick was last pressed — the floating PULL button
-    // parks itself there so it appears right under the player's thumb when the
-    // special charges (see special.js).
-    if(h==='R'){ input.pullX=e.clientX; input.pullY=e.clientY; }
     // Either stick: a double-tap (this press soon after a quick tap nearby) opens
     // the beam. It stays on while this finger is held, and the stick still moves,
     // so you can beam and fly with the same thumb. Releasing stops the beam.
@@ -172,7 +167,6 @@ if(zoomSlider){
 export function resetInputTouch(){
   input.tFwd=input.tStrafe=input.tTurn=input.tClimb=0;
   input.beamHold=false;input.spHeld=false;input.cloakProg=0;
-  input.pullX=input.pullY=null;
   half.L.ids.length=0;half.R.ids.length=0;
   half.L.beamPtr=null;half.L.lastWasTap=false;half.R.beamPtr=null;half.R.lastWasTap=false;
   ptrHalf.clear();pos.clear();cancelCloakHold();

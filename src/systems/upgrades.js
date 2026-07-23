@@ -8,12 +8,11 @@
       unlocks the CLOAK (the highest achievement):
         BASIC BEAM → WIDE BEAM I → II → III → CLOAK
 
-   2) THREE FIELD UPGRADES — special parts scattered on the map at random spots
-      (marked on the radar, and lit up when they're in your line of sight). Fly
-      over one to install it:
+   2) FIELD UPGRADES — special parts scattered far apart on the map at random
+      spots (marked on the radar, and blinking when they're in your line of
+      sight). Fly over one to install it:
         THRUSTERS      — unlock climb/dive (altitude control)
-        HIGH-END ENGINE — ×1.5 engine thrust
-        MAGNETIC RING   — ×1.5 engine thrust (stacks with the engine → top speed)
+        HIGH-END ENGINE — +25% engine thrust (the single speed part)
 
    The ship always starts grounded: base beam, standard engines, no altitude
    control, cloak locked.
@@ -41,11 +40,10 @@ export const UP_TIERS=[
 ];
 const MAX_TIER=UP_TIERS.length-1;
 
-/* The three field-upgrade parts and what installing each does. */
+/* The field-upgrade parts and what installing each does. */
 export const UP_ITEMS={
   thrusters:  { alt:true,    col:0x7fd8ff },   // altitude control
-  highEngine: { speed:1.5,   col:0xffb347 },   // ×1.5 thrust
-  magRing:    { speed:1.5,   col:0xff6ad5 },   // ×1.5 thrust (stacks)
+  highEngine: { speed:1.25,  col:0xffb347 },   // +25% thrust (the single speed part)
 };
 export const ITEM_KEYS=Object.keys(UP_ITEMS);
 
@@ -113,7 +111,7 @@ export const Upgrades={
     }
     S.upBeam=beam;S.upCloak=cloak;
     S.upAltitude=!!this.items.thrusters;
-    S.upSpeed=(this.items.highEngine?1.5:1)*(this.items.magRing?1.5:1);
+    S.upSpeed=this.items.highEngine?1.25:1;
   },
 
   /* Cheerful on-screen achievement: a toast spelling out what it grants and how

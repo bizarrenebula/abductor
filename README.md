@@ -75,7 +75,7 @@ Every few abductions grants a temporary boon: faster engines, faster lock, or a 
 The third progression perk, always on in both Story and Exploration. Your saucer starts **grounded** — locked to its resting altitude, standard engines, a basic beam, and no cloak — and earns its way to "hero" in a few minutes, two ways at once:
 
 - **The collect ladder** — everything you beam up (animals, crystals, humans) feeds a point pool that gradually widens the tractor beam and, at the summit, unlocks the **cloak** (the highest achievement).
-- **Three field parts** — the **Thrusters** (unlock climb/dive), the **High-End Engine** and the **Magnetic Ring** (×1.5 engine thrust each, stacking to top speed) are scattered at random spots on the map, flagged on the radar, and lit up when they fall in your line of sight. Fly over one to install it.
+- **Field parts** — the **Thrusters** (unlock climb/dive) and the **High-End Engine** (+25% thrust) are scattered far apart at random spots on the map, flagged on the radar, and blinking when they fall in your line of sight. Fly over one to install it.
 
 Every upgrade banks a **save point**: a crash or a disaster hit never costs you the ship you've earned — a Story respawn keeps it, and "run it back" after a fatal run in Exploration restores it. Only a fresh session from the menu starts you grounded again. Each upgrade greets you with a cheerful on-screen card telling you what it grants and how to use it.
 
@@ -150,7 +150,7 @@ Filenames are case-sensitive on GitHub Pages — keep them lowercase. Missing fi
 
 **Progression & rewards**
 - Rarity-based scoring, temporary buffs, and the "Pull" special power.
-- Zero-to-hero ship upgrades: a collect-driven beam/cloak ladder plus three map-found parts (thrusters, engine, magnetic ring), with save points that survive crashes.
+- Zero-to-hero ship upgrades: a collect-driven beam/cloak ladder plus map-found parts (thrusters, high-end engine), with save points that survive crashes.
 - Energy reactor with crystal refuelling and crash-on-empty; infinite/drainable option.
 - Buildings (barns, camps) and fleeing human NPCs.
 - Rolling mission contracts, easy to hard.

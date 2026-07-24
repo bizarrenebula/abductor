@@ -15,7 +15,7 @@ export const beamMat=new THREE.ShaderMaterial({
     void main(){ float t=vY+0.5;
       float a=mix(0.05,0.45,t)+0.07*sin(t*46.0-uTime*8.0);
       float flick=0.82+0.18*sin(uTime*31.7)*sin(uTime*17.3);
-      vec3 col=mix(vec3(0.30,0.75,0.55),vec3(0.80,1.0,0.90),t);
+      vec3 col=mix(vec3(0.16,0.66,0.95),vec3(0.72,0.96,1.0),t);   // cyan tractor beam
       gl_FragColor=vec4(col,clamp(a,0.0,1.0)*0.8*flick*uPow); }`
 });
 export const beam=new THREE.Mesh(new THREE.ConeGeometry(1,1,40,1,true),beamMat);
@@ -31,7 +31,7 @@ export const discMat=new THREE.ShaderMaterial({
       float inner=(1.0-smoothstep(0.0,1.0,r))*0.2;
       float pulse=0.6+0.4*sin(uTime*4.0);
       float a=(ring*0.85+inner)*pulse*uPow;
-      gl_FragColor=vec4(vec3(0.35,1.0,0.72),a); }`
+      gl_FragColor=vec4(vec3(0.26,0.86,1.0),a); }`
 });
 export const disc=new THREE.Mesh(new THREE.CircleGeometry(1,64),discMat);
 disc.rotation.x=-Math.PI/2;scene.add(disc);

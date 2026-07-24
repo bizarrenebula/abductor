@@ -405,7 +405,7 @@ document.querySelectorAll('#splashLang [data-lang]').forEach(b=>
   }));
 setTimeout(enablePlay,20000);   // never trap the player on a dead network
 
-(env.LOW_END?Promise.resolve():loadAllAssets()).then(()=>{
+((env.LOW_END||env.noExternal)?Promise.resolve():loadAllAssets()).then(()=>{
   enablePlay();
   const sm=spawnModel('saucer');
   if(sm){

@@ -23,7 +23,6 @@ import { updateWorm } from './aliens.js';
    birds. Birds fly over anything and are quicker than sheep. */
 export const ANIMALS={
   Sheep:{pts:1, size:1.1,  turn:2.6, cls:'land'},
-  Horse:{pts:3, size:1.5,  turn:2.0, cls:'land', hopDist:4, hopRng:3, hopDur:0.5},
   Goat :{pts:4, size:0.95, turn:3.4, cls:'land'},
   Duck :{pts:2, size:0.7,  turn:2.2, cls:'water'},
   Bird :{pts:2, size:0.5,  turn:3.2, cls:'air', hover:11, hopDist:7, hopRng:5, hopDur:0.42, restMin:0.7, restRng:1.5},
@@ -68,26 +67,6 @@ export function buildAnimal(species){
     const e2=part(new THREE.SphereGeometry(0.14,8,6),dark,0.35,1.55,1.3);e2.scale.set(1,0.5,0.7);g.add(e2);
     [[-0.55,0.75],[0.55,0.75],[-0.55,-0.7],[0.55,-0.7]].forEach(p=>g.add(part(new THREE.CylinderGeometry(0.11,0.09,1.0,8),dark,p[0],0.5,p[1])));
     eyes(0.16,1.45,1.68,0.07);
-  }else if(species==='Horse'){
-    // horse: long body, arched neck, mane + tail, tall legs. Coat randomized.
-    const COAT=[0xe8e2d4,0x6e4a2c,0x8a5836,0x2b2622,0x9a968c,0x46331f];   // white/brown/chestnut/black/grey/bay
-    const coat=mat(COAT[(Math.random()*COAT.length)|0],0.82);
-    const dark=mat(0x1a1610,0.75);
-    const b=part(new THREE.SphereGeometry(1,16,12),coat,0,1.75,0);b.scale.set(1.75,0.95,0.78);g.add(b);
-    const chest=part(new THREE.SphereGeometry(0.72,14,10),coat,0,1.7,0.95);chest.scale.set(0.9,1.05,0.9);g.add(chest);
-    const rump=part(new THREE.SphereGeometry(0.72,14,10),coat,0,1.75,-0.95);rump.scale.set(0.95,1.0,0.9);g.add(rump);
-    const neck=part(new THREE.CylinderGeometry(0.30,0.52,1.5,10),coat,0,2.45,1.35);neck.rotation.x=-0.75;g.add(neck);
-    const head=part(new THREE.BoxGeometry(0.46,0.55,1.05),coat,0,3.1,1.95);head.rotation.x=-0.28;g.add(head);
-    const muz=part(new THREE.BoxGeometry(0.34,0.4,0.5),coat,0,2.92,2.5);muz.rotation.x=-0.28;g.add(muz);
-    g.add(part(new THREE.ConeGeometry(0.1,0.32,6),coat,-0.16,3.42,1.72));   // ears
-    g.add(part(new THREE.ConeGeometry(0.1,0.32,6),coat,0.16,3.42,1.72));
-    const mane=part(new THREE.BoxGeometry(0.09,0.52,1.35),dark,0,2.62,1.32);mane.rotation.x=-0.75;g.add(mane);
-    const tail=part(new THREE.ConeGeometry(0.18,1.2,8),dark,0,1.85,-1.5);tail.rotation.x=0.7;g.add(tail);
-    [[-0.5,0.92],[0.5,0.92],[-0.5,-0.78],[0.5,-0.78]].forEach(p=>{
-      g.add(part(new THREE.CylinderGeometry(0.13,0.10,1.6,8),coat,p[0],0.8,p[1]));
-      g.add(part(new THREE.CylinderGeometry(0.13,0.14,0.18,8),dark,p[0],0.06,p[1]));   // hoof
-    });
-    eyes(0.22,3.12,2.02,0.07);
   }else if(species==='Bird'){
     // bird: small body, swept wings that flap, bright beak. Colour randomized.
     const fe=mat([0x2c3a4a,0x3a2a2a,0x46464e,0x244034][(Math.random()*4)|0],0.7);

@@ -17,6 +17,7 @@ import { resetBuffs } from '../systems/buffs.js';
 import { Upgrades } from '../systems/upgrades.js';
 import { spawnUpgradeItems, clearUpgradeItems } from '../entities/upgradeItems.js';
 import { CropCircles } from '../systems/cropcircles.js';
+import { Clouds } from '../systems/clouds.js';
 import { updateMissionHUD } from '../systems/missions.js';
 import { resetMeteors } from '../hazards/meteors.js';
 import { resetGeysers } from '../hazards/geysers.js';
@@ -79,6 +80,7 @@ export function startGame(opts){
   if(keepUpgrades)Upgrades.restore(); else Upgrades.reset();
   spawnUpgradeItems();
   CropCircles.reset();
+  Clouds.spawnField(saucer.position.x,saucer.position.z);
   updateMissionHUD();
   Story.reset();
   if(S.storyMode)Story.begin(S.world);

@@ -19,8 +19,8 @@ const MISSION_SETS={
   earth:[
     {txt:'mission.earth1',p:()=>cnt('Sheep'),goal:5,bonus:10,
       items:[['creature.Sheep','Sheep',5]]},
-    {txt:'mission.earth2',p:()=>Math.min(cnt('Sheep'),cnt('Horse'),cnt('Duck')),goal:5,bonus:25,
-      items:[['creature.Sheep','Sheep',5],['creature.Horse','Horse',5],['creature.Duck','Duck',5]]},
+    {txt:'mission.earth2',p:()=>Math.min(cnt('Sheep'),cnt('Goat'),cnt('Duck')),goal:5,bonus:25,
+      items:[['creature.Sheep','Sheep',5],['creature.Goat','Goat',5],['creature.Duck','Duck',5]]},
     {txt:'mission.crystals',p:()=>S.crystals,goal:5,bonus:15,
       items:[['label.CRYSTAL','crystals',5]]},
     {txt:'mission.earth4',p:()=>cnt('Hiker')+cnt('Villager'),goal:1,bonus:30}

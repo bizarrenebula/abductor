@@ -96,7 +96,7 @@ export function buildChunk(cx,cz){
         if(roadDist(wx,wz)<ROAD_HW+3)continue;
         if(Math.random()>0.55)continue;
         const r=Math.random();
-        species=r<0.10?'Bird':r<0.50?'Sheep':r<0.80?'Horse':'Goat';
+        species=r<0.12?'Bird':r<0.64?'Sheep':'Goat';
       }
       a=buildAnimal(species);
       a.position.set(wx, a.userData.fly?Math.max(sm.h,WATER_Y)+a.userData.hover

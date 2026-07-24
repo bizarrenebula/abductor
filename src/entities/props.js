@@ -140,7 +140,7 @@ export function buildProp(biome){
       // twisted dark-cartoon tree — solid: the ship crashes into it (slim =
       // collide with the trunk). Procedural everywhere, so the gnarled look is
       // consistent (we intentionally skip the realistic tree.glb here).
-      u.solid=true;u.slim=true;
+      u.solid=true;u.slim=true;u.sway=Math.random()*6.28;   // gentle wind sway (see updateProps)
       const tt=twistedTree();tt.scale.setScalar(1.5+Math.random()*0.7);g.add(tt);
     }
   }else if(World.name==='moon'){
@@ -164,9 +164,12 @@ export function buildProp(biome){
   return g;
 }
 export function updateProps(dt,beamActive){
-  const R=effBeamR();
+  const R=effBeamR(), now=performance.now()*0.001;
   for(let i=props.length-1;i>=0;i--){
     const p=props[i],u=p.userData;
+    // slow wind sway on trees — a barely-there lean that breathes with the wind
+    if(u.sway!=null&&u.lift===0&&u.gone==null)
+      p.rotation.z=Math.sin(now*0.7+u.sway)*0.03+Math.sin(now*1.9+u.sway)*0.012;
     if(u.gone!=null){
       u.gone-=dt;
       p.scale.multiplyScalar(Math.max(0.0001,1-dt*4));

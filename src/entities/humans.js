@@ -4,7 +4,7 @@
    ========================================================================= */
 import { THREE } from '../core/three.js';
 import { OBJ_SCALE, ASSETS } from '../core/constants.js';
-import { mat, part, measureSolid } from '../core/mesh.js';
+import { mat, part, glowMat, measureSolid } from '../core/mesh.js';
 import { S } from '../core/state.js';
 import { heightAt } from '../world/terrain.js';
 import { LOADED, spawnModel } from '../assets.js';
@@ -24,8 +24,12 @@ export function buildBuilding(kind){
     g.add(part(new THREE.BoxGeometry(4.2,2.4,3.2),mat(0x3a2420,0.9),0,1.2,0));
     const roof=part(new THREE.CylinderGeometry(0,2.6,1.7,4),mat(0x241610,0.9),0,3.2,0);
     roof.rotation.y=Math.PI/4;roof.scale.set(1.25,1,0.95);g.add(roof);
+    // warm glowing windows — the barn reads as inhabited from across the valley
+    const win=glowMat(0xffb24a,1.8);
+    const fw1=part(new THREE.PlaneGeometry(0.72,0.72),win,-1.05,1.45,1.61);fw1.castShadow=false;g.add(fw1);
+    const fw2=part(new THREE.PlaneGeometry(0.72,0.72),win, 1.05,1.45,1.61);fw2.castShadow=false;g.add(fw2);
+    const sw=part(new THREE.PlaneGeometry(0.72,0.72),win,2.11,1.45,0);sw.rotation.y=Math.PI/2;sw.castShadow=false;g.add(sw);
     g.add(part(new THREE.BoxGeometry(1.1,1.6,0.1),mat(0x14100c,0.9),0,0.8,1.62));
-    g.add(part(new THREE.SphereGeometry(0.08,6,6),new THREE.MeshBasicMaterial({color:0xd8b46a}),0.9,1.7,1.62));
     g.scale.multiplyScalar(OBJ_SCALE);
   }else{
     // camp: tent + dying fire

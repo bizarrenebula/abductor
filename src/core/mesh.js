@@ -2,7 +2,12 @@
 import { THREE } from './three.js';
 import { env } from './env.js';
 
-export function mat(hex,rough){return new THREE.MeshStandardMaterial({color:hex,roughness:rough||0.85,metalness:0.02});}
+/* Flat-shaded by default: the low-poly art direction wants visible facets so
+   moonlight breaks over each face. One shared, faceted material style across
+   every procedural builder — cheap and cohesive. */
+export function mat(hex,rough){return new THREE.MeshStandardMaterial({color:hex,roughness:rough||0.85,metalness:0.02,flatShading:true});}
+/* Warm emissive material for glowing windows / lit signs. */
+export function glowMat(hex,intensity){return new THREE.MeshStandardMaterial({color:hex,emissive:hex,emissiveIntensity:intensity||1.2,roughness:0.6,metalness:0,flatShading:true});}
 export function part(geo,m,x,y,z){const me=new THREE.Mesh(geo,m);me.position.set(x,y,z);me.castShadow=!env.LOW_END;return me;}
 
 /* Measure an object's real extent so collision works for both procedural shapes

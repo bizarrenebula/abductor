@@ -25,7 +25,7 @@ const LOW_END = env.LOW_END;
 export const chunks=new Map();
 export function chunkKey(cx,cz){return cx+'|'+cz;}
 
-const groundMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,metalness:0.02});
+const groundMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.98,metalness:0.02,flatShading:true});
 groundMat.onBeforeCompile=sh=>{
   sh.uniforms.tGrass={value:TEX.grass||grassTex};sh.uniforms.tSand={value:TEX.sand||sandTex};sh.uniforms.tRock={value:TEX.mountain||rockTex};sh.uniforms.tSnow={value:snowTex};
   // vDuv stays the raw 0..1 chunk UV; each texture applies its own tiling at

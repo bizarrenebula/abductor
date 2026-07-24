@@ -58,12 +58,15 @@ const compMat=new THREE.ShaderMaterial({uniforms:{tScene:{value:null},tBloom:{va
     // colour against the gloom.
     float mx=max(col.r,max(col.g,col.b)),mn=min(col.r,min(col.g,col.b));
     float sat=(mx-mn)/(mx+0.02);
-    col=mix(vec3(l),col,0.85+0.95*sat);
-    // Alien tint: teal-cyan in the shadows, faintly cool in the lights.
-    col*=mix(vec3(0.72,0.95,1.13),vec3(1.06,1.03,1.02),smoothstep(0.03,0.80,l));
-    col=(col-0.5)*1.42+0.5;                          // punchy contrast
-    col=max(col-0.05,0.0);                           // crushed blacks (the dark)
-    col*=0.96;                                       // a touch darker overall
+    // Restrained palette: mute the ordinary world for a moonlit, storybook mood,
+    // while gameplay accents (cyan beam, violet crystals, warm windows) that are
+    // already colourful stay vivid.
+    col=mix(vec3(l),col,0.58+0.95*sat);
+    // Cold moonlight: midnight-blue in the shadows, faint silver in the light.
+    col*=mix(vec3(0.62,0.80,1.22),vec3(1.00,1.02,1.08),smoothstep(0.03,0.80,l));
+    col=(col-0.5)*1.30+0.5;                          // cinematic contrast
+    col=max(col-0.045,0.0);                          // crushed blacks (the dark)
+    col*=0.97;                                       // a touch darker overall
     vec2 q=vUv-0.5;float vig=1.0-smoothstep(0.24,0.95,length(q));
     col*=mix(0.5,1.0,vig);                           // tight vignette frames the mystery
     gl_FragColor=vec4(col,1.0);}`});

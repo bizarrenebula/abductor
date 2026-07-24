@@ -1,0 +1,6 @@
+
+# local offline test harness (not part of the game)
+_t_three.js
+_t_gltf.js
+index-test.html
+.test-vendor/

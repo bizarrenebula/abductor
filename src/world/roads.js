@@ -42,16 +42,16 @@ const BLOCK    = 48;    // steps solved per dynamic-programming block
 const MARGIN   = 32;    // look-ahead/behind steps shared with neighbouring blocks
 const SMOOTH_N = 3;     // final rounding of the chosen path
 const BRIDGE_CLEAR = 4.2;   // deck height above WATER_Y on a water bridge
-const WATER_LOOK   = 4;     // steps either side that trigger a bridge span
-const BRIDGE_DROP  = 6;     // ground this far below the local rim -> bridge the gap
-                            // (a canyon/cliff), rather than banking over the edge
+const WATER_LOOK   = 4;     // steps either side that count as spanning water
 
-export function wob(t){ return Math.sin(t*0.011)*14 + Math.sin(t*0.023+1.7)*6; }
+// Gentle organic sway so corridors aren't ruler-straight, but small — the road
+// gets its real character from routing around terrain, not from a sine wave.
+export function wob(t){ return Math.sin(t*0.011)*6 + Math.sin(t*0.023+1.7)*2.5; }
 
 /* ---------- caches ---------- */
 const cCell=new Map(), cBlock=new Map(), cOff=new Map(), cDeck=new Map();
 const key=(a,k,i)=>a+'|'+k+'|'+i;
-export function clearRoadCache(){ cCell.clear();cBlock.clear();cOff.clear();cDeck.clear();cEdge.clear();cWater.clear(); }
+export function clearRoadCache(){ cCell.clear();cBlock.clear();cOff.clear();cDeck.clear();cEdge.clear();cEnv.clear();cWater.clear(); }
 
 /* Point on the corridor's nominal (unrouted) line. */
 function base(axis,k,t){
@@ -136,17 +136,27 @@ function pathAt(axis,k,i){
   const t=i*STEP;
   return shift(axis,base(axis,k,t),offsetAt(axis,k,i));
 }
-/* ---------- deck: banked, following the relief ----------
+/* ---------- deck: an engineered, flat grade ----------
 
-   The deck is NOT a flat ribbon at the highest ground under its width. That is
-   what produced the huge white embankment walls: on any cross-slope the whole
-   carriageway rode at the uphill edge's height and a tall skirt dropped to the
-   downhill side.
+   A real road is NOT draped over every bump and dip — it is built to a grade:
+   the ground is cut where it rises and filled where it falls, so the deck runs
+   level, only easing up or down over long distances to follow the broad lie of
+   the land. Draping the deck on the terrain (banking each edge to its own
+   ground) made the road ripple with every hillock and sag into every hollow —
+   exactly the waviness we want gone.
 
-   Instead each edge is carried at its OWN ground height, so the road banks with
-   the hillside and hugs the relief the way a real road cut does. A short skirt
-   is then all that is needed on land, and only genuine water spans lift into a
-   flat bridge deck. */
+   So the deck height is a GRADE LINE, computed in two passes:
+     1. an upper envelope of the ground across the carriageway, taken over a wide
+        window — the road never has to cut into terrain, and small holes/dips are
+        simply spanned flat at the level of the surrounding ground.
+     2. a wide smoothing of that envelope into a gentle grade, so the flat
+        stretches ease into one another instead of stepping.
+   Both edges share this one level (no banking), so the road reads as a built,
+   flat roadway that touches the ground on the high spots and rides flat — on a
+   short embankment or, over real gaps, on piers — across everything lower. */
+
+const ENV_WIN   = 9;   // half-window (steps, ~54u) for the ground upper-envelope
+const GRADE_WIN  = 9;  // half-window for easing the envelope into a grade
 
 /* Left/right edge world position at step i (side = +1 left, -1 right). */
 function edgePos(axis,k,i,side){
@@ -163,65 +173,55 @@ function edgeGround(axis,k,i,side){
   const h=heightAt(e.x,e.z);
   cEdge.set(kk,h);return h;
 }
-/* Does this span need a flat bridge — because it's over water, or because the
-   ground drops far below the local rim (a canyon / cliff edge)? Returns
-   'water' | 'canyon' | false. Bridging both keeps the deck level instead of
-   letting one edge hang over a drop. */
+/* Highest ground across the deck's full width at step i (both edges + centre),
+   ignoring water depth so a road beside a lake still grades to the shore, not
+   the lakebed. */
+function crossMax(axis,k,i){
+  const p=pathAt(axis,k,i);
+  return Math.max(edgeGround(axis,k,i,1), edgeGround(axis,k,i,-1),
+                  Math.max(heightAt(p.x,p.z), WATER_Y));
+}
+/* Upper envelope: the highest cross-section ground within a wide window. Flat
+   over dips/holes (they never pull it down), rising only where terrain rises to
+   meet the road — so the deck can sit level without terrain poking through. */
+const cEnv=new Map();
+function envAt(axis,k,i){
+  const kk=key(axis,k,i); let v=cEnv.get(kk);
+  if(v!==undefined)return v;
+  let m=-1e9;
+  for(let j=-ENV_WIN;j<=ENV_WIN;j++)m=Math.max(m,crossMax(axis,k,i+j));
+  cEnv.set(kk,m);return m;
+}
+/* Is water anywhere under this span? (For the fixed bridge clearance.) */
 const cWater=new Map();
-function isGap(axis,k,i){
+function overWater(axis,k,i){
   const kk=key(axis,k,i); let v=cWater.get(kk);
   if(v!==undefined)return v;
-  let water=false;
-  for(let j=-WATER_LOOK;j<=WATER_LOOK&&!water;j++){
+  let w=false;
+  for(let j=-WATER_LOOK;j<=WATER_LOOK&&!w;j++){
     const p=pathAt(axis,k,i+j);
-    if(heightAt(p.x,p.z)<WATER_Y+0.6)water=true;
+    if(heightAt(p.x,p.z)<WATER_Y+0.6)w=true;
   }
-  let canyon=false;
-  if(!water){
-    // A true dip: ground under the deck sits well below BOTH approach ends (a
-    // canyon/gully the road crosses), as opposed to a plain slope which only
-    // dips below one side.
-    const c0=pathAt(axis,k,i), cb=pathAt(axis,k,i-WATER_LOOK), ca=pathAt(axis,k,i+WATER_LOOK);
-    const here=heightAt(c0.x,c0.z), before=heightAt(cb.x,cb.z), after=heightAt(ca.x,ca.z);
-    if(here<Math.min(before,after)-BRIDGE_DROP)canyon=true;
-  }
-  const r=water?'water':canyon?'canyon':false;
-  cWater.set(kk,r);return r;
+  cWater.set(kk,w);return w;
 }
-/* Own-edge ground, smoothed a little along the road for a gradual gradient. */
-function edgeSmoothed(axis,k,i,side){
-  let sum=0,wsum=0;
-  for(let j=-3;j<=3;j++){const w=1-Math.abs(j)/4;sum+=edgeGround(axis,k,i+j,side)*w;wsum+=w;}
-  return Math.max(sum/wsum, edgeGround(axis,k,i,side));
-}
-/* Height of one deck edge: its own ground, smoothed along the road for a
-   gradual gradient, then clamped so it never sinks into that ground. Bridge
-   spans flatten both edges to a common clearance above the water. */
-function deckEdge(axis,k,i,side){
-  const kk=key(axis,k,i)+':'+side; let v=cDeck.get(kk);
+/* The flat grade line at step i: the envelope eased over a wide window, lifted
+   proud of the ground, and floored to a fixed clearance wherever it spans water.
+   One level for the whole carriageway — no banking. */
+function deckEdge(axis,k,i){
+  const kk=key(axis,k,i); let v=cDeck.get(kk);
   if(v!==undefined)return v;
-  const g=edgeSmoothed(axis,k,i,side), go=edgeSmoothed(axis,k,i,-side);
-  let y=g+ROAD_LIFT;
-  const gap=isGap(axis,k,i);
-  if(gap){
-    // Flat deck across the span (a bridge): both edges level at the local rim so
-    // neither hangs over the drop. Water bridges keep a fixed clearance.
-    let m=-1e9;
-    for(let j=-3;j<=3;j++)
-      m=Math.max(m,edgeGround(axis,k,i+j,1),edgeGround(axis,k,i+j,-1));
-    y=m+ROAD_LIFT;
-    if(gap==='water')y=Math.max(WATER_Y+BRIDGE_CLEAR, y);
-  }else if(Math.abs(g-go)>BRIDGE_DROP){
-    // Along a cliff/canyon rim: keep the deck LEVEL (don't bank/tilt into the
-    // drop). The low edge is then carried by a skirt or piers.
-    y=Math.max(g,go)+ROAD_LIFT;
+  let sum=0,wsum=0;
+  for(let j=-GRADE_WIN;j<=GRADE_WIN;j++){
+    const w=1-Math.abs(j)/(GRADE_WIN+1);
+    sum+=envAt(axis,k,i+j)*w;wsum+=w;
   }
+  let y=sum/wsum+ROAD_LIFT;
+  if(overWater(axis,k,i))y=Math.max(WATER_Y+BRIDGE_CLEAR, y);
   cDeck.set(kk,y);return y;
 }
-/* Centre-line deck height — what vehicles and the ship ride on. */
-function deckSmooth(axis,k,i){
-  return (deckEdge(axis,k,i,1)+deckEdge(axis,k,i,-1))*0.5;
-}
+/* Centre-line deck height — what vehicles and the ship ride on. Flat deck, so
+   both edges are the same level. */
+function deckSmooth(axis,k,i){ return deckEdge(axis,k,i); }
 
 /* ---------- road surface texture ----------
    Built here rather than in world/textures.js because the layout is tied to
@@ -349,7 +349,7 @@ export function roadsNear(ox,oz,size){
 export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
   const i0=Math.floor(t0/STEP)-1, i1=Math.ceil(t1/STEP)+1;
   const pos=[],uv=[],idx=[];
-  const SKIRT=0.5, MAXSKIRT=3.0;    // banked deck means the skirt stays short
+  const SKIRT=0.5, MAXSKIRT=3.0;    // fill skirt on land; piers past the cap over gaps
   let along=0, vbase=0;
   const grp=new THREE.Group();
 
@@ -358,12 +358,13 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
     const pn=pathAt(axis,k,i+1);
     let fx=pn.x-p.x, fz=pn.z-p.z; const l=Math.hypot(fx,fz)||1; fx/=l;fz/=l;
     const nx=fz, nz=-fx;                       // left normal
-    // Each edge sits at its own height, so the deck banks with the hillside
-    // instead of riding flat at the uphill edge on a tall embankment.
+    // Flat grade: both edges share one level, so the carriageway is level
+    // across its width (no bank) and level along the flats, easing only over
+    // long distances. Terrain is met by a fill skirt, gaps by piers.
     const lx=p.x+nx*ROAD_HW, lz=p.z+nz*ROAD_HW;
     const rx=p.x-nx*ROAD_HW, rz=p.z-nz*ROAD_HW;
-    const ly=deckEdge(axis,k,i,1), ry=deckEdge(axis,k,i,-1);
-    const y=(ly+ry)*0.5;
+    const y=deckEdge(axis,k,i);
+    const ly=y, ry=y;
     // Skirt reaches the ground under its own edge; capped, past which the span
     // is a real bridge and gets piers instead of an ever-taller wall.
     const lb=Math.max(Math.min(ly-SKIRT,heightAt(lx,lz)-0.25), ly-MAXSKIRT);

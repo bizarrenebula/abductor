@@ -39,6 +39,7 @@ import { CropCircles } from './systems/cropcircles.js';
 import { Clouds } from './systems/clouds.js';
 import { Fireflies } from './systems/fireflies.js';
 import { ValleyFog } from './systems/valleyfog.js';
+import { Birds } from './systems/birds.js';
 
 import { updateMeteors } from './hazards/meteors.js';
 import { updateGeysers } from './hazards/geysers.js';
@@ -441,6 +442,7 @@ function animate(){
   Clouds.update(dt);
   Fireflies.update(dt);
   ValleyFog.update(dt);
+  Birds.update(dt);
   drawMinimap(dt);
   updateFlare(dt);
   if(window._lflash)window._lflash.style.opacity=(typeof flashAmt!=='undefined'?flashAmt*0.7:0);
@@ -508,7 +510,7 @@ document.addEventListener('visibilitychange',()=>{
 
 applyStaticDOM();   // apply the saved language to every static [data-i18n] element on load
 onLang(()=>{ const n=document.getElementById('loadNote'); if(n&&assetsReady)n.textContent=tr('loadNote.ready'); });
-reseed();updateChunks(0,0);Clouds.spawnField(0,0);Fireflies.reset(0,0);ValleyFog.reset(0,0);
+reseed();updateChunks(0,0);Clouds.spawnField(0,0);Fireflies.reset(0,0);ValleyFog.reset(0,0);Birds.reset(0,0);
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);allocRT();});
 animate();

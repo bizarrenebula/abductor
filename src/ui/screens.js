@@ -20,6 +20,7 @@ import { CropCircles } from '../systems/cropcircles.js';
 import { Clouds } from '../systems/clouds.js';
 import { Fireflies } from '../systems/fireflies.js';
 import { ValleyFog } from '../systems/valleyfog.js';
+import { Birds } from '../systems/birds.js';
 import { updateMissionHUD } from '../systems/missions.js';
 import { resetMeteors } from '../hazards/meteors.js';
 import { resetGeysers } from '../hazards/geysers.js';
@@ -85,6 +86,7 @@ export function startGame(opts){
   Clouds.spawnField(saucer.position.x,saucer.position.z);
   Fireflies.reset(saucer.position.x,saucer.position.z);
   ValleyFog.reset(saucer.position.x,saucer.position.z);
+  Birds.reset(saucer.position.x,saucer.position.z);
   updateMissionHUD();
   Story.reset();
   if(S.storyMode)Story.begin(S.world);

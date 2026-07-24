@@ -94,10 +94,14 @@ function bakeTree(){
 
 const TREE_N=env.LOW_END?4:6;
 const TREE_GEOS=[]; for(let i=0;i<TREE_N;i++)TREE_GEOS.push(bakeTree());
-const treeMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,metalness:0.02,flatShading:true});
+// A few shared tint variants (neutral / cool moonlit / warm), multiplied onto the
+// baked vertex colours — subtle per-tree colour range across the forest at no
+// extra cost (still only 3 materials). 6 shapes x 3 tints = plenty of variety.
+const treeMats=[0xffffff,0xd6ddec,0xece0cc].map(c=>
+  new THREE.MeshStandardMaterial({vertexColors:true,color:c,roughness:0.95,metalness:0.02,flatShading:true}));
 
 export function twistedTree(){
-  const m=new THREE.Mesh(TREE_GEOS[(Math.random()*TREE_N)|0], treeMat);
+  const m=new THREE.Mesh(TREE_GEOS[(Math.random()*TREE_N)|0], treeMats[(Math.random()*treeMats.length)|0]);
   m.castShadow=!env.LOW_END;
   m.rotation.set(0,Math.random()*6.28,(Math.random()-0.5)*0.36);   // random spin + overall lean
   return m;

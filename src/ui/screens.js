@@ -19,6 +19,7 @@ import { spawnUpgradeItems, clearUpgradeItems } from '../entities/upgradeItems.j
 import { CropCircles } from '../systems/cropcircles.js';
 import { Clouds } from '../systems/clouds.js';
 import { Fireflies } from '../systems/fireflies.js';
+import { ValleyFog } from '../systems/valleyfog.js';
 import { updateMissionHUD } from '../systems/missions.js';
 import { resetMeteors } from '../hazards/meteors.js';
 import { resetGeysers } from '../hazards/geysers.js';
@@ -83,6 +84,7 @@ export function startGame(opts){
   CropCircles.reset();
   Clouds.spawnField(saucer.position.x,saucer.position.z);
   Fireflies.reset(saucer.position.x,saucer.position.z);
+  ValleyFog.reset(saucer.position.x,saucer.position.z);
   updateMissionHUD();
   Story.reset();
   if(S.storyMode)Story.begin(S.world);

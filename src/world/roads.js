@@ -190,8 +190,10 @@ function pathAt(axis,k,i){
    flat roadway that touches the ground on the high spots and rides flat — on a
    short embankment or, over real gaps, on piers — across everything lower. */
 
-const ENV_WIN   = 9;   // half-window (steps, ~54u) for the ground upper-envelope
-const GRADE_WIN  = 9;  // half-window for easing the envelope into a grade
+const ENV_WIN   = 5;   // half-window (steps, ~30u) for the ground upper-envelope —
+                       // smaller so the road hugs the ground more and rides on far
+                       // less fill (a thinner, more natural profile), while...
+const GRADE_WIN  = 9;  // ...this wide easing still keeps the grade smooth, not wavy
 
 /* Left/right edge world position at step i (side = +1 left, -1 right). */
 function edgePos(axis,k,i,side){
@@ -410,7 +412,8 @@ export function roadsNear(ox,oz,size){
 export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
   const i0=Math.floor(t0/STEP)-1, i1=Math.ceil(t1/STEP)+1;
   const pos=[],uv=[],idx=[];
-  const SKIRT=0.5, MAXSKIRT=3.0;    // fill skirt on land; piers past the cap over gaps
+  const SLAB=0.4, MAXFILL=1.5;      // thin deck edge; low embankment fills to ground up to
+                                    // MAXFILL, beyond that it's a bridge/overpass on piers
   let along=0, vbase=0;
   const grp=new THREE.Group();
 
@@ -426,10 +429,13 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
     const rx=p.x-nx*ROAD_HW, rz=p.z-nz*ROAD_HW;
     const y=deckEdge(axis,k,i);
     const ly=y, ry=y;
-    // Skirt reaches the ground under its own edge; capped, past which the span
-    // is a real bridge and gets piers instead of an ever-taller wall.
-    const lb=Math.max(Math.min(ly-SKIRT,heightAt(lx,lz)-0.25), ly-MAXSKIRT);
-    const rb=Math.max(Math.min(ry-SKIRT,heightAt(rx,rz)-0.25), ry-MAXSKIRT);
+    // A shallow fill reaches the ground as a low embankment; once the deck sits
+    // well clear of the ground it's a bridge/overpass, carried as a THIN deck
+    // slab on piers rather than a tall solid wall (which read as a chunky slab).
+    const lg=heightAt(lx,lz), rg=heightAt(rx,rz);
+    const lfill=ly-lg, rfill=ry-rg;
+    const lb = lfill<=MAXFILL ? lg-0.25 : ly-SLAB;
+    const rb = rfill<=MAXFILL ? rg-0.25 : ry-SLAB;
     pos.push(lx, ly, lz);
     pos.push(rx, ry, rz);
     pos.push(lx, lb, lz);
@@ -447,15 +453,13 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
     vbase+=4;
     along+=STEP/TILE_ALONG;
 
-    // A pier goes in exactly where the embankment ran out of reach — i.e. both
-    // skirts hit the MAXSKIRT cap and the deck is genuinely spanning a gap.
-    // Deriving it from the same number the skirts use keeps pillars off dry
-    // ground, where an earlier independent threshold scattered them.
-    if(i%4===0 && lb<=ly-MAXSKIRT+1e-6 && rb<=ry-MAXSKIRT+1e-6){
-      const gh=Math.min(heightAt(p.x,p.z),heightAt(lx,lz),heightAt(rx,rz));
+    // A pier goes in where the deck has risen past the embankment reach on both
+    // edges — a genuine bridge/overpass span, carried on slim pillars.
+    if(i%4===0 && lfill>MAXFILL && rfill>MAXFILL){
+      const gh=Math.min(heightAt(p.x,p.z),lg,rg);
       const hgt=y-gh;
-      if(hgt>MAXSKIRT){
-        const pier=new THREE.Mesh(new THREE.BoxGeometry(1.1,hgt,1.1),pierMat);
+      if(hgt>MAXFILL){
+        const pier=new THREE.Mesh(new THREE.BoxGeometry(0.8,hgt,0.8),pierMat);
         pier.position.set(p.x,gh+hgt/2,p.z);
         pier.rotation.y=Math.atan2(fx,fz);
         grp.add(pier);

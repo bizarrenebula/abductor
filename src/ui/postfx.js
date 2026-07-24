@@ -10,10 +10,10 @@ import { env } from '../core/env.js';
 import { renderer, scene, camera, getEnv } from '../core/engine.js';
 import { refreshHemi } from '../world/world-config.js';
 
-const BLOOM_THRESHOLD=0.80;   // luminance above which pixels bloom (high, so mostly
-                              // the beam, crystals, lights + hotspots glow — not the
-                              // whole daylit/foggy ground)
-const BLOOM_STRENGTH=0.62;    // how much bloom is added back (bright alien glows)
+const BLOOM_THRESHOLD=0.90;   // VERY selective: only the genuinely bright, emissive
+                              // things (beam core, crystals, ship lights) glow — not
+                              // bright terrain, fog or edges
+const BLOOM_STRENGTH=0.34;    // subtle — a hint of glow, not a haze
 const BLOOM_ITERS=2;          // blur passes (more = softer, wider glow)
 
 let rtScene,rtHalfA,rtHalfB,rtComp;
@@ -61,8 +61,8 @@ const compMat=new THREE.ShaderMaterial({uniforms:{tScene:{value:null},tBloom:{va
     col=mix(vec3(l),col,0.85+0.95*sat);
     // Alien tint: teal-cyan in the shadows, faintly cool in the lights.
     col*=mix(vec3(0.72,0.95,1.13),vec3(1.06,1.03,1.02),smoothstep(0.03,0.80,l));
-    col=(col-0.5)*1.24+0.5;                          // deep, moody contrast
-    col=max(col-0.045,0.0);                          // crushed blacks (the dark)
+    col=(col-0.5)*1.42+0.5;                          // punchy contrast
+    col=max(col-0.05,0.0);                           // crushed blacks (the dark)
     col*=0.96;                                       // a touch darker overall
     vec2 q=vUv-0.5;float vig=1.0-smoothstep(0.24,0.95,length(q));
     col*=mix(0.5,1.0,vig);                           // tight vignette frames the mystery

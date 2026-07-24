@@ -150,6 +150,31 @@ function animate(){
     // second or so rather than braking on a dime. Moon glides even further.
     const drag=Math.pow(World.name==='moon'?0.58:0.42,dt);
     S.vel.x*=drag; S.vel.z*=drag;
+    // --- terrain look-ahead: sample the surface a little way along travel so the
+    // ship ANTICIPATES a rise. Two things fall out of it: a heavy craft visibly
+    // slows as it noses up to clear a higher structure (uphill road, hill, bridge
+    // approach), and the altitude target below can start climbing early. Only the
+    // higher ground ahead counts here — drops are left to the gentle descent, so
+    // nothing pre-empts a fall. ---
+    const surfHere=Math.max(heightAt(saucer.position.x,saucer.position.z),
+                            roadHeightAt(saucer.position.x,saucer.position.z));
+    let surfAhead=surfHere;
+    const spd=Math.hypot(S.vel.x,S.vel.z);
+    if(spd>1){
+      const ux=S.vel.x/spd, uz=S.vel.z/spd, look=Math.min(44,12+spd*0.6);
+      for(let d=8;d<=look;d+=8){
+        const g=Math.max(heightAt(saucer.position.x+ux*d,saucer.position.z+uz*d),
+                         roadHeightAt(saucer.position.x+ux*d,saucer.position.z+uz*d));
+        if(g>surfAhead)surfAhead=g;
+      }
+      // Labour up and over: brake for the climb, but only when flying low enough
+      // that the rise is actually in the way, and never so hard it stalls.
+      const climb=surfAhead-surfHere, aglNow=saucer.position.y-surfHere;
+      if(climb>0.8 && aglNow<S.hover+12){
+        const brake=Math.pow(clamp(1-climb*0.012,0.72,1),dt*6);
+        S.vel.x*=brake; S.vel.z*=brake;
+      }
+    }
     saucer.position.x+=S.vel.x*dt;
     saucer.position.z+=S.vel.z*dt;
 
@@ -178,8 +203,17 @@ function animate(){
     const gh=Math.max(heightAt(saucer.position.x,saucer.position.z),
                       roadHeightAt(saucer.position.x,saucer.position.z));
     const floorY=26*(S.hover/HOVER_BASE);
-    const targetY=Math.max(floorY,gh+S.hover)+Math.sin(t*1.4)*0.5;
-    saucer.position.y=lerp(saucer.position.y,targetY,Math.min(1,dt*3));
+    // Follow the surface with WEIGHT. The climb target is the look-ahead surface,
+    // so the ship begins rising BEFORE it reaches a higher structure; once past a
+    // crest it settles onto the surface under the hull. The vertical follow speed
+    // is capped — a firm-but-limited climb up and over, and a soft, slow drop off a
+    // bridge or downhill — so altitude eases in and out gradually instead of
+    // snapping to height. (Genuine mountain faces are still a hard collision below.)
+    const climbRef=Math.max(gh,surfAhead);
+    const targetY=Math.max(floorY,climbRef+S.hover)+Math.sin(t*1.4)*0.5;
+    const dy=targetY-saucer.position.y;
+    const cap=(dy>0?20:8)*dt;                 // max climb / gentler descent, units/s
+    saucer.position.y+=clamp(dy*Math.min(1,dt*2.6),-cap,cap);
 
     /* Altitude trade-off, derived once from the ship's true height above ground
        and shared by the beam, the reactor and the camera. Low = strong beam,

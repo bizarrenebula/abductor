@@ -122,8 +122,8 @@ function animate(){
        the ship on its own axis. Momentum: the intent accelerates S.yawV, which
        then coasts down and is capped, so turns wind up and unwind. ---- */
     let turn=input.tTurn;
-    if(keys['a'])turn-=1;
-    if(keys['d'])turn+=1;
+    if(keys['arrowleft'])turn-=1;
+    if(keys['arrowright'])turn+=1;
     turn=clamp(turn,-1,1);
     S.yawV+=turn*YAW_ACC*dt;
     S.yawV*=Math.pow(YAW_DRAG,dt);
@@ -138,8 +138,8 @@ function animate(){
     let fwd=input.tFwd, side=input.tStrafe;
     if(keys['arrowup'])fwd+=1;
     if(keys['arrowdown'])fwd-=1;
-    if(keys['arrowright'])side+=1;
-    if(keys['arrowleft'])side-=1;
+    if(keys['d'])side+=1;
+    if(keys['a'])side-=1;
     fwd=clamp(fwd,-1,1);side=clamp(side,-1,1);
     const il=Math.hypot(fwd,side); if(il>1){fwd/=il;side/=il;}
     const moveMag=Math.min(1,Math.hypot(fwd,side));

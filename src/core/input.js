@@ -54,14 +54,14 @@ function moveKnob(h,dx,dy){ const el=joy(h); if(!el)return; const k=el.querySele
 function hideJoy(h){ const el=joy(h); if(el)el.classList.remove('on'); }
 function setBeaming(h,on){ const el=joy(h); if(el)el.classList.toggle('beaming',on); }   // hides the "double-tap" hint while beaming
 
-// RIGHT stick = move the ship in the plane (forward/back + strafe); LEFT stick =
-// rotate the nose + altitude. So the right thumb flies the saucer around and the
-// left steers its facing and height — reads as piloting the craft, not a dot.
+// RIGHT stick = drive the saucer where it faces (forward/back) + turn the nose;
+// LEFT stick = strafe sideways + altitude. So the right thumb pilots heading and
+// throttle, the left slides and lifts the craft.
 function setAxes(h,vx,vy){
-  if(h==='L'){input.tTurn=dz(vx);input.tClimb=dz(-vy);}    // x = rotate, up = climb
-  else{input.tStrafe=dz(vx);input.tFwd=dz(-vy);}           // x = strafe, up = forward
+  if(h==='L'){input.tStrafe=dz(vx);input.tClimb=dz(-vy);}  // x = strafe, up = climb
+  else{input.tTurn=dz(vx);input.tFwd=dz(-vy);}             // x = turn, up = forward
 }
-function clearAxes(h){ if(h==='L'){input.tTurn=0;input.tClimb=0;} else {input.tStrafe=0;input.tFwd=0;} }
+function clearAxes(h){ if(h==='L'){input.tStrafe=0;input.tClimb=0;} else {input.tTurn=0;input.tFwd=0;} }
 // centre deadzone + rescale so a resting thumb reads as neutral and the usable
 // travel still spans the full -1..1 — key to a stick that feels natural.
 function dz(v){ const d=0.12, a=Math.abs(v); return a<d?0:Math.sign(v)*((a-d)/(1-d)); }

@@ -33,8 +33,12 @@ export function drawMinimap(dt){
     mmCtx.beginPath();mmCtx.arc(cx,cy,R,0,7);mmCtx.fill();
   }
   const sx=saucer.position.x,sz=saucer.position.z;
+  // Heading-up radar: rotate every marker by the ship's yaw so the nose always
+  // points to the top of the map and the world spins around you as you turn.
+  const yaw=S.yaw, ca=Math.cos(yaw), sa=Math.sin(yaw);
   const plot=(wx,wz,col,rad,pulse)=>{
-    let dx=(wx-sx)/MM_RANGE*R, dy=(wz-sz)/MM_RANGE*R;
+    const ox=(wx-sx)/MM_RANGE*R, oz=(wz-sz)/MM_RANGE*R;
+    let dx=ox*ca-oz*sa, dy=ox*sa+oz*ca;
     const d=Math.hypot(dx,dy);let edge=false;
     if(d>R-3){const k=(R-3)/d;dx*=k;dy*=k;edge=true;}
     mmCtx.globalAlpha=edge?0.5:1;mmCtx.fillStyle=col;
@@ -84,5 +88,10 @@ export function drawMinimap(dt){
     }
   }
   mmCtx.restore();
-  mmCtx.fillStyle='#eafff4';mmCtx.beginPath();mmCtx.arc(cx,cy,2.4,0,7);mmCtx.fill();
+  // ship heading arrow at the centre — always points up (forward), since the map
+  // is heading-up. A soft glow ring under it reads as the craft.
+  mmCtx.fillStyle='rgba(143,232,184,0.18)';mmCtx.beginPath();mmCtx.arc(cx,cy,6,0,7);mmCtx.fill();
+  mmCtx.fillStyle='#eafff4';
+  mmCtx.beginPath();mmCtx.moveTo(cx,cy-6);mmCtx.lineTo(cx-4.2,cy+5);mmCtx.lineTo(cx,cy+2.6);mmCtx.lineTo(cx+4.2,cy+5);
+  mmCtx.closePath();mmCtx.fill();
 }

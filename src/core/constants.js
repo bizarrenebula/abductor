@@ -15,7 +15,10 @@
 export const OBJ_SCALE = 1.35;
 
 export const WATER_Y = -3;
-export const CHUNK = 80, SEG = 24;
+export const CHUNK = 80, SEG = 14;   // coarser mesh = larger "folded-paper" facets (art
+                                     // brief). The height field is all long-wavelength, so a
+                                     // sparser mesh still tracks it closely — physics (analytic
+                                     // heightAt) is unchanged; only the visible tessellation drops.
 
 /* Hover altitude, in world units above the terrain directly below the ship.
    HOVER_BASE is the resting height the ship has always flown at; arrow up/down

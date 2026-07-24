@@ -23,6 +23,7 @@ import { WEATHER, weather, updateDust, pickWeather, applyWeather, updateWeatherP
 import { updateAnimals } from './entities/animals.js';
 import { updateCrystals } from './entities/crystals.js';
 import { updateProps } from './entities/props.js';
+import { updateWindmills } from './entities/humans.js';
 import { updateVehicles } from './entities/vehicles.js';
 import { updateUpgradeItems } from './entities/upgradeItems.js';
 
@@ -305,6 +306,7 @@ function animate(){
     Special.update(dt,input.spHeld||!!keys['q']);
     updateCrystals(dt,beamOn&&bp>0.5);
     updateProps(dt,beamOn&&bp>0.5);
+    updateWindmills(dt);
     updateMeteors(dt);
     updateGeysers(dt);
     updateLightning(dt);

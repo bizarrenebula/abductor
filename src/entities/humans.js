@@ -8,10 +8,20 @@ import { mat, part, glowMat, measureSolid } from '../core/mesh.js';
 import { S } from '../core/state.js';
 import { heightAt } from '../world/terrain.js';
 import { LOADED, spawnModel } from '../assets.js';
-import { shelters } from './registry.js';
+import { shelters, buildings } from './registry.js';
 import { saucer } from '../systems/saucer.js';
 
-/* ---------- buildings: shelters for fleeing humans ---------- */
+/* Warm window helper — a glowing amber pane that reads as an inhabited building
+   from across the valley (art brief). */
+function litWindow(w,h,x,y,z,ry){
+  const win=glowMat(0xffb24a,1.8);
+  const p=part(new THREE.PlaneGeometry(w,h),win,x,y,z);
+  if(ry)p.rotation.y=ry; p.castShadow=false; return p;
+}
+
+/* ---------- buildings: shelters for fleeing humans ----------
+   Chunky, simple, silhouette-first rural structures — barn, house, water tower,
+   windmill (slowly turning), and a desert camp — per the art brief. */
 export function buildBuilding(kind){
   if(kind==='barn'&&LOADED.barn){
     const g=spawnModel('barn');
@@ -24,12 +34,38 @@ export function buildBuilding(kind){
     g.add(part(new THREE.BoxGeometry(4.2,2.4,3.2),mat(0x3a2420,0.9),0,1.2,0));
     const roof=part(new THREE.CylinderGeometry(0,2.6,1.7,4),mat(0x241610,0.9),0,3.2,0);
     roof.rotation.y=Math.PI/4;roof.scale.set(1.25,1,0.95);g.add(roof);
-    // warm glowing windows — the barn reads as inhabited from across the valley
-    const win=glowMat(0xffb24a,1.8);
-    const fw1=part(new THREE.PlaneGeometry(0.72,0.72),win,-1.05,1.45,1.61);fw1.castShadow=false;g.add(fw1);
-    const fw2=part(new THREE.PlaneGeometry(0.72,0.72),win, 1.05,1.45,1.61);fw2.castShadow=false;g.add(fw2);
-    const sw=part(new THREE.PlaneGeometry(0.72,0.72),win,2.11,1.45,0);sw.rotation.y=Math.PI/2;sw.castShadow=false;g.add(sw);
+    g.add(litWindow(0.72,0.72,-1.05,1.45,1.61));g.add(litWindow(0.72,0.72,1.05,1.45,1.61));
+    g.add(litWindow(0.72,0.72,2.11,1.45,0,Math.PI/2));
     g.add(part(new THREE.BoxGeometry(1.1,1.6,0.1),mat(0x14100c,0.9),0,0.8,1.62));
+    g.scale.multiplyScalar(OBJ_SCALE);
+  }else if(kind==='house'){
+    g.add(part(new THREE.BoxGeometry(3.4,2.0,2.8),mat(0x463a30,0.9),0,1.0,0));          // walls
+    const roof=part(new THREE.CylinderGeometry(0,2.3,1.35,4),mat(0x2a1c16,0.9),0,2.68,0);
+    roof.rotation.y=Math.PI/4;roof.scale.set(1.3,1,1.05);g.add(roof);                    // pitched roof
+    g.add(litWindow(0.6,0.6,-0.72,1.05,1.42));g.add(litWindow(0.6,0.6,0.72,1.05,1.42));
+    g.add(part(new THREE.BoxGeometry(0.42,1.0,0.42),mat(0x1a120c,0.9),1.0,3.0,-0.5));    // chimney
+    g.scale.multiplyScalar(OBJ_SCALE);
+  }else if(kind==='watertower'){
+    const legMat=mat(0x2c2622,0.9);
+    for(let i=0;i<4;i++){const a=Math.PI/4+i*Math.PI/2, lx=Math.cos(a)*1.05, lz=Math.sin(a)*1.05;
+      const leg=part(new THREE.CylinderGeometry(0.09,0.12,4.4,5),legMat,lx,2.2,lz);
+      leg.rotation.set(-lz*0.09,0,lx*0.09);g.add(leg);}
+    g.add(part(new THREE.CylinderGeometry(1.5,1.5,1.9,10),mat(0x53463b,0.9),0,5.1,0));   // tank
+    g.add(part(new THREE.ConeGeometry(1.62,0.85,10),mat(0x2a1c16,0.9),0,6.4,0));         // conic roof
+    g.scale.multiplyScalar(OBJ_SCALE);
+  }else if(kind==='windmill'){
+    const wm=mat(0x39332c,0.9);
+    for(let i=0;i<4;i++){const a=Math.PI/4+i*Math.PI/2, lx=Math.cos(a)*0.7, lz=Math.sin(a)*0.7;
+      const leg=part(new THREE.CylinderGeometry(0.05,0.09,4.7,4),wm,lx,2.35,lz);
+      leg.rotation.set(-lz*0.15,0,lx*0.15);g.add(leg);}
+    g.add(part(new THREE.BoxGeometry(0.9,0.35,0.9),wm,0,4.75,0));                        // deck
+    const hub=new THREE.Group();hub.position.set(0,4.95,0.35);                           // fan faces +z
+    hub.add(part(new THREE.CylinderGeometry(0.13,0.13,0.26,8),mat(0x1c1814,0.8),0,0,0.05));
+    const bladeMat=mat(0xb6bcc2,0.7);
+    for(let i=0;i<10;i++){const a=i/10*Math.PI*2;
+      const bl=part(new THREE.BoxGeometry(0.05,1.15,0.32),bladeMat,Math.cos(a)*0.72,Math.sin(a)*0.72,0.12);
+      bl.rotation.z=a;hub.add(bl);}
+    g.add(hub);g.userData.spinner=hub;                                                   // rotated by updateWindmills
     g.scale.multiplyScalar(OBJ_SCALE);
   }else{
     // camp: tent + dying fire
@@ -38,9 +74,14 @@ export function buildBuilding(kind){
     g.add(part(new THREE.SphereGeometry(0.2,8,6),new THREE.MeshStandardMaterial({color:0x662200,emissive:0xff6820,emissiveIntensity:0.9,roughness:0.6}),1.8,0.15,0.6));
     g.add(part(new THREE.CylinderGeometry(0.07,0.07,0.9,5),mat(0x2c1e12,0.95),2.1,0.1,0.3));g.scale.multiplyScalar(OBJ_SCALE);
   }
-  // Barns are solid; camps are low canvas tents you can safely skim over.
-  if(kind==='barn'){g.userData.solid=true;measureSolid(g);}
+  // Everything but the low canvas camp is solid: the ship crashes into it.
+  if(kind!=='camp'){g.userData.solid=true;measureSolid(g);}
   return g;
+}
+
+/* Slowly turn every windmill's fan — "everything should move slowly" (brief). */
+export function updateWindmills(dt){
+  for(const b of buildings){ const s=b.userData&&b.userData.spinner; if(s)s.rotation.z+=dt*0.55; }
 }
 
 /* ---------- humans: they notice you, run, and hide ---------- */

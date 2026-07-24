@@ -202,7 +202,7 @@ export function buildChunk(cx,cz){
     const sm=sample(wx,wz);
     if(sm.biome!=='water'&&sm.biome!=='canyon'&&sm.biome!=='mountain'&&sm.h<20&&sm.h>=WATER_Y+1.6
        &&roadDist(wx,wz)>ROAD_HW+9&&clearSpot(wx,wz,11)&&flatEnough(wx,wz,9)){
-      const kind=sm.biome==='desert'?'camp':'barn';
+      const kind=sm.biome==='desert'?'camp':['barn','house','watertower','windmill','house','barn'][(Math.random()*6)|0];
       const b=buildBuilding(kind);
       b.position.set(wx,sm.h,wz);b.rotation.y=Math.random()*6.28;
       clearPropsNear(wx,wz,10);mark(wx,wz,10);

@@ -33,10 +33,10 @@ import { t } from '../i18n.js';
 /* Collect-ladder tiers: cumulative point cost + the capability granted. */
 export const UP_TIERS=[
   { key:'basic', at:0,                 title:'upg.t.basic', guide:'upg.g.basic' },
-  { key:'beam1', at:12,  beam:1.16,    title:'upg.t.beam1', guide:'upg.g.beam' },
-  { key:'beam2', at:30,  beam:1.32,    title:'upg.t.beam2', guide:'upg.g.beam' },
-  { key:'beam3', at:55,  beam:1.50,    title:'upg.t.beam3', guide:'upg.g.beam' },
-  { key:'cloak', at:90,  cloak:true,   title:'upg.t.cloak', guide:'upg.g.cloak' },
+  { key:'beam1', at:20,  beam:1.16,    title:'upg.t.beam1', guide:'upg.g.beam' },
+  { key:'beam2', at:50,  beam:1.32,    title:'upg.t.beam2', guide:'upg.g.beam' },
+  { key:'beam3', at:95,  beam:1.50,    title:'upg.t.beam3', guide:'upg.g.beam' },
+  { key:'cloak', at:155, cloak:true,   title:'upg.t.cloak', guide:'upg.g.cloak' },
 ];
 const MAX_TIER=UP_TIERS.length-1;
 

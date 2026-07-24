@@ -20,8 +20,8 @@ export const upgradeItems=[];   // live meshes; read by the minimap
 
 const BEACON_H=72;              // pillar height — tall enough to clear terrain
 const COLLECT_R=8;              // fly this close (horizontally) to install
-const SPAWN_MIN=220, SPAWN_MAX=680;   // parts sit well out from the start point
-const SEP_MIN=320;             // and well apart from each other
+const SPAWN_MIN=380, SPAWN_MAX=1150;  // parts sit far out — you roam to find them
+const SEP_MIN=560;             // and well apart from each other
 const BLINK_HZ=3.2;            // line-of-sight blink rate
 const _v=new THREE.Vector3(), _pop=new THREE.Vector3();
 

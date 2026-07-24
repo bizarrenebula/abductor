@@ -19,6 +19,20 @@ import { beep } from '../audio/music.js';
 import { spawnPop } from '../ui/pop.js';
 import { Story } from '../story/story.js';
 
+/* Soft additive halo so crystals glow and draw the eye from a distance. */
+const glowTex=(function(){
+  const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
+  const gr=x.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(0.28,'rgba(255,255,255,0.55)');gr.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=gr;x.fillRect(0,0,128,128);
+  return new THREE.CanvasTexture(c);
+})();
+function addGlow(g,tint){
+  const m=new THREE.SpriteMaterial({map:glowTex,color:tint,transparent:true,opacity:0.9,
+    depthWrite:false,blending:THREE.AdditiveBlending,fog:false});
+  const s=new THREE.Sprite(m);s.scale.set(7,7,1);s.position.y=0.7;
+  g.add(s);g.userData.glow=s;
+}
 export function buildCrystal(){
   const tint=World.name==='moon'?0x9fe8ff:World.name==='mars'?0xff7a50:0x8fe8b8;
   // --- custom model path ---
@@ -35,6 +49,7 @@ export function buildCrystal(){
     g.userData.lift=0;g.userData.phase=Math.random()*6.28;
     g.userData.mats=mats;g.userData.s0=(ASSETS.crystal.scale||1)*OBJ_SCALE;
     g.scale.setScalar(g.userData.s0);
+    addGlow(g,tint);
     return g;
   }
   const g=new THREE.Group();
@@ -49,13 +64,15 @@ export function buildCrystal(){
     g.add(c);
   }
   g.userData.lift=0;g.userData.phase=Math.random()*6.28;g.userData.mats=[m];g.userData.s0=OBJ_SCALE;g.scale.setScalar(OBJ_SCALE);
+  addGlow(g,tint);
   return g;
 }
 export function updateCrystals(dt,beamActive){
   const t=performance.now()*0.001,R=effBeamR();
   for(let i=pickups.length-1;i>=0;i--){
     const p=pickups[i],u=p.userData;
-    const eI=0.55+0.3*Math.sin(t*1.6+u.phase);(u.mats||[]).forEach(m=>m.emissiveIntensity=eI);   // soft breathing glow
+    const eI=1.05+0.6*Math.sin(t*1.6+u.phase);(u.mats||[]).forEach(m=>m.emissiveIntensity=eI);   // bright breathing glow
+    if(u.glow){const gp=0.7+0.45*Math.sin(t*2.0+u.phase);u.glow.material.opacity=gp;u.glow.scale.setScalar(6.5+1.4*Math.sin(t*2.0+u.phase));}
     const dx=p.position.x-saucer.position.x,dz=p.position.z-saucer.position.z;
     const inBeam=beamActive&&(dx*dx+dz*dz)<R*R;
     if(inBeam){u.lift=Math.min(1,u.lift+dt/0.9);p.rotation.y+=dt*6;}

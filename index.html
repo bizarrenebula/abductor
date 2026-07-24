@@ -174,6 +174,23 @@
   .upgPip.got{color:#04140e;border-color:var(--beam);
     background:radial-gradient(circle at 40% 35%,#b9ffdd,var(--beam) 70%);
     box-shadow:0 0 10px rgba(143,232,184,.6)}
+  /* equipment checklist — shown while crucial modules (beam/thrusters/cloak)
+     are still missing; hidden by upgrades.js once all three are aboard. */
+  #hEquip{top:104px;left:50%;transform:translateX(-50%);text-align:left;
+    max-width:min(330px,88vw);border:1px solid rgba(143,232,184,.3);
+    box-shadow:0 0 24px rgba(0,0,0,.5),inset 0 0 20px rgba(89,255,176,.05)}
+  #hEquip .eqTitle{font-size:9px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--beam-dim);text-align:center;margin-bottom:8px}
+  .eqRow{display:flex;align-items:center;gap:9px;margin:5px 0}
+  .eqChk{flex:0 0 auto;width:14px;height:14px;border-radius:4px;position:relative;
+    border:1.5px solid var(--beam-dim)}
+  .eqRow.got .eqChk{background:var(--beam);border-color:var(--beam);box-shadow:0 0 8px rgba(143,232,184,.6)}
+  .eqRow.got .eqChk::after{content:'✓';position:absolute;left:1.5px;top:-3.5px;
+    font-size:11px;line-height:1;color:#04160f;font-weight:900}
+  .eqName{font-size:12px;font-weight:700;color:var(--ink)}
+  .eqUse{font-size:9px;letter-spacing:.08em;color:var(--ink-soft);margin-left:auto}
+  .eqRow.got .eqName{color:var(--beam)}
+  .eqRow.got{opacity:.5}
   /* "great pull" trigger — a fixed target above the centre of the right half
      (75% across, above mid-height), revealed (.show) only while fully charged */
   #spBtn{position:fixed;left:75%;top:38%;transform:translate(-50%,-50%) scale(.6);
@@ -531,9 +548,15 @@
     <div id="upgBar"><div id="upgFill"></div></div>
     <div class="upgNext" id="upgNext">—</div>
     <div id="upgPips">
-      <span class="upgPip" id="upgPip_thrusters" title="Thrusters">T</span>
       <span class="upgPip" id="upgPip_highEngine" title="Engine">E</span>
     </div>
+  </div>
+  <!-- crucial-equipment checklist: hidden by upgrades.js once all three found -->
+  <div class="panel" id="hEquip">
+    <div class="eqTitle" data-i18n="equip.title">Missing equipment — find these</div>
+    <div class="eqRow" id="eqRow_beam"><span class="eqChk"></span><span class="eqName" data-i18n="upg.name.beam">Tractor Beam</span><span class="eqUse" data-i18n="equip.use.beam">abduct</span></div>
+    <div class="eqRow" id="eqRow_thrusters"><span class="eqChk"></span><span class="eqName" data-i18n="upg.name.thrusters">Thrusters</span><span class="eqUse" data-i18n="equip.use.thrusters">ascend / descend</span></div>
+    <div class="eqRow" id="eqRow_cloak"><span class="eqChk"></span><span class="eqName" data-i18n="upg.name.cloak">Cloak</span><span class="eqUse" data-i18n="equip.use.cloak">hide</span></div>
   </div>
   <button id="pauseBtn" class="hbtn" aria-label="Menu">❚❚</button>
   <button id="spBtn" aria-label="Special pull" data-i18n="hud.pull">PULL</button>

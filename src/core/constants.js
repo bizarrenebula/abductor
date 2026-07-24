@@ -35,7 +35,7 @@ export const HOVER_BASE = 15, HOVER_MIN = 4, HOVER_MAX = HOVER_BASE * 3;
    roughly where it was; only the *time* to reach or shed it has grown.
    Bump the ACC/VMAX values for more agility; raise the DRAG retentions for more
    glide/float. */
-export const MOVE_ACC   = 52;    // horizontal thrust accel, world units/s^2 (was 165 — slow to build)
+export const MOVE_ACC   = 64;    // horizontal thrust accel, world units/s^2 (heavy but a touch more responsive)
 export const BEAM_MOVE  = 0.6;   // thrust multiplier while the beam is open — you can still
                                  // fly and steer, but slower (the ship is heavy while feeding)
 
@@ -50,9 +50,9 @@ export const HOVER_VMAX = 18;    // max climb/dive rate, world units/s (was 26 �
    Turning is now slow and weighty: a low ACC gives the input a moment of delay
    before the nose starts to come round, a higher DRAG lets the swing carry, and
    a lower VMAX caps how fast such a big disc can rotate. */
-export const YAW_ACC  = 2.7;     // rad/s^2 added to spin rate while turning (was 8.5 — delayed response)
-export const YAW_DRAG = 0.22;    // per-second retention of spin rate when released (raised: the swing carries on)
-export const YAW_VMAX = 1.45;    // max yaw rate, rad/s (was 2.5 — a heavy craft turns slowly)
+export const YAW_ACC  = 3.4;     // rad/s^2 added to spin rate while turning (heavy, but turns in a little quicker)
+export const YAW_DRAG = 0.16;    // per-second retention of spin rate when released (settles a bit faster)
+export const YAW_VMAX = 1.75;    // max yaw rate, rad/s (a heavy craft, but not sluggish)
 
 /* Ship collision radius. Deliberately under the ~5u visual hull so glancing
    passes read as near-misses rather than unfair phantom hits. */

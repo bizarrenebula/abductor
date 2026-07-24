@@ -20,8 +20,8 @@ export const S={
   musicMode:'soundtrack',  // music source: 'soundtrack' (bundled MP3) | 'procedural' synth
   // Ship upgrade perk (see systems/upgrades.js). The ship starts "grounded":
   // no altitude control, standard engines, basic beam, cloak locked. Collecting
-  // raises upBeam/upSpeed multipliers and flips upAltitude/upCloak on.
-  upBeam:1, upSpeed:1, upAltitude:false, upCloak:false,
+  // raises upBeam/upSpeed multipliers and flips upHasBeam/upAltitude/upCloak on.
+  upBeam:1, upSpeed:1, upHasBeam:false, upAltitude:false, upCloak:false,
   hover:HOVER_BASE,        // commanded height above terrain; swipe on the ship to change
   hoverV:0,                // climb/dive rate (world u/s) — integrated with momentum
   agl:HOVER_BASE,          // actual height above ground, recomputed each frame

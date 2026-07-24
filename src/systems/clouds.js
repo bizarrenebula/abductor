@@ -8,6 +8,7 @@
 import { THREE } from '../core/three.js';
 import { env } from '../core/env.js';
 import { scene } from '../core/engine.js';
+import { S } from '../core/state.js';
 import { saucer } from './saucer.js';
 
 const COUNT   = env.LOW_END ? 7 : 13;    // clouds kept around the ship
@@ -41,7 +42,7 @@ export const Clouds={
         depthWrite:false,color:0xdde6ef});
       const s=new THREE.Sprite(m);const sc=24+Math.random()*22;s.scale.set(sc,sc,1);
       s.position.copy(home);g.add(s);
-      puffs.push({s,home,pos:home.clone(),vel:new THREE.Vector3()});
+      puffs.push({s,home,pos:home.clone(),vel:new THREE.Vector3(),baseOp:m.opacity});
     }
     g.position.set(cx,cy,cz);scene.add(g);
     this.list.push({g,center:new THREE.Vector3(cx,cy,cz),
@@ -59,6 +60,8 @@ export const Clouds={
     if(!this.list.length)return;
     const sx=saucer.position.x, sy=saucer.position.y, sz=saucer.position.z;
     const damp=Math.pow(DAMP,dt*60);
+    // Clouds are a daytime thing — they fade out at dusk and are gone at night.
+    const vis=S.dayF, night=vis<0.03;
     for(const c of this.list){
       c.center.x+=c.drift.x*dt; c.center.z+=c.drift.z*dt;
       // recycle a far cloud to a fresh spot around the ship
@@ -67,7 +70,10 @@ export const Clouds={
         c.center.set(sx+Math.cos(a)*r, ALT_MIN+Math.random()*(ALT_MAX-ALT_MIN), sz+Math.sin(a)*r);
       }
       c.g.position.copy(c.center);
+      if(night){ c.g.visible=false; continue; }   // hidden at night; skip physics
+      c.g.visible=true;
       for(const p of c.puffs){
+        p.s.material.opacity=p.baseOp*vis;         // gentle fade through dusk
         // spring toward home (re-forms the cloud)
         this._v.copy(p.home).sub(p.pos);
         p.vel.addScaledVector(this._v, SPRING*dt);

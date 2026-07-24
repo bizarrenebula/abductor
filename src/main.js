@@ -106,8 +106,10 @@ function animate(){
   moon.position.copy(camera.position).addScaledVector(_v.copy(sun.position).sub(saucer.position).normalize(),820);
 
   if(S.state==='playing'){
-    /* ---- beam hold: pointer down or space ---- */
-    const beamOn=input.beamHold||keys[' ']||Special.active;
+    /* ---- beam hold: pointer down or space (needs the BEAM module) ---- */
+    const beamWant=input.beamHold||keys[' ']||Special.active;
+    if(beamWant&&!S.upHasBeam)Upgrades.beamBlockedHint();
+    const beamOn=beamWant&&S.upHasBeam;
     // Opening the beam breaks cloak — you cannot feed while invisible (req 1).
     if(beamOn&&S.cloak){S.cloak=false;beep(300,0.14,0.06);}
     S.beamPower=lerp(S.beamPower,beamOn?1:0,Math.min(1,dt*7));
@@ -149,7 +151,7 @@ function animate(){
     // drag / gradual stop with delay — high retention so the heavy hull keeps
     // gliding when you release the stick (momentum), coasting to rest over a
     // second or so rather than braking on a dime. Moon glides even further.
-    const drag=Math.pow(World.name==='moon'?0.58:0.42,dt);
+    const drag=Math.pow(World.name==='moon'?0.48:0.34,dt);
     S.vel.x*=drag; S.vel.z*=drag;
     // --- terrain look-ahead: sample the surface a little way along travel so the
     // ship ANTICIPATES a rise. Two things fall out of it: a heavy craft visibly

@@ -28,9 +28,9 @@ const glowTex=(function(){
   return new THREE.CanvasTexture(c);
 })();
 function addGlow(g,tint){
-  const m=new THREE.SpriteMaterial({map:glowTex,color:tint,transparent:true,opacity:0.9,
+  const m=new THREE.SpriteMaterial({map:glowTex,color:tint,transparent:true,opacity:0.5,
     depthWrite:false,blending:THREE.AdditiveBlending,fog:false});
-  const s=new THREE.Sprite(m);s.scale.set(7,7,1);s.position.y=0.7;
+  const s=new THREE.Sprite(m);s.scale.set(4,4,1);s.position.y=0.7;
   g.add(s);g.userData.glow=s;
 }
 export function buildCrystal(){
@@ -71,8 +71,8 @@ export function updateCrystals(dt,beamActive){
   const t=performance.now()*0.001,R=effBeamR();
   for(let i=pickups.length-1;i>=0;i--){
     const p=pickups[i],u=p.userData;
-    const eI=1.05+0.6*Math.sin(t*1.6+u.phase);(u.mats||[]).forEach(m=>m.emissiveIntensity=eI);   // bright breathing glow
-    if(u.glow){const gp=0.7+0.45*Math.sin(t*2.0+u.phase);u.glow.material.opacity=gp;u.glow.scale.setScalar(6.5+1.4*Math.sin(t*2.0+u.phase));}
+    const eI=0.55+0.3*Math.sin(t*1.6+u.phase);(u.mats||[]).forEach(m=>m.emissiveIntensity=eI);   // soft breathing glow
+    if(u.glow){const gp=0.34+0.16*Math.sin(t*2.0+u.phase);u.glow.material.opacity=gp;u.glow.scale.setScalar(3.6+0.7*Math.sin(t*2.0+u.phase));}
     const dx=p.position.x-saucer.position.x,dz=p.position.z-saucer.position.z;
     const inBeam=beamActive&&(dx*dx+dz*dz)<R*R;
     if(inBeam){u.lift=Math.min(1,u.lift+dt/0.9);p.rotation.y+=dt*6;}

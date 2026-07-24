@@ -20,8 +20,7 @@ export const upgradeItems=[];   // live meshes; read by the minimap
 
 const BEACON_H=72;              // pillar height — tall enough to clear terrain
 const COLLECT_R=8;              // fly this close (horizontally) to install
-const SPAWN_MIN=380, SPAWN_MAX=1150;  // parts sit far out — you roam to find them
-const SEP_MIN=560;             // and well apart from each other
+const SEP_MIN=280;             // keep modules apart from each other where possible
 const BLINK_HZ=3.2;            // line-of-sight blink rate
 const _v=new THREE.Vector3(), _pop=new THREE.Vector3();
 
@@ -35,9 +34,19 @@ function buildItem(key){
   const g=new THREE.Group();
   const solid=new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:0.95,
     metalness:0.4,roughness:0.3});
-  // --- floating icon, a distinct silhouette per part ---
+  // --- floating icon, a distinct silhouette per module ---
   const icon=new THREE.Group();
-  if(key==='thrusters'){
+  if(key==='beam'){
+    // a downward funnel (the tractor beam) over a disc
+    const cone=new THREE.Mesh(new THREE.ConeGeometry(1.3,1.9,20,1,true),solid);cone.position.y=0.1;icon.add(cone);
+    const r=new THREE.Mesh(new THREE.TorusGeometry(1.35,0.13,10,28),solid);r.rotation.x=Math.PI/2;r.position.y=-0.85;icon.add(r);
+    icon.userData.spinX=false;
+  }else if(key==='cloak'){
+    // a ghostly diamond wrapped in a ring
+    icon.add(new THREE.Mesh(new THREE.IcosahedronGeometry(1.1,0),solid));
+    const r=new THREE.Mesh(new THREE.TorusGeometry(1.5,0.12,10,28),solid);r.rotation.x=Math.PI/2.4;icon.add(r);
+    icon.userData.spinX=true;
+  }else if(key==='thrusters'){
     for(let i=0;i<3;i++){const a=i/3*Math.PI*2;
       const c=new THREE.Mesh(new THREE.ConeGeometry(0.5,1.5,12),solid);
       c.position.set(Math.cos(a)*0.9,0,Math.sin(a)*0.9);c.rotation.x=Math.PI;icon.add(c);}
@@ -66,9 +75,10 @@ export function spawnUpgradeItems(){
   const placed=[];
   for(const key of ITEM_KEYS){
     if(Upgrades.items[key])continue;
+    const spec=UP_ITEMS[key], dMin=spec.dMin||380, dMax=spec.dMax||1150;
     let x,z,tries=0;
     do{
-      const ang=Math.random()*Math.PI*2, d=SPAWN_MIN+Math.random()*(SPAWN_MAX-SPAWN_MIN);
+      const ang=Math.random()*Math.PI*2, d=dMin+Math.random()*(dMax-dMin);
       x=Math.cos(ang)*d; z=Math.sin(ang)*d; tries++;
     }while(tries<40 && placed.some(p=>Math.hypot(p.x-x,p.z-z)<SEP_MIN));
     placed.push({x,z});

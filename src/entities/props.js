@@ -16,51 +16,91 @@ import { scene } from '../core/engine.js';
    spindly and exaggerated. Used everywhere so the look is consistent (desktop
    too — we override the realistic tree.glb with this).
    ========================================================================= */
-const _up=new THREE.Vector3(0,1,0);
-function limb(rTop,rBot,h,m){ const s=new THREE.Mesh(new THREE.CylinderGeometry(rTop,rBot,h,env.LOW_END?4:6),m);
-  s.castShadow=!env.LOW_END; return s; }
-function orient(mesh,from,dir,len){ mesh.position.copy(from).addScaledVector(dir,len/2);
-  mesh.quaternion.setFromUnitVectors(_up,dir); }
+/* ---- baked crooked trees ----------------------------------------------------
+   Each tree used to be ~8 separate meshes. Now a handful of varied crooked tree
+   shapes are baked ONCE into single merged geometries (trunk + gnarled branches
+   + lopsided canopy, vertex-coloured bark/leaf), shared across every tree. A
+   tree instance is then a SINGLE flat-shaded mesh with a random spin + lean —
+   one draw call, still individually abductable. Variety comes from the baked
+   shapes, the per-variant colour jitter, and the per-instance transform, per the
+   art brief ("diverse forest from very few assets"). ------------------------- */
+const _up=new THREE.Vector3(0,1,0), _q=new THREE.Quaternion(), _c=new THREE.Vector3(),
+      _one=new THREE.Vector3(1,1,1), _m=new THREE.Matrix4();
 
-export function twistedTree(){
-  const g=new THREE.Group();
-  const bark=new THREE.MeshStandardMaterial({color:0x161009,roughness:0.95,metalness:0.02});   // near-black bark
-  const leaf=new THREE.MeshStandardMaterial({color:0x14241c,roughness:0.92,metalness:0});       // dark lopsided foliage
-  const segs=(env.LOW_END?3:4)+((Math.random()*2)|0);
+// Merge {geo, matrix, color:[r,g,b]} parts into one non-indexed geometry with a
+// colour attribute. No BufferGeometryUtils dependency (not loaded here).
+function mergeParts(parts){
+  let total=0;
+  const baked=parts.map(p=>{ const g=p.geo.toNonIndexed(); g.applyMatrix4(p.matrix);
+    total+=g.attributes.position.count; return {g,c:p.color}; });
+  const pos=new Float32Array(total*3), nor=new Float32Array(total*3), col=new Float32Array(total*3);
+  let o=0;
+  for(const {g,c} of baked){
+    const P=g.attributes.position, N=g.attributes.normal;
+    for(let i=0;i<P.count;i++,o++){
+      pos[o*3]=P.getX(i);pos[o*3+1]=P.getY(i);pos[o*3+2]=P.getZ(i);
+      nor[o*3]=N.getX(i);nor[o*3+1]=N.getY(i);nor[o*3+2]=N.getZ(i);
+      col[o*3]=c[0];col[o*3+1]=c[1];col[o*3+2]=c[2];
+    }
+    g.dispose();
+  }
+  const out=new THREE.BufferGeometry();
+  out.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  out.setAttribute('normal',new THREE.BufferAttribute(nor,3));
+  out.setAttribute('color',new THREE.BufferAttribute(col,3));
+  return out;
+}
+function segMatrix(from,dir,len){ _q.setFromUnitVectors(_up,dir);
+  _c.copy(from).addScaledVector(dir,len/2); return _m.compose(_c,_q,_one).clone(); }
+
+function bakeTree(){
+  const parts=[];
+  const bh=Math.random()*0.03;
+  const bark=[0.055+bh,0.038+bh*0.5,0.022];                        // near-black brown, jittered
+  const lv=Math.random();
+  const leaf=[0.04+lv*0.04,0.105+lv*0.06,0.078+lv*0.025];          // dark green, slightly varied
+  const segs=(env.LOW_END?3:4)+((Math.random()*2)|0), RS=env.LOW_END?4:6;
   let r=0.22+Math.random()*0.09;
   const pos=new THREE.Vector3(0,0,0);
-  const dir=new THREE.Vector3((Math.random()-0.5)*0.25,1,(Math.random()-0.5)*0.25).normalize();
+  const dir=new THREE.Vector3((Math.random()-0.5)*0.3,1,(Math.random()-0.5)*0.3).normalize();
   for(let i=0;i<segs;i++){
     const h=0.55+Math.random()*0.5, topR=r*0.82;
-    const seg=limb(topR,r,h,bark); orient(seg,pos,dir,h); g.add(seg);
+    parts.push({geo:new THREE.CylinderGeometry(topR,r,h,RS), matrix:segMatrix(pos,dir,h), color:bark});
     pos.addScaledVector(dir,h);
-    dir.x+=(Math.random()-0.5)*0.6; dir.z+=(Math.random()-0.5)*0.6; dir.y-=Math.random()*0.12; dir.normalize();
+    dir.x+=(Math.random()-0.5)*0.7; dir.z+=(Math.random()-0.5)*0.7; dir.y-=Math.random()*0.12; dir.normalize();
     r=topR;
-    // a bare crooked branch (skip the very base)
-    if(i>=1 && Math.random()<(env.LOW_END?0.5:0.85)){
-      const bl=0.7+Math.random()*1.0, br=Math.max(0.05,r*0.55);
-      const bdir=new THREE.Vector3((Math.random()-0.5)*2.2,0.45+Math.random()*0.9,(Math.random()-0.5)*2.2).normalize();
+    if(i>=1 && Math.random()<0.9){                                  // crooked branch
+      const bl=0.7+Math.random()*1.1, br=Math.max(0.05,r*0.55);
+      const bdir=new THREE.Vector3((Math.random()-0.5)*2.4,0.4+Math.random()*0.9,(Math.random()-0.5)*2.4).normalize();
       const br0=pos.clone();
-      const branch=limb(br*0.35,br,bl,bark); orient(branch,br0,bdir,bl); g.add(branch);
-      if(!env.LOW_END && Math.random()<0.7){                                   // a twig off the branch, bent again
-        const tl=0.35+Math.random()*0.6;
-        const tip=br0.clone().addScaledVector(bdir,bl);
-        const tdir=new THREE.Vector3((Math.random()-0.5)*2.4,0.5+Math.random(),(Math.random()-0.5)*2.4).normalize();
-        const twig=limb(0.02,br*0.35,tl,bark); orient(twig,tip,tdir,tl); g.add(twig);
+      parts.push({geo:new THREE.CylinderGeometry(br*0.35,br,bl,Math.max(4,RS-1)), matrix:segMatrix(br0,bdir,bl), color:bark});
+      if(!env.LOW_END && Math.random()<0.7){                        // a twig, bent again
+        const tl=0.35+Math.random()*0.6, tip=br0.clone().addScaledVector(bdir,bl);
+        const tdir=new THREE.Vector3((Math.random()-0.5)*2.6,0.4+Math.random(),(Math.random()-0.5)*2.6).normalize();
+        parts.push({geo:new THREE.CylinderGeometry(0.02,br*0.35,tl,4), matrix:segMatrix(tip,tdir,tl), color:bark});
       }
     }
   }
-  // sparse, lopsided dark canopy near the crown (or fully bare for the spookiest ones)
-  if(Math.random()<0.62){
-    const n=(env.LOW_END?1:1)+((Math.random()*2)|0);
+  if(Math.random()<0.72){                                           // sparse lopsided canopy
+    const n=1+((Math.random()*3)|0);
     for(let i=0;i<n;i++){
-      const cl=new THREE.Mesh(new THREE.IcosahedronGeometry(0.5+Math.random()*0.45,0),leaf);
-      cl.position.copy(pos).add(new THREE.Vector3((Math.random()-0.5)*0.9,Math.random()*0.35,(Math.random()-0.5)*0.9));
-      cl.scale.set(1,0.66,1); cl.castShadow=!env.LOW_END; g.add(cl);
+      const cpos=pos.clone().add(new THREE.Vector3((Math.random()-0.5)*1.0,Math.random()*0.4,(Math.random()-0.5)*1.0));
+      _q.identity(); parts.push({geo:new THREE.IcosahedronGeometry(0.5+Math.random()*0.5,0),
+        matrix:_m.compose(cpos,_q,new THREE.Vector3(1,0.66,1)).clone(), color:leaf});
     }
   }
-  g.rotation.set(0,Math.random()*6.28,(Math.random()-0.5)*0.34);   // overall lean
-  return g;
+  return mergeParts(parts);
+}
+
+const TREE_N=env.LOW_END?4:6;
+const TREE_GEOS=[]; for(let i=0;i<TREE_N;i++)TREE_GEOS.push(bakeTree());
+const treeMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,metalness:0.02,flatShading:true});
+
+export function twistedTree(){
+  const m=new THREE.Mesh(TREE_GEOS[(Math.random()*TREE_N)|0], treeMat);
+  m.castShadow=!env.LOW_END;
+  m.rotation.set(0,Math.random()*6.28,(Math.random()-0.5)*0.36);   // random spin + overall lean
+  return m;
 }
 
 export function twistedRock(hex){

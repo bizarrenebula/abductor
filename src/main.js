@@ -281,6 +281,7 @@ function animate(){
     saucer.rotation.y=S.yaw;
     saucer.rotation.z=S.tiltZ; saucer.rotation.x=S.tiltX;
     saucer.userData.lights.rotation.y-=dt*1.5;
+    saucer.userData.lightsTop.rotation.y-=dt*1.5;
 
     /* ---- beam + disc ---- */
     const groundY=gh;
@@ -460,6 +461,7 @@ function animate(){
     saucer.position.y=40+Math.sin(t*1.2)*0.6;
     saucer.rotation.y+=dt*0.3;
     saucer.userData.lights.rotation.y-=dt*1.2;
+    saucer.userData.lightsTop.rotation.y-=dt*1.2;
     const gh=heightAt(saucer.position.x,saucer.position.z);
     beam.visible=disc.visible=true;
     beamMat.uniforms.uPow.value=1;discMat.uniforms.uPow.value=1;

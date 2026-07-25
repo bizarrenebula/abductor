@@ -54,6 +54,19 @@ export const saucer=new THREE.Group();
     lights.add(s);
   }
   saucer.add(lights);saucer.userData.lights=lights;
+  // the same spinning ring mirrored onto the TOP — a smaller circle of lights on
+  // the upper hull, around the base of the dome, that spins and chases like the rim.
+  const lightsTop=new THREE.Group();
+  const NTOP=12;
+  for(let i=0;i<NTOP;i++){
+    const a=i/NTOP*Math.PI*2;
+    const s=new THREE.Sprite(new THREE.SpriteMaterial({map:soft,color:0x9fecff,
+      transparent:true,opacity:0.0,blending:THREE.AdditiveBlending,depthWrite:false}));
+    s.scale.set(1.5,1.5,1);
+    s.position.set(Math.cos(a)*3.6,1.0,Math.sin(a)*3.6);
+    lightsTop.add(s);
+  }
+  saucer.add(lightsTop);saucer.userData.lightsTop=lightsTop;
   // hull/dome/under/rim/ring are the fallback body; tag them so we can hide them
   saucer.userData.procBody=[hull,rim,glowRing,dome,under];
 })();
@@ -65,19 +78,24 @@ export const saucer=new THREE.Group();
    opacity pass skips, so their fade is handled here. */
 export function updateSaucer(t){
   const cf=S.cloak?0.28:1;
-  const dome=saucer.userData.dome, halo=saucer.userData.halo, rim=saucer.userData.lights;
+  const dome=saucer.userData.dome, halo=saucer.userData.halo,
+        rim=saucer.userData.lights, top=saucer.userData.lightsTop;
   // slow overlapping sines = a soft wash breathing over the lid
   const wave=0.5+0.32*Math.sin(t*1.5)+0.18*Math.sin(t*2.5+1.1);
   if(halo){ halo.material.opacity=(0.18+0.26*wave)*cf; const s=8.0+0.9*wave; halo.scale.set(s,s,1); }
   if(dome)dome.material.emissiveIntensity=(0.28+0.3*wave)*cf;
-  if(rim){
-    const N=rim.children.length;
-    for(let i=0;i<N;i++){
-      const ph=i/N*Math.PI*2;
-      // a soft pulse whose phase advances with the index = a blip drifting the rim
-      const b=0.28+0.68*Math.pow(0.5+0.5*Math.sin(t*2.2-ph*2),3);
-      const m=rim.children[i].material; if(m)m.opacity=b*cf;
-    }
+  // both rings run the same chasing blip around the circle
+  chaseRing(rim,t,cf);
+  chaseRing(top,t,cf);
+}
+/* a soft pulse whose phase advances with the index = a blip drifting the ring */
+function chaseRing(g,t,cf){
+  if(!g)return;
+  const N=g.children.length;
+  for(let i=0;i<N;i++){
+    const ph=i/N*Math.PI*2;
+    const b=0.28+0.68*Math.pow(0.5+0.5*Math.sin(t*2.2-ph*2),3);
+    const m=g.children[i].material; if(m)m.opacity=b*cf;
   }
 }
 /* soft radial disc for the blurred glows (white centre → transparent edge). */

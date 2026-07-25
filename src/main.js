@@ -299,18 +299,20 @@ function animate(){
     disc.scale.setScalar(eR*(0.55+0.45*bp));
     beamLight.position.set(saucer.position.x,saucer.position.y-4,saucer.position.z);
     beamLight.intensity=(1.5+0.3*Math.sin(t*13.7)+0.2*Math.sin(t*29.3))*bp;
-    // Running light: a soft pool that lights the ground around the ship. Much
-    // stronger and wider-reaching at night, so the area below is readable rather
-    // than pitch black. Sits a little below the hull so it spills onto the terrain.
-    shipLight.position.set(saucer.position.x,saucer.position.y-1.0,saucer.position.z);
     const _night=1-S.dayF;
-    shipLight.intensity=(0.5+2.7*_night)+0.14*Math.sin(t*3.1);
-    shipLight.distance=lerp(70,140,_night);
-    // Ground pool: a bright lit circle below and around the ship at night, falling
-    // off to black so the surrounding darkness stays. Barely present by day.
+    // KEY LIGHT — sits just ABOVE the ship and lights the hull + dome so the craft
+    // is always clearly readable (day and night), even in the darkest terrain. Soft
+    // and localized (short range, smooth 1/d^2 falloff, no shadow) so it reveals the
+    // ship without lifting the whole scene.
+    shipLight.position.set(saucer.position.x,saucer.position.y+5.5,saucer.position.z);
+    shipLight.intensity=1.9+1.0*_night;
+    shipLight.distance=30;
+    // GROUND POOL — a soft circle of terrain light directly below the ship, so its
+    // altitude and immediate surroundings read. Smooth falloff to darkness (the
+    // eerie dark stays all around); a gentle day floor keeps it readable in shadow.
     glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);
-    glowLight.intensity=(0.3+4.8*_night)+0.12*Math.sin(t*2.3);
-    glowLight.distance=lerp(90,150,_night);
+    glowLight.intensity=(0.9+4.2*_night)+0.12*Math.sin(t*2.3);
+    glowLight.distance=lerp(100,150,_night);
     // (border-light blink + lid glow are driven centrally by updateSaucer)
     updateEnergyBar(dt,S.energyMode==='drain'&&(bp>0.05||S.cloak||S.energy<0.28));
 
@@ -437,8 +439,9 @@ function animate(){
     saucer.position.y+=S.vy*dt;
     saucer.rotation.z+=dt*1.4;saucer.rotation.x+=dt*0.8;
     beam.visible=disc.visible=false;beamLight.intensity=0;
-    shipLight.position.set(saucer.position.x,saucer.position.y+1.5,saucer.position.z);
-    shipLight.intensity=Math.max(0.1,shipLight.intensity-dt*0.8);   // dying reactor
+    shipLight.position.set(saucer.position.x,saucer.position.y+5.5,saucer.position.z);
+    shipLight.distance=30;
+    shipLight.intensity=Math.max(0.15,shipLight.intensity-dt*0.8);  // dying reactor
     glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);
     glowLight.intensity=Math.max(0,glowLight.intensity-dt*3);       // pool collapses as it falls
     updateEnergyBar(dt,false);
@@ -464,9 +467,9 @@ function animate(){
     beam.scale.set(8,saucer.position.y-gh-1,8);
     disc.position.set(saucer.position.x,gh+0.15,saucer.position.z);disc.scale.setScalar(8);
     beamLight.position.set(saucer.position.x,saucer.position.y-4,saucer.position.z);beamLight.intensity=1.4;
-    shipLight.position.set(saucer.position.x,saucer.position.y+1.5,saucer.position.z);shipLight.intensity=0.85;
+    shipLight.position.set(saucer.position.x,saucer.position.y+5.5,saucer.position.z);shipLight.intensity=2.3;shipLight.distance=30;
     glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);
-    glowLight.intensity=(0.3+4.8*(1-S.dayF));glowLight.distance=lerp(90,150,1-S.dayF);
+    glowLight.intensity=(0.9+4.2*(1-S.dayF));glowLight.distance=lerp(100,150,1-S.dayF);
     ebarBG.material.opacity=0;ebarFill3.material.opacity=0;
     const ang=t*0.12;
     camera.position.set(saucer.position.x+Math.sin(ang)*76,58,saucer.position.z+Math.cos(ang)*76);

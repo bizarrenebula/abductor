@@ -232,7 +232,7 @@ export function buildChunk(cx,cz){
     }
   }
   /* ---- roads: deck geometry, then roadside population (Earth only) ---- */
-  const vh=[],rd=[],li=[];
+  const vh=[],rd=[];
   let billboardPlaced=false;
   if(World.name==='earth'){
     for(const c of roadsNear(ox,oz,CHUNK)){
@@ -267,7 +267,7 @@ export function buildChunk(cx,cz){
           const lamp=streetLamp();
           lamp.position.set(lx,sm2.h,lz);                                // base sits on the ground at the edge
           lamp.rotation.y=Math.atan2(-sp.fx*side,-sp.fz*side);           // arm/pool reach over the road
-          scene.add(lamp);li.push(lamp);
+          scene.add(lamp);bl.push(lamp);buildings.push(lamp);            // solid crash object (see collision)
         }
       }
 
@@ -306,12 +306,15 @@ export function buildChunk(cx,cz){
           const side=Math.random()<0.5?1:-1, off=ROAD_HW+4.5;
           const bx=sp.x+sp.fz*off*side, bz=sp.z-sp.fx*off*side;
           const sm2=sample(bx,bz);
+          // only on FLAT dry ground beside a ground-level road — never over sea,
+          // in a canyon, on a mountain, or where the road bridges/embanks above it
           if(sm2.biome!=='water'&&sm2.biome!=='mountain'&&sm2.biome!=='canyon'
-             &&sm2.h>WATER_Y+0.5&&clearSpot(bx,bz,5)&&flatEnough(bx,bz,4)){
+             &&sm2.h>WATER_Y+1&&Math.abs(sp.y-sm2.h)<2.5
+             &&clearSpot(bx,bz,5)&&flatEnough(bx,bz,5)){
             const bb=buildBillboard();
             clearPropsNear(bx,bz,5);mark(bx,bz,4);
             bb.position.set(bx,sm2.h,bz);
-            bb.rotation.y=Math.atan2(-sp.fz*side,sp.fx*side);   // sign face turned to the road
+            bb.rotation.y=Math.atan2(sp.fx,sp.fz);   // sign face turned ALONG the road
             scene.add(bb);bl.push(bb);buildings.push(bb);
             billboardPlaced=true;
           }
@@ -342,7 +345,7 @@ export function buildChunk(cx,cz){
       scene.add(pad);rd.push(pad);
     }
   }
-  chunks.set(chunkKey(cx,cz),{mesh,animals:spawned,pickups:pk,props:pr,builds:bl,shel:sh,vehs:vh,roads:rd,lights:li});
+  chunks.set(chunkKey(cx,cz),{mesh,animals:spawned,pickups:pk,props:pr,builds:bl,shel:sh,vehs:vh,roads:rd});
 }
 
 export function updateChunks(px,pz){
@@ -374,7 +377,6 @@ export function updateChunks(px,pz){
       c.builds.forEach(o=>{scene.remove(o);const idx=buildings.indexOf(o);if(idx>=0)buildings.splice(idx,1);});
       (c.vehs||[]).forEach(o=>{scene.remove(o);const idx=vehicles.indexOf(o);if(idx>=0)vehicles.splice(idx,1);});
       (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});});
-      (c.lights||[]).forEach(o=>scene.remove(o));   // shared geometry — remove only, don't dispose
       c.shel.forEach(s=>{const idx=shelters.indexOf(s);if(idx>=0)shelters.splice(idx,1);});
       chunks.delete(k);
     }
@@ -387,8 +389,7 @@ export function clearWorld(){
     c.props.forEach(o=>scene.remove(o));
     c.builds.forEach(o=>scene.remove(o));
     (c.vehs||[]).forEach(o=>scene.remove(o));
-    (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});});
-    (c.lights||[]).forEach(o=>scene.remove(o));}
+    (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});});}
   clearRoadCache();
   chunks.clear();animals.length=0;pickups.length=0;props.length=0;buildings.length=0;vehicles.length=0;shelters.length=0;
 }

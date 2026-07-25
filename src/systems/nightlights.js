@@ -59,7 +59,9 @@ export function streetLamp(){
   const bulb=new THREE.Mesh(BULB_GEO,BULB_AMBER);bulb.position.set(1.7,8.5,0);
   const p=pool(POOL_AMBER,15);p.position.set(1.7,0.25,0);        // pool under the bulb, over the road
   g.add(pole,arm,bulb,p);
-  g.userData.noAbduct=true;
+  // solid crash object — a thin pole you must fly around (rad/top set by hand so
+  // the wide ground pool doesn't inflate the hit radius)
+  g.userData.solid=true;g.userData.rad=1.1;g.userData.top=9;
   return g;
 }
 

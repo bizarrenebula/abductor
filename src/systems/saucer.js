@@ -16,29 +16,30 @@ export const saucer=new THREE.Group();
   const soft=softTex();
   const hull=new THREE.Mesh(
     new THREE.SphereGeometry(5,48,24),                 // high segments = a true circle
-    new THREE.MeshStandardMaterial({color:0x3c444d,metalness:0.55,roughness:0.9,
-      emissive:0x0a1c22,emissiveIntensity:0.14})       // matte dark metal, barely any sheen
+    new THREE.MeshStandardMaterial({color:0x080a0d,metalness:0.85,roughness:0.5,
+      emissive:0x061419,emissiveIntensity:0.1})        // BLACK alien metal; soft (matte) IBL sheen gives it form
   );
   hull.scale.set(1,0.28,1);hull.castShadow=true;saucer.add(hull);
   const rim=new THREE.Mesh(new THREE.TorusGeometry(5,0.5,16,64),
-    new THREE.MeshStandardMaterial({color:0x262c33,metalness:0.5,roughness:0.88}));
+    new THREE.MeshStandardMaterial({color:0x05070a,metalness:0.8,roughness:0.5}));
   rim.rotation.x=Math.PI/2;saucer.add(rim);
-  // a soft, blurred cyan ring under the rim — a low, diffuse glow, not a hard line
-  const glowRing=new THREE.Mesh(new THREE.TorusGeometry(4.6,0.28,10,64),
-    new THREE.MeshBasicMaterial({color:0x2f8ba6,transparent:true,opacity:0.4,
+  // a soft, blurred cyan ring under the rim — a diffuse glow that outlines the
+  // black disc so the craft still reads as a focal silhouette at night
+  const glowRing=new THREE.Mesh(new THREE.TorusGeometry(4.62,0.34,10,64),
+    new THREE.MeshBasicMaterial({color:0x49b4d0,transparent:true,opacity:0.6,
       blending:THREE.AdditiveBlending,depthWrite:false}));
   glowRing.rotation.x=Math.PI/2;glowRing.position.y=-0.34;saucer.add(glowRing);saucer.userData.glowRing=glowRing;
-  // the "lid": a dark, matte glassy dome with only a faint inner glow
+  // the "lid": a dark glassy dome with only a faint inner glow
   const dome=new THREE.Mesh(new THREE.SphereGeometry(2.4,36,22,0,Math.PI*2,0,Math.PI/2),
-    new THREE.MeshStandardMaterial({color:0x35505c,metalness:0.3,roughness:0.65,
-      transparent:true,opacity:0.72,emissive:0x1d6076,emissiveIntensity:0.35}));
+    new THREE.MeshStandardMaterial({color:0x14252c,metalness:0.4,roughness:0.55,
+      transparent:true,opacity:0.8,emissive:0x1a5266,emissiveIntensity:0.32}));
   dome.position.y=1.1;saucer.add(dome);saucer.userData.dome=dome;
   // the actual glow of the lid is a soft blurred halo billboard over the dome
   const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:soft,color:0x3fbdd8,
     transparent:true,opacity:0.0,blending:THREE.AdditiveBlending,depthWrite:false}));
   halo.scale.set(8.5,8.5,1);halo.position.y=1.4;saucer.add(halo);saucer.userData.halo=halo;
   const under=new THREE.Mesh(new THREE.SphereGeometry(3.2,36,18,0,Math.PI*2,Math.PI/2,Math.PI/2),
-    new THREE.MeshStandardMaterial({color:0x161c22,metalness:0.4,roughness:0.9}));
+    new THREE.MeshStandardMaterial({color:0x040507,metalness:0.5,roughness:0.7}));
   under.position.y=-0.4;saucer.add(under);
   // a ring of small, BLURRED lights around the border — soft glowing blobs
   // (billboards, so they read as a diffuse glow) that blink in a chase.
@@ -46,10 +47,10 @@ export const saucer=new THREE.Group();
   const NLIGHTS=16;
   for(let i=0;i<NLIGHTS;i++){
     const a=i/NLIGHTS*Math.PI*2;
-    const s=new THREE.Sprite(new THREE.SpriteMaterial({map:soft,color:0x8fe6ff,
+    const s=new THREE.Sprite(new THREE.SpriteMaterial({map:soft,color:0x9fecff,
       transparent:true,opacity:0.0,blending:THREE.AdditiveBlending,depthWrite:false}));
-    s.scale.set(1.5,1.5,1);
-    s.position.set(Math.cos(a)*4.9,-0.12,Math.sin(a)*4.9);
+    s.scale.set(1.9,1.9,1);
+    s.position.set(Math.cos(a)*4.9,-0.1,Math.sin(a)*4.9);
     lights.add(s);
   }
   saucer.add(lights);saucer.userData.lights=lights;
@@ -67,14 +68,14 @@ export function updateSaucer(t){
   const dome=saucer.userData.dome, halo=saucer.userData.halo, rim=saucer.userData.lights;
   // slow overlapping sines = a soft wash breathing over the lid
   const wave=0.5+0.32*Math.sin(t*1.5)+0.18*Math.sin(t*2.5+1.1);
-  if(halo){ halo.material.opacity=(0.14+0.22*wave)*cf; const s=8.0+0.9*wave; halo.scale.set(s,s,1); }
-  if(dome)dome.material.emissiveIntensity=(0.25+0.28*wave)*cf;
+  if(halo){ halo.material.opacity=(0.18+0.26*wave)*cf; const s=8.0+0.9*wave; halo.scale.set(s,s,1); }
+  if(dome)dome.material.emissiveIntensity=(0.28+0.3*wave)*cf;
   if(rim){
     const N=rim.children.length;
     for(let i=0;i<N;i++){
       const ph=i/N*Math.PI*2;
       // a soft pulse whose phase advances with the index = a blip drifting the rim
-      const b=0.1+0.5*Math.pow(0.5+0.5*Math.sin(t*2.2-ph*2),3);
+      const b=0.28+0.68*Math.pow(0.5+0.5*Math.sin(t*2.2-ph*2),3);
       const m=rim.children[i].material; if(m)m.opacity=b*cf;
     }
   }

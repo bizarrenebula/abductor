@@ -36,13 +36,57 @@ export const input={
   cloakProg:0,                             // 0..1 progress of the hold-the-ship-to-cloak timer
 };
 
-export const CLOAK_KEY='c';
 export const CLOAK_HOLD_MS=2000;   // press-and-hold the saucer this long to toggle cloak
 const R=68;                        // joystick radius (px) for full deflection
 const SHIP_SLOP=12;                // px of travel that cancels a pending cloak hold
 
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;
-  if(k===CLOAK_KEY&&!e.repeat&&S.state==='playing')toggleCloak();
+/* ---- rebindable key bindings ----
+   Every keyboard action maps through `binds` (action id -> lowercased e.key), so
+   the player can remap any of them in Settings. Defaults match the on-screen
+   hints; overrides persist in localStorage. main.js reads inputs via held(). */
+export const ACTIONS=[
+  {id:'forward',def:'arrowup'}, {id:'back',def:'arrowdown'},
+  {id:'turnL',def:'arrowleft'}, {id:'turnR',def:'arrowright'},
+  {id:'strafeL',def:'a'},       {id:'strafeR',def:'d'},
+  {id:'ascend',def:'w'},        {id:'descend',def:'s'},
+  {id:'beam',def:' '},          {id:'pull',def:'q'},   {id:'cloak',def:'c'},
+];
+const BIND_DEF={}; ACTIONS.forEach(a=>BIND_DEF[a.id]=a.def);
+export const binds=Object.assign({},BIND_DEF);
+try{ const s=JSON.parse(localStorage.getItem('abductor.binds')||'{}');
+  for(const a of ACTIONS) if(typeof s[a.id]==='string') binds[a.id]=s[a.id]; }catch(e){}
+export function saveBinds(){ try{localStorage.setItem('abductor.binds',JSON.stringify(binds));}catch(e){} }
+export function setBind(id,key){
+  for(const a of ACTIONS) if(a.id!==id && binds[a.id]===key) binds[a.id]='';   // one key -> one action
+  binds[id]=key; saveBinds();
+}
+export function resetBinds(){ Object.assign(binds,BIND_DEF); saveBinds(); }
+export function held(id){ const k=binds[id]; return !!k && !!keys[k]; }
+/* pretty label for a bound key, for the UI */
+export function keyLabel(k){
+  if(!k) return '—';
+  if(k===' ') return 'Space';
+  if(k==='arrowup') return '↑'; if(k==='arrowdown') return '↓';
+  if(k==='arrowleft') return '←'; if(k==='arrowright') return '→';
+  if(k==='escape') return 'Esc';
+  return k.length===1 ? k.toUpperCase() : k.replace(/^\w/,c=>c.toUpperCase());
+}
+/* rebind capture: while active, the next keydown becomes the new binding */
+let _capture=null;
+export function beginCapture(id,done){ _capture={id,done}; }
+export function cancelCapture(){ _capture=null; }
+export function isCapturing(){ return !!_capture; }
+
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(_capture){                                   // grabbing a key for a rebind
+    e.preventDefault();
+    if(k!=='escape') setBind(_capture.id,k);
+    const c=_capture; _capture=null; if(c.done)c.done();
+    return;
+  }
+  keys[k]=true;
+  if(k===binds.cloak&&!e.repeat&&S.state==='playing')toggleCloak();
   if(k===' '||k.startsWith('arrow'))e.preventDefault();});
 addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 

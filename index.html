@@ -505,6 +505,20 @@
   .pan.on{display:block}
   .pan-h{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--beam-dim);
     text-align:center;margin-bottom:12px}
+  /* key-binding editor (How-to-play sector) */
+  .kb-head{display:flex;align-items:center;justify-content:space-between;margin:14px 0 6px}
+  .kb-head span{font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--beam-dim)}
+  .kb-reset{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);
+    background:none;border:1px solid var(--edge);border-radius:7px;padding:4px 8px;cursor:pointer;font-family:inherit}
+  .kb-reset:hover{color:var(--beam);border-color:var(--beam-dim)}
+  .kb-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:3px 0}
+  .kb-row .kb-act{font-size:11px;color:var(--ink)}
+  .kb-key{min-width:52px;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--beam);
+    background:rgba(143,232,184,.06);border:1px solid var(--edge);border-radius:7px;
+    padding:5px 8px;cursor:pointer;font-family:inherit;text-align:center}
+  .kb-key:hover{border-color:var(--beam-dim)}
+  .kb-key.listening{color:#04160f;background:var(--beam);border-color:var(--beam);animation:kbPulse 1s infinite}
+  @keyframes kbPulse{0%,100%{opacity:1}50%{opacity:.55}}
   .seg.col{flex-direction:column}
   #saucerPanel .field{margin:10px 0}
   #saucerPanel .field:first-of-type{margin-top:0}
@@ -634,9 +648,11 @@
         <div class="pan" id="panHowto">
           <div class="pan-h" data-i18n="field.howto">How to play</div>
           <div class="howto" style="margin:0">
-            <div class="howto-t"><b data-i18n="ctrl.pc">PC</b> — <span data-i18n-html="ctrl.desktop"></span></div>
             <div class="howto-t"><b data-i18n="ctrl.mobile">Mobile</b> — <span data-i18n-html="ctrl.touch"></span></div>
           </div>
+          <div class="kb-head"><span data-i18n="kb.title">Key bindings</span>
+            <button class="kb-reset" id="bindReset" data-i18n="kb.reset">reset to defaults</button></div>
+          <div id="keybinds"></div>
           <div class="howto-t" style="margin-top:12px;color:var(--ink-soft)" data-i18n="start.sub"></div>
         </div>
 

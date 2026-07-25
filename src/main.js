@@ -11,7 +11,7 @@ import { HOVER_BASE, HOVER_MIN, HOVER_MAX, HOVER_ACC, HOVER_DRAG, HOVER_VMAX,
          BEAM_STR_LOW, BEAM_STR_HIGH, DRAIN_ALT_LOW, DRAIN_ALT_HIGH } from './core/constants.js';
 import { S, camOffset, camLook } from './core/state.js';
 import { renderer, scene, camera, sun, stars, moon } from './core/engine.js';
-import { keys, input } from './core/input.js';
+import { keys, input, held } from './core/input.js';
 
 import { reseed } from './world/noise.js';
 import { sample, heightAt } from './world/terrain.js';
@@ -133,7 +133,7 @@ function animate(){
   if(S.state==='playing'){
     perfGuard(dt);
     /* ---- beam hold: pointer down or space (needs the BEAM module) ---- */
-    const beamWant=input.beamHold||keys[' ']||Special.active;
+    const beamWant=input.beamHold||held('beam')||Special.active;
     if(beamWant&&!S.upHasBeam)Upgrades.beamBlockedHint();
     const beamOn=beamWant&&S.upHasBeam;
     // Opening the beam breaks cloak — you cannot feed while invisible (req 1).
@@ -148,8 +148,8 @@ function animate(){
        the ship on its own axis. Momentum: the intent accelerates S.yawV, which
        then coasts down and is capped, so turns wind up and unwind. ---- */
     let turn=input.tTurn;
-    if(keys['arrowleft'])turn-=1;
-    if(keys['arrowright'])turn+=1;
+    if(held('turnL'))turn-=1;
+    if(held('turnR'))turn+=1;
     turn=clamp(turn,-1,1);
     S.yawV+=turn*YAW_ACC*dt;
     S.yawV*=Math.pow(YAW_DRAG,dt);
@@ -162,10 +162,10 @@ function animate(){
     const fx=-Math.sin(S.yaw), fz=-Math.cos(S.yaw);    // nose / forward (into the screen at yaw 0)
     const rx= Math.cos(S.yaw), rz=-Math.sin(S.yaw);    // ship's right
     let fwd=input.tFwd, side=input.tStrafe;
-    if(keys['arrowup'])fwd+=1;
-    if(keys['arrowdown'])fwd-=1;
-    if(keys['d'])side+=1;
-    if(keys['a'])side-=1;
+    if(held('forward'))fwd+=1;
+    if(held('back'))fwd-=1;
+    if(held('strafeR'))side+=1;
+    if(held('strafeL'))side-=1;
     fwd=clamp(fwd,-1,1);side=clamp(side,-1,1);
     const il=Math.hypot(fwd,side); if(il>1){fwd/=il;side/=il;}
     const moveMag=Math.min(1,Math.hypot(fwd,side));
@@ -211,8 +211,8 @@ function animate(){
        input feeds a climb rate (hoverV) that eases in and coasts out, so a climb
        reads like a takeoff and a descent like a settling landing. ---- */
     let ah=input.tClimb;
-    if(keys['w'])ah+=1;
-    if(keys['s'])ah-=1;
+    if(held('ascend'))ah+=1;
+    if(held('descend'))ah-=1;
     ah=clamp(ah,-1,1);
     // Grounded start: altitude is locked until the THRUSTERS upgrade. Any climb
     // intent is ignored (and gently explained once) so the ship holds base hover.
@@ -326,7 +326,7 @@ function animate(){
     updateAbduction(dt,WEATHER[weather.cur].mult,beamOn&&bp>0.5);
     setBeamMultHUD(WEATHER[weather.cur].mult*S.beamStr);   // weather x altitude
     updateBuff(dt);
-    Special.update(dt,input.spHeld||!!keys['q']);
+    Special.update(dt,input.spHeld||held('pull'));
     updateCrystals(dt,beamOn&&bp>0.5);
     updateProps(dt,beamOn&&bp>0.5);
     updateWindmills(dt);

@@ -6,7 +6,7 @@
 import { S } from '../core/state.js';
 import { HOVER_BASE } from '../core/constants.js';
 import { env } from '../core/env.js';
-import { input, resetInputTouch } from '../core/input.js';
+import { input, resetInputTouch, ACTIONS, binds, keyLabel, beginCapture, cancelCapture, resetBinds } from '../core/input.js';
 import { reseed } from '../world/noise.js';
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
 import { clearWorld, updateChunks } from '../world/chunks.js';
@@ -256,14 +256,39 @@ function openSector(sec){
   saucerPanel.classList.remove('hidden');
   saucerMenu.classList.add('editing');   // hides the core PLAY until confirmed
   saucerPanel.scrollTop=0;
+  if(sec==='howto')renderKeybinds();     // fresh key-binding rows when opened
   highlight(sec);
 }
 function closeSaucerPanel(ready){
+  cancelCapture();
   saucerPanel.classList.add('hidden');
   saucerMenu.classList.remove('editing');
   highlight(null);
   if(ready)saucerCore.classList.add('ready');   // pulse PLAY once something's been confirmed
 }
+
+/* ---------- key-binding editor (How-to-play sector) ---------- */
+const keybindsEl=document.getElementById('keybinds');
+function renderKeybinds(){
+  if(!keybindsEl)return;
+  keybindsEl.innerHTML='';
+  for(const a of ACTIONS){
+    const row=document.createElement('div');row.className='kb-row';
+    const lab=document.createElement('span');lab.className='kb-act';lab.textContent=t('act.'+a.id);
+    const btn=document.createElement('button');btn.className='kb-key';btn.dataset.act=a.id;
+    btn.textContent=keyLabel(binds[a.id]);
+    btn.addEventListener('click',()=>{
+      keybindsEl.querySelectorAll('.kb-key.listening').forEach(x=>{
+        x.classList.remove('listening');x.textContent=keyLabel(binds[x.dataset.act]);});
+      btn.classList.add('listening');btn.textContent=t('kb.press');
+      beginCapture(a.id,()=>renderKeybinds());   // next keypress rebinds, then redraw
+    });
+    row.appendChild(lab);row.appendChild(btn);keybindsEl.appendChild(row);
+  }
+}
+const bindResetBtn=document.getElementById('bindReset');
+if(bindResetBtn)bindResetBtn.addEventListener('click',()=>{cancelCapture();resetBinds();renderKeybinds();});
+renderKeybinds();
 function resetSaucerMenu(){ closeSaucerPanel(false); saucerCore.classList.remove('ready'); }
 
 let sDrag=false;
@@ -311,5 +336,6 @@ onLang(()=>{
   if(oGraphics)oGraphics.textContent=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
   if(oMusicSrc)oMusicSrc.textContent=t(S.musicMode==='procedural'?'music.procedural':'music.soundtrack');
   if(specV)specV.textContent=t('hud.taken',{n:S.taken});
+  renderKeybinds();                       // action labels are localized
   Story._last=''; if(Story.active)Story.hud();
 });

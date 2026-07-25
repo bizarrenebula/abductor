@@ -18,6 +18,7 @@ import { buildCrystal } from '../entities/crystals.js';
 import { buildProp } from '../entities/props.js';
 import { buildBuilding, buildHuman } from '../entities/humans.js';
 import { buildStation } from '../entities/stations.js';
+import { buildBillboard } from '../entities/billboards.js';
 import { buildVehicle, placeVehicle } from '../entities/vehicles.js';
 import { streetLamp } from '../systems/nightlights.js';
 
@@ -232,6 +233,7 @@ export function buildChunk(cx,cz){
   }
   /* ---- roads: deck geometry, then roadside population (Earth only) ---- */
   const vh=[],rd=[],li=[];
+  let billboardPlaced=false;
   if(World.name==='earth'){
     for(const c of roadsNear(ox,oz,CHUNK)){
       // t-range of this corridor that overlaps the chunk, padded so decks from
@@ -294,6 +296,24 @@ export function buildChunk(cx,cz){
             hu.userData.scatter=1;
             hu.position.set(hx,sm3.h,hz);hu.rotation.y=hu.userData.face;
             scene.add(hu);animals.push(hu);spawned.push(hu);mark(hx,hz,1.4);
+          }
+        }
+      }
+      // a roadside billboard — tall, solid crash hazard beside the tarmac
+      if(!billboardPlaced&&Math.random()<0.5){
+        const bt=t0+Math.random()*(t1-t0), sp=roadSample(c.axis,c.k,bt);
+        if(sp.x>=ox&&sp.x<ox+CHUNK&&sp.z>=oz&&sp.z<oz+CHUNK){
+          const side=Math.random()<0.5?1:-1, off=ROAD_HW+4.5;
+          const bx=sp.x+sp.fz*off*side, bz=sp.z-sp.fx*off*side;
+          const sm2=sample(bx,bz);
+          if(sm2.biome!=='water'&&sm2.biome!=='mountain'&&sm2.biome!=='canyon'
+             &&sm2.h>WATER_Y+0.5&&clearSpot(bx,bz,5)&&flatEnough(bx,bz,4)){
+            const bb=buildBillboard();
+            clearPropsNear(bx,bz,5);mark(bx,bz,4);
+            bb.position.set(bx,sm2.h,bz);
+            bb.rotation.y=Math.atan2(-sp.fz*side,sp.fx*side);   // sign face turned to the road
+            scene.add(bb);bl.push(bb);buildings.push(bb);
+            billboardPlaced=true;
           }
         }
       }

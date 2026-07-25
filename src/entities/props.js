@@ -107,18 +107,42 @@ export function twistedTree(){
   return m;
 }
 
+/* ---- baked rocks & cacti (same share-the-geometry trick as the trees) -------
+   A few faceted rock/cactus shapes are baked once and shared, so each is a
+   single flat-shaded mesh (was 2-4) — fewer draw calls, still abductable.
+   Rocks are tinted per biome via the material; cacti share one green. -------- */
+function pmat(x,y,z,ex,ey,ez,sx,sy,sz){
+  _q.setFromEuler(new THREE.Euler(ex||0,ey||0,ez||0));
+  return new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),_q,
+    new THREE.Vector3(sx==null?1:sx,sy==null?1:sy,sz==null?1:sz));
+}
+function bakeRock(){
+  const parts=[], shards=2+((Math.random()*3)|0);
+  for(let i=0;i<shards;i++)parts.push({geo:new THREE.TetrahedronGeometry(0.7+Math.random()*0.9,0),
+    matrix:pmat((Math.random()-0.5)*0.7,0.2+Math.random()*0.5,(Math.random()-0.5)*0.7,
+      Math.random()*0.6,Math.random()*6.28,(Math.random()-0.5)*0.7,
+      0.8+Math.random()*0.6,1.2+Math.random()*0.9,0.8+Math.random()*0.6),color:[1,1,1]});
+  return mergeParts(parts);
+}
+const ROCK_N=env.LOW_END?3:5, ROCK_GEOS=[]; for(let i=0;i<ROCK_N;i++)ROCK_GEOS.push(bakeRock());
+const _rockMats={};
+function rockMat(hex){ return _rockMats[hex]||(_rockMats[hex]=
+  new THREE.MeshStandardMaterial({color:hex,roughness:0.96,metalness:0.02,flatShading:true})); }
 export function twistedRock(hex){
-  const g=new THREE.Group();
-  const m=mat(hex,0.96);
-  const shards=2+((Math.random()*2)|0);
-  for(let i=0;i<shards;i++){
-    const r=part(new THREE.TetrahedronGeometry(0.7+Math.random()*0.9,0),m,
-      (Math.random()-0.5)*0.7,0.2+Math.random()*0.5,(Math.random()-0.5)*0.7);
-    r.scale.set(0.8+Math.random()*0.6,1.2+Math.random()*0.9,0.8+Math.random()*0.6);   // spiky, upthrust
-    r.rotation.set(Math.random()*0.6,Math.random()*6.28,(Math.random()-0.5)*0.7);
-    g.add(r);
-  }
-  return g;
+  const m=new THREE.Mesh(ROCK_GEOS[(Math.random()*ROCK_N)|0], rockMat(hex));
+  m.rotation.y=Math.random()*6.28; m.castShadow=!env.LOW_END; return m;
+}
+function bakeCactus(){
+  const parts=[{geo:new THREE.CylinderGeometry(0.3,0.36,2.3+Math.random()*0.5,7),matrix:pmat(0,1.2,0),color:[1,1,1]}];
+  if(Math.random()<0.85)parts.push({geo:new THREE.CylinderGeometry(0.17,0.2,1.0+Math.random()*0.5,7),matrix:pmat(-0.55,1.45+Math.random()*0.4,0,0,0,0.5),color:[1,1,1]});
+  if(Math.random()<0.7)parts.push({geo:new THREE.CylinderGeometry(0.15,0.18,0.9+Math.random()*0.4,7),matrix:pmat(0.56,1.2+Math.random()*0.5,0,0,0,-0.5),color:[1,1,1]});
+  return mergeParts(parts);
+}
+const CACTUS_N=env.LOW_END?2:4, CACTUS_GEOS=[]; for(let i=0;i<CACTUS_N;i++)CACTUS_GEOS.push(bakeCactus());
+const cactusMat=new THREE.MeshStandardMaterial({color:0x3a5636,roughness:0.9,metalness:0.02,flatShading:true});
+export function twistedCactus(){
+  const m=new THREE.Mesh(CACTUS_GEOS[(Math.random()*CACTUS_N)|0], cactusMat);
+  m.rotation.y=Math.random()*6.28; m.castShadow=!env.LOW_END; return m;
 }
 import { World } from '../world/world-config.js';
 import { LOADED, spawnModel } from '../assets.js';
@@ -132,10 +156,7 @@ export function buildProp(biome){
   const g=new THREE.Group();const u=g.userData;
   if(World.name==='earth'){
     if(biome==='desert'){
-      const gr=mat(0x3a5636,0.9);
-      g.add(part(new THREE.CylinderGeometry(0.3,0.35,2.4,8),gr,0,1.2,0));
-      const a1=part(new THREE.CylinderGeometry(0.18,0.2,1.1,8),gr,-0.62,1.6,0);a1.rotation.z=0.5;g.add(a1);
-      const a2=part(new THREE.CylinderGeometry(0.16,0.18,0.9,8),gr,0.58,1.2,0);a2.rotation.z=-0.5;g.add(a2);
+      g.add(twistedCactus());
     }else if(biome==='mountain'){
       g.add(twistedRock(0x54565e));               // jagged, upthrust dark shards
     }else if(biome==='canyon'){

@@ -538,6 +538,17 @@
   .kb-key:hover{border-color:var(--beam-dim)}
   .kb-key.listening{color:#04160f;background:var(--beam);border-color:var(--beam);animation:kbPulse 1s infinite}
   @keyframes kbPulse{0%,100%{opacity:1}50%{opacity:.55}}
+  /* touch-controls panel: an inline Left/Right stick picker + invert toggles */
+  #touchbinds .kb-row{margin:5px 0}
+  .kb-seg{display:flex;gap:5px;width:120px;flex:0 0 auto}
+  .kb-seg button{flex:1;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--ink-soft);
+    background:rgba(143,232,184,.06);border:1px solid var(--edge);border-radius:7px;
+    padding:5px 4px;cursor:pointer;font-family:inherit}
+  .kb-seg button.on{color:#04160f;background:linear-gradient(180deg,#7dffc0,var(--beam));border-color:var(--beam)}
+  .tg{min-width:52px;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-soft);background:rgba(143,232,184,.06);border:1px solid var(--edge);
+    border-radius:7px;padding:5px 10px;cursor:pointer;font-family:inherit;text-align:center}
+  .tg.on{color:#04160f;background:linear-gradient(180deg,#7dffc0,var(--beam));border-color:var(--beam)}
   .seg.col{flex-direction:column}
   #saucerPanel .field{margin:10px 0}
   #saucerPanel .field:first-of-type{margin-top:0}
@@ -669,9 +680,19 @@
           <div class="howto" style="margin:0">
             <div class="howto-t"><b data-i18n="ctrl.mobile">Mobile</b> — <span data-i18n-html="ctrl.touch"></span></div>
           </div>
-          <div class="kb-head"><span data-i18n="kb.title">Key bindings</span>
-            <button class="kb-reset" id="bindReset" data-i18n="kb.reset">reset to defaults</button></div>
-          <div id="keybinds"></div>
+          <!-- TOUCH: assign the two joysticks (shown on touchscreens) -->
+          <div id="touchWrap" style="display:none">
+            <div class="kb-head"><span data-i18n="touch.title">Touch controls</span>
+              <button class="kb-reset" id="touchReset" data-i18n="kb.reset">reset to defaults</button></div>
+            <div class="howto-t" style="margin:0 0 8px;color:var(--ink-soft)" data-i18n="touch.hint"></div>
+            <div id="touchbinds"></div>
+          </div>
+          <!-- KEYBOARD: key bindings (shown when a keyboard is present) -->
+          <div id="keysWrap">
+            <div class="kb-head"><span data-i18n="kb.title">Key bindings</span>
+              <button class="kb-reset" id="bindReset" data-i18n="kb.reset">reset to defaults</button></div>
+            <div id="keybinds"></div>
+          </div>
           <div class="howto-t" style="margin-top:12px;color:var(--ink-soft)" data-i18n="start.sub"></div>
         </div>
 

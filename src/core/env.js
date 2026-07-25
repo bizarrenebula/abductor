@@ -20,6 +20,12 @@ export const IS_IOS =
 const TOUCH_ONLY =
   matchMedia('(pointer:coarse)').matches && matchMedia('(hover:none)').matches;
 
+/* HAS_TOUCH — any touchscreen present (phone, tablet, or hybrid laptop): the
+   joystick controls are usable, so the settings offer a touch-controls panel.
+   TOUCH_ONLY — no mouse/keyboard, so the keyboard key-binding rows are hidden. */
+export const HAS_TOUCH = matchMedia('(pointer:coarse)').matches;
+export { TOUCH_ONLY };
+
 /* Escape hatch for testing either path on any machine: ?detail=high|low */
 const FORCED = (location.search.match(/[?&]detail=(high|low)/) || [])[1] || null;
 

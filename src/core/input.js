@@ -62,6 +62,19 @@ export function setBind(id,key){
 }
 export function resetBinds(){ Object.assign(binds,BIND_DEF); saveBinds(); }
 export function held(id){ const k=binds[id]; return !!k && !!keys[k]; }
+
+/* ---- touch (joystick) configuration ----
+   The two on-screen sticks are assignable: one FLIES (forward/back + turn), the
+   other SLIDES (strafe + altitude). `swap` chooses which physical stick flies,
+   and each of the four axes can be inverted. Persisted like the key binds; the
+   settings "Touch controls" panel edits these on phones/tablets. */
+export const touchCfg={ swap:false, invFwd:false, invTurn:false, invStrafe:false, invClimb:false };
+const TOUCH_DEF=Object.assign({},touchCfg);
+try{ const s=JSON.parse(localStorage.getItem('abductor.touch')||'{}');
+  for(const k in touchCfg) if(typeof s[k]==='boolean') touchCfg[k]=s[k]; }catch(e){}
+export function saveTouch(){ try{localStorage.setItem('abductor.touch',JSON.stringify(touchCfg));}catch(e){} }
+export function setTouch(k,v){ touchCfg[k]=v; saveTouch(); }
+export function resetTouch(){ Object.assign(touchCfg,TOUCH_DEF); saveTouch(); }
 /* pretty label for a bound key, for the UI */
 export function keyLabel(k){
   if(!k) return '—';
@@ -98,14 +111,20 @@ function moveKnob(h,dx,dy){ const el=joy(h); if(!el)return; const k=el.querySele
 function hideJoy(h){ const el=joy(h); if(el)el.classList.remove('on'); }
 function setBeaming(h,on){ const el=joy(h); if(el)el.classList.toggle('beaming',on); }   // hides the "double-tap" hint while beaming
 
-// RIGHT stick = drive the saucer where it faces (forward/back) + turn the nose;
-// LEFT stick = strafe sideways + altitude. So the right thumb pilots heading and
-// throttle, the left slides and lifts the craft.
+// One stick FLIES (forward/back + turn), the other SLIDES (strafe + altitude).
+// By default the RIGHT thumb pilots heading and throttle, the LEFT slides and
+// lifts — but `touchCfg` lets the player swap the sticks and invert any axis.
+function flies(h){ return touchCfg.swap ? (h==='L') : (h==='R'); }
 function setAxes(h,vx,vy){
-  if(h==='L'){input.tStrafe=dz(vx);input.tClimb=dz(-vy);}  // x = strafe, up = climb
-  else{input.tTurn=dz(vx);input.tFwd=dz(-vy);}             // x = turn, up = forward
+  if(flies(h)){
+    input.tTurn=dz(vx)*(touchCfg.invTurn?-1:1);
+    input.tFwd =dz(-vy)*(touchCfg.invFwd?-1:1);
+  }else{
+    input.tStrafe=dz(vx)*(touchCfg.invStrafe?-1:1);
+    input.tClimb =dz(-vy)*(touchCfg.invClimb?-1:1);
+  }
 }
-function clearAxes(h){ if(h==='L'){input.tStrafe=0;input.tClimb=0;} else {input.tTurn=0;input.tFwd=0;} }
+function clearAxes(h){ if(flies(h)){input.tTurn=0;input.tFwd=0;} else {input.tStrafe=0;input.tClimb=0;} }
 // centre deadzone + rescale so a resting thumb reads as neutral and the usable
 // travel still spans the full -1..1 — key to a stick that feels natural.
 function dz(v){ const d=0.12, a=Math.abs(v); return a<d?0:Math.sign(v)*((a-d)/(1-d)); }

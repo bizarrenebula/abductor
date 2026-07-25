@@ -5,8 +5,9 @@
    ========================================================================= */
 import { S } from '../core/state.js';
 import { HOVER_BASE } from '../core/constants.js';
-import { env } from '../core/env.js';
-import { input, resetInputTouch, ACTIONS, binds, keyLabel, beginCapture, cancelCapture, resetBinds } from '../core/input.js';
+import { env, HAS_TOUCH, TOUCH_ONLY } from '../core/env.js';
+import { input, resetInputTouch, ACTIONS, binds, keyLabel, beginCapture, cancelCapture, resetBinds,
+         touchCfg, setTouch, resetTouch } from '../core/input.js';
 import { reseed } from '../world/noise.js';
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
 import { clearWorld, updateChunks } from '../world/chunks.js';
@@ -239,7 +240,7 @@ function openSector(sec){
   saucerPanel.classList.remove('hidden');
   saucerMenu.classList.add('editing');   // hides the core PLAY until confirmed
   saucerPanel.scrollTop=0;
-  if(sec==='howto')renderKeybinds();     // fresh key-binding rows when opened
+  if(sec==='howto'){renderKeybinds();renderTouchControls();}   // fresh control rows when opened
   highlight(sec);
 }
 function closeSaucerPanel(ready){
@@ -272,6 +273,44 @@ function renderKeybinds(){
 const bindResetBtn=document.getElementById('bindReset');
 if(bindResetBtn)bindResetBtn.addEventListener('click',()=>{cancelCapture();resetBinds();renderKeybinds();});
 renderKeybinds();
+
+/* Touch (joystick) controls — the mobile counterpart to the key binds. Lets the
+   player choose which stick flies vs slides and invert any axis; there are no
+   keys to press on a phone, so this is what "binding your controls" means there. */
+const touchbindsEl=document.getElementById('touchbinds');
+function renderTouchControls(){
+  if(!touchbindsEl)return;
+  touchbindsEl.innerHTML='';
+  // which physical stick FLIES (forward/back + turn); the other slides
+  const r0=document.createElement('div');r0.className='kb-row';
+  const l0=document.createElement('span');l0.className='kb-act';l0.textContent=t('touch.flyStick');
+  const seg=document.createElement('div');seg.className='kb-seg';
+  [['L','touch.left'],['R','touch.right']].forEach(([side,key])=>{
+    const b=document.createElement('button');b.textContent=t(key);
+    const flyLeft=touchCfg.swap;                         // swap => LEFT stick flies
+    b.classList.toggle('on', side==='L'?flyLeft:!flyLeft);
+    b.addEventListener('click',()=>{ setTouch('swap',side==='L'); renderTouchControls(); });
+    seg.appendChild(b);
+  });
+  r0.appendChild(l0);r0.appendChild(seg);touchbindsEl.appendChild(r0);
+  // per-axis invert toggles
+  for(const [k,lab] of [['invFwd','touch.invFwd'],['invTurn','touch.invTurn'],
+                        ['invStrafe','touch.invStrafe'],['invClimb','touch.invClimb']]){
+    const row=document.createElement('div');row.className='kb-row';
+    const l=document.createElement('span');l.className='kb-act';l.textContent=t(lab);
+    const tg=document.createElement('button');tg.className='tg'+(touchCfg[k]?' on':'');
+    tg.textContent=t(touchCfg[k]?'touch.on':'touch.off');
+    tg.addEventListener('click',()=>{ setTouch(k,!touchCfg[k]); renderTouchControls(); });
+    row.appendChild(l);row.appendChild(tg);touchbindsEl.appendChild(row);
+  }
+}
+const touchResetBtn=document.getElementById('touchReset');
+if(touchResetBtn)touchResetBtn.addEventListener('click',()=>{resetTouch();renderTouchControls();});
+// Show the panel that fits the device: joystick config on touchscreens, and hide
+// the keyboard key-binds when there's no keyboard at all (a pure touch device).
+if(HAS_TOUCH){ const tw=document.getElementById('touchWrap'); if(tw)tw.style.display=''; }
+if(TOUCH_ONLY){ const kw=document.getElementById('keysWrap'); if(kw)kw.style.display='none'; }
+renderTouchControls();
 function resetSaucerMenu(){ closeSaucerPanel(false); saucerCore.classList.remove('ready'); }
 
 let sDrag=false;
@@ -321,6 +360,6 @@ onLang(()=>{
   if(oExtra)oExtra.textContent=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
   if(oMusicSrc)oMusicSrc.textContent=t(S.musicMode==='procedural'?'music.procedural':'music.soundtrack');
   if(specV)specV.textContent=t('hud.taken',{n:S.taken});
-  renderKeybinds();                       // action labels are localized
+  renderKeybinds();renderTouchControls(); // control labels are localized
   Story._last=''; if(Story.active)Story.hud();
 });

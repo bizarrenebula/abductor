@@ -26,6 +26,7 @@ import { buildHuman } from './humans.js';
 import { chunks, chunkKey } from '../world/chunks.js';
 import { saucer } from '../systems/saucer.js';
 import { carHonk } from '../audio/sfx.js';
+import { headlightRig } from '../systems/nightlights.js';
 import { spawnPop } from '../ui/pop.js';
 import { scoreV, specV } from '../ui/dom.js';
 import { t } from '../i18n.js';
@@ -79,6 +80,9 @@ export function buildVehicle(kind){
   u.dragT=0;u.dragMult=1;u.popT=0;u.collected=0;  // beam-drag state (see updateVehicles)
   u.occupants=kind==='bus1'?(2+((Math.random()*3)|0)):(1+((Math.random()*2)|0));
   u.block=!!V.block;u.blockR=V.w*OBJ_SCALE+2.2;u.blockH=V.h*OBJ_SCALE*1.35;
+  u.nightDriver=Math.random()<0.32;              // only some cars are out at night (headlights on)
+  const hr=headlightRig(V.w,V.len,V.len*0.5);     // forward pool + bulbs; glow fades in only at night
+  g.add(hr);u.headlights=hr;
   return g;
 }
 
@@ -162,12 +166,15 @@ export function updateVehicles(dt,beamActive){
   const night=S.dayF<0.5;                 // same threshold the geysers use
   for(const g of vehicles){
     const u=g.userData;
-    // Nobody drives at night. A car already in the air keeps its physics so a
-    // beam grab that straddles dusk still resolves; otherwise it parks and hides.
-    if(night&&u.lift===0&&u.fall===0){
+    // Far fewer cars are out at night: only the flagged night drivers keep going
+    // (with their headlights on), the rest park and hide. A car already in the air
+    // keeps its physics so a beam grab that straddles dusk still resolves.
+    if(night&&!u.nightDriver&&u.lift===0&&u.fall===0){
       u.speed=0;g.visible=false;continue;
     }
     g.visible=true;
+    // headlights only make sense with wheels on the road — hide the rig in the air
+    if(u.headlights)u.headlights.visible=(u.lift===0&&u.fall===0);
     const dx=g.position.x-saucer.position.x, dz=g.position.z-saucer.position.z;
     const d2=dx*dx+dz*dz;
 

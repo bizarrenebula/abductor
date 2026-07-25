@@ -19,8 +19,10 @@ import { buildProp } from '../entities/props.js';
 import { buildBuilding, buildHuman } from '../entities/humans.js';
 import { buildStation } from '../entities/stations.js';
 import { buildVehicle, placeVehicle } from '../entities/vehicles.js';
+import { streetLamp } from '../systems/nightlights.js';
 
 const LOW_END = env.LOW_END;
+const LAMP_S = 54;        // spacing between street lamps along a road corridor
 
 export const chunks=new Map();
 export function chunkKey(cx,cz){return cx+'|'+cz;}
@@ -229,7 +231,7 @@ export function buildChunk(cx,cz){
     }
   }
   /* ---- roads: deck geometry, then roadside population (Earth only) ---- */
-  const vh=[],rd=[];
+  const vh=[],rd=[],li=[];
   if(World.name==='earth'){
     for(const c of roadsNear(ox,oz,CHUNK)){
       // t-range of this corridor that overlaps the chunk, padded so decks from
@@ -245,6 +247,25 @@ export function buildChunk(cx,cz){
       if(!inside)continue;
       const m=buildRoadMesh(c.axis,c.k,t0,t1,roadMat,pierMat);
       scene.add(m);rd.push(m);
+
+      // Street lamps: deterministic stations every LAMP_S along the corridor, so
+      // neighbouring chunks never double up. Only the ones landing in THIS chunk
+      // are planted here; they light up at night (dark posts by day).
+      { const cS=(c.axis==='x'?ox:oz);
+        const n0=Math.ceil(cS/LAMP_S), n1=Math.floor((cS+CHUNK-0.001)/LAMP_S);
+        for(let n=n0;n<=n1;n++){
+          const lt=n*LAMP_S, sp=roadSample(c.axis,c.k,lt);
+          if(sp.x<ox||sp.x>=ox+CHUNK||sp.z<oz||sp.z>=oz+CHUNK)continue;   // road dodged out of chunk
+          const side=(n&1)?1:-1, off=ROAD_HW+1.4;
+          const lx=sp.x+sp.fz*off*side, lz=sp.z-sp.fx*off*side;
+          const sm2=sample(lx,lz);
+          if(sm2.biome==='water')continue;                               // no lamp posts in a lake
+          const lamp=streetLamp();
+          lamp.position.set(lx,Math.max(sm2.h,sp.y),lz);
+          lamp.rotation.y=Math.atan2(-sp.fx*side,-sp.fz*side);           // arm/pool reach over the road
+          scene.add(lamp);li.push(lamp);
+        }
+      }
 
       // one station per chunk at most, beside this road
       if(Math.random()<STATION_CHANCE&&!bl.some(o=>o.userData.station)){
@@ -299,7 +320,7 @@ export function buildChunk(cx,cz){
       scene.add(pad);rd.push(pad);
     }
   }
-  chunks.set(chunkKey(cx,cz),{mesh,animals:spawned,pickups:pk,props:pr,builds:bl,shel:sh,vehs:vh,roads:rd});
+  chunks.set(chunkKey(cx,cz),{mesh,animals:spawned,pickups:pk,props:pr,builds:bl,shel:sh,vehs:vh,roads:rd,lights:li});
 }
 
 export function updateChunks(px,pz){
@@ -331,6 +352,7 @@ export function updateChunks(px,pz){
       c.builds.forEach(o=>{scene.remove(o);const idx=buildings.indexOf(o);if(idx>=0)buildings.splice(idx,1);});
       (c.vehs||[]).forEach(o=>{scene.remove(o);const idx=vehicles.indexOf(o);if(idx>=0)vehicles.splice(idx,1);});
       (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});});
+      (c.lights||[]).forEach(o=>scene.remove(o));   // shared geometry — remove only, don't dispose
       c.shel.forEach(s=>{const idx=shelters.indexOf(s);if(idx>=0)shelters.splice(idx,1);});
       chunks.delete(k);
     }
@@ -343,7 +365,8 @@ export function clearWorld(){
     c.props.forEach(o=>scene.remove(o));
     c.builds.forEach(o=>scene.remove(o));
     (c.vehs||[]).forEach(o=>scene.remove(o));
-    (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});});}
+    (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});});
+    (c.lights||[]).forEach(o=>scene.remove(o));}
   clearRoadCache();
   chunks.clear();animals.length=0;pickups.length=0;props.length=0;buildings.length=0;vehicles.length=0;shelters.length=0;
 }

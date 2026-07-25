@@ -9,6 +9,7 @@ import { THREE } from '../core/three.js';
 import { OBJ_SCALE, ASSETS } from '../core/constants.js';
 import { mat, part, measureSolid } from '../core/mesh.js';
 import { LOADED, spawnModel } from '../assets.js';
+import { forecourtPool } from '../systems/nightlights.js';
 
 function procStation(){
   const g=new THREE.Group();
@@ -29,6 +30,8 @@ function procStation(){
     g.add(part(new THREE.BoxGeometry(0.7,1.5,0.5),post,p[0],0.75,p[1]));
     g.add(part(new THREE.BoxGeometry(0.5,0.4,0.1),glass,p[0],1.3,p[1]+0.28));
   });
+  // lit forecourt under the canopy — glows at night, dark by day
+  const fp=forecourtPool(7);fp.position.set(0,0.1,2.4);g.add(fp);
   g.scale.multiplyScalar(OBJ_SCALE);
   return g;
 }

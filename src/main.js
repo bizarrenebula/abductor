@@ -28,6 +28,7 @@ import { updateVehicles } from './entities/vehicles.js';
 import { updateUpgradeItems } from './entities/upgradeItems.js';
 
 import { saucer, beamLight, shipLight, glowLight, ebarBG, ebarFill3, updateEnergyBar } from './systems/saucer.js';
+import { NightLights } from './systems/nightlights.js';
 import { beam, beamMat, disc, discMat, effBeamR } from './systems/beam.js';
 import { updateAbduction } from './systems/abduction.js';
 import { buff, updateBuff } from './systems/buffs.js';
@@ -126,6 +127,7 @@ function animate(){
   waterMat.uniforms.uSun.value.copy(sun.position).normalize();
   waterMat.uniforms.uMoonF.value=S.dayF;
   updateDust();
+  NightLights.set(S.dayF,t);        // street lamps / station / headlight pools fade in at night
   stars.position.set(camera.position.x,0,camera.position.z);
   moon.position.copy(camera.position).addScaledVector(_v.copy(sun.position).sub(saucer.position).normalize(),820);
 

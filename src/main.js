@@ -27,7 +27,7 @@ import { updateWindmills } from './entities/humans.js';
 import { updateVehicles } from './entities/vehicles.js';
 import { updateUpgradeItems } from './entities/upgradeItems.js';
 
-import { saucer, beamLight, shipLight, glowLight, ebarBG, ebarFill3, updateEnergyBar } from './systems/saucer.js';
+import { saucer, beamLight, shipLight, glowLight, ebarBG, ebarFill3, updateEnergyBar, updateSaucer } from './systems/saucer.js';
 import { NightLights } from './systems/nightlights.js';
 import { beam, beamMat, disc, discMat, effBeamR } from './systems/beam.js';
 import { updateAbduction } from './systems/abduction.js';
@@ -128,6 +128,7 @@ function animate(){
   waterMat.uniforms.uMoonF.value=S.dayF;
   updateDust();
   NightLights.set(S.dayF,t);        // street lamps / station / headlight pools fade in at night
+  updateSaucer(t);                  // lid wave-glow + chasing border lights (all states)
   stars.position.set(camera.position.x,0,camera.position.z);
   moon.position.copy(camera.position).addScaledVector(_v.copy(sun.position).sub(saucer.position).normalize(),820);
 
@@ -310,11 +311,7 @@ function animate(){
     glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);
     glowLight.intensity=(0.3+4.8*_night)+0.12*Math.sin(t*2.3);
     glowLight.distance=lerp(90,150,_night);
-    const lg=saucer.userData.lights;
-    if(lg&&lg.visible!==false){
-      const blink=S.dayF>0.6?1:(0.3+0.7*(0.5+0.5*Math.sin(t*6.5)));
-      lg.children.forEach(c=>{if(c.material)c.material.opacity=blink*(S.cloak?0.24:1);});
-    }
+    // (border-light blink + lid glow are driven centrally by updateSaucer)
     updateEnergyBar(dt,S.energyMode==='drain'&&(bp>0.05||S.cloak||S.energy<0.28));
 
     /* ---- world ---- */

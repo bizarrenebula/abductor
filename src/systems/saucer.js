@@ -59,6 +59,13 @@ scene.add(beamLight);
 /* soft running light: the ship glows cyan and lights the ground below */
 export const shipLight=new THREE.PointLight(0xa6ecff,0.85,50,2);
 scene.add(shipLight);
+/* ground pool: a bright cyan-white circle of light the ship casts on the terrain
+   below and around it, so the play area reads at night while everything past the
+   pool falls off to black. decay 2 = a natural, quick edge into the surrounding
+   darkness (the point is that the dark stays all around). Intensity set per frame,
+   night-weighted, in the main loop. */
+export const glowLight=new THREE.PointLight(0xcfe8ff,0,170,2);
+scene.add(glowLight);
 
 /* floating energy bar above the saucer — shows while beaming or when low */
 const EB_W=6.6;

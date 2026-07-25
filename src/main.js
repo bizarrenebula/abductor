@@ -27,7 +27,7 @@ import { updateWindmills } from './entities/humans.js';
 import { updateVehicles } from './entities/vehicles.js';
 import { updateUpgradeItems } from './entities/upgradeItems.js';
 
-import { saucer, beamLight, shipLight, ebarBG, ebarFill3, updateEnergyBar } from './systems/saucer.js';
+import { saucer, beamLight, shipLight, glowLight, ebarBG, ebarFill3, updateEnergyBar } from './systems/saucer.js';
 import { beam, beamMat, disc, discMat, effBeamR } from './systems/beam.js';
 import { updateAbduction } from './systems/abduction.js';
 import { buff, updateBuff } from './systems/buffs.js';
@@ -303,6 +303,11 @@ function animate(){
     const _night=1-S.dayF;
     shipLight.intensity=(0.5+2.7*_night)+0.14*Math.sin(t*3.1);
     shipLight.distance=lerp(70,140,_night);
+    // Ground pool: a bright lit circle below and around the ship at night, falling
+    // off to black so the surrounding darkness stays. Barely present by day.
+    glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);
+    glowLight.intensity=(0.3+4.8*_night)+0.12*Math.sin(t*2.3);
+    glowLight.distance=lerp(90,150,_night);
     const lg=saucer.userData.lights;
     if(lg&&lg.visible!==false){
       const blink=S.dayF>0.6?1:(0.3+0.7*(0.5+0.5*Math.sin(t*6.5)));
@@ -435,6 +440,8 @@ function animate(){
     beam.visible=disc.visible=false;beamLight.intensity=0;
     shipLight.position.set(saucer.position.x,saucer.position.y+1.5,saucer.position.z);
     shipLight.intensity=Math.max(0.1,shipLight.intensity-dt*0.8);   // dying reactor
+    glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);
+    glowLight.intensity=Math.max(0,glowLight.intensity-dt*3);       // pool collapses as it falls
     updateEnergyBar(dt,false);
     updateProps(dt,false);updateCrystals(dt,false);updateAnimals(dt);
     camera.position.lerp(_v.set(saucer.position.x+camOffset.x,saucer.position.y+camOffset.y,saucer.position.z+camOffset.z),Math.min(1,dt*2.4));
@@ -459,6 +466,8 @@ function animate(){
     disc.position.set(saucer.position.x,gh+0.15,saucer.position.z);disc.scale.setScalar(8);
     beamLight.position.set(saucer.position.x,saucer.position.y-4,saucer.position.z);beamLight.intensity=1.4;
     shipLight.position.set(saucer.position.x,saucer.position.y+1.5,saucer.position.z);shipLight.intensity=0.85;
+    glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);
+    glowLight.intensity=(0.3+4.8*(1-S.dayF));glowLight.distance=lerp(90,150,1-S.dayF);
     ebarBG.material.opacity=0;ebarFill3.material.opacity=0;
     const ang=t*0.12;
     camera.position.set(saucer.position.x+Math.sin(ang)*76,58,saucer.position.z+Math.cos(ang)*76);

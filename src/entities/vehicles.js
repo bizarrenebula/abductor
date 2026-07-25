@@ -194,10 +194,11 @@ export function updateVehicles(dt,beamActive){
       u.lift=Math.min(1,u.lift+dt*0.5);
       u.dragT+=dt;
       u.dragMult=1+Math.min(DRAG_CAP,u.dragT*DRAG_RATE);// 1×→~6× over ~5s, clamped
-      // ease up to just under the saucer, and slide under it in x,z so the
-      // player drags the car around by flying the ship
-      const targetY=saucer.position.y-4;
-      g.position.y+=(targetY-g.position.y)*Math.min(1,dt*2.2);
+      // Rise slowly to, and then FLOAT at, the midpoint between the road and the
+      // ship — held there while locked with a gentle bob, and trailing under the
+      // saucer in x,z so it follows wherever the ship flies (drag it by flying).
+      const midY=(u.roadY+saucer.position.y)*0.5+Math.sin(performance.now()*0.0025)*0.5;
+      g.position.y+=(midY-g.position.y)*Math.min(1,dt*1.5);
       g.position.x+=(saucer.position.x-g.position.x)*Math.min(1,dt*1.4);
       g.position.z+=(saucer.position.z-g.position.z)*Math.min(1,dt*1.4);
       g.rotation.y+=dt*1.1;                             // slow yaw spin in the column

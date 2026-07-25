@@ -34,7 +34,9 @@ export function applyDayNightLight(){
   const wc=WORLD_CFG[World.name];
   // ambient: kept low in Cinematic so shadows stay deep and mysterious (the
   // drama comes from the directional key against dark fill, not a flat flood)
-  hemi.intensity=worldHemiBase*(env.usePost?1.02:1.48)*(0.62+1.18*f);
+  // night floor pulled down so the world past the ship's light pool reads as dark
+  // (the day value is unchanged: 0.42+1.38 == the old 0.62+1.18 at f=1).
+  hemi.intensity=worldHemiBase*(env.usePost?1.02:1.48)*(0.42+1.38*f);
   // warm sky fill by day; keep the world's cool night tint
   if(wc){_nightHemi.setHex(wc.hemi[0]);_dayHemi.setHex(World.name==='mars'?0xcaa080:0xbfd4e0);
     hemi.color.copy(_nightHemi).lerp(_dayHemi,f);}

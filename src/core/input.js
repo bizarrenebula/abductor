@@ -64,17 +64,27 @@ export function resetBinds(){ Object.assign(binds,BIND_DEF); saveBinds(); }
 export function held(id){ const k=binds[id]; return !!k && !!keys[k]; }
 
 /* ---- touch (joystick) configuration ----
-   The two on-screen sticks are assignable: one FLIES (forward/back + turn), the
-   other SLIDES (strafe + altitude). `swap` chooses which physical stick flies,
-   and each of the four axes can be inverted. Persisted like the key binds; the
-   settings "Touch controls" panel edits these on phones/tablets. */
-export const touchCfg={ swap:false, invFwd:false, invTurn:false, invStrafe:false, invClimb:false };
-const TOUCH_DEF=Object.assign({},touchCfg);
+   Fully remappable sticks: each of the four physical axes (Left/Right stick,
+   horizontal ◄►/vertical ▲▼) is assigned a movement FUNCTION and can be
+   inverted. So the player can, e.g., steer with the left stick and strafe with
+   the right. Persisted like the key binds; edited in the "Touch controls" panel.
+     axis ids : LX LY RX RY           function ids : forward turn strafe climb ''  */
+export const AXES=['LX','LY','RX','RY'];
+export const FUNCS=['forward','turn','strafe','climb'];   // '' (none) also valid
+const MAP_DEF={ LX:'strafe', LY:'climb', RX:'turn', RY:'forward' };   // current default feel
+const INV_DEF={ LX:false, LY:false, RX:false, RY:false };
+export const touchMap=Object.assign({},MAP_DEF);
+export const touchInv=Object.assign({},INV_DEF);
 try{ const s=JSON.parse(localStorage.getItem('abductor.touch')||'{}');
-  for(const k in touchCfg) if(typeof s[k]==='boolean') touchCfg[k]=s[k]; }catch(e){}
-export function saveTouch(){ try{localStorage.setItem('abductor.touch',JSON.stringify(touchCfg));}catch(e){} }
-export function setTouch(k,v){ touchCfg[k]=v; saveTouch(); }
-export function resetTouch(){ Object.assign(touchCfg,TOUCH_DEF); saveTouch(); }
+  if(s.map)for(const a of AXES){ const f=s.map[a];
+    if(f===''||FUNCS.includes(f))touchMap[a]=f; }
+  if(s.inv)for(const a of AXES) if(typeof s.inv[a]==='boolean')touchInv[a]=s.inv[a];
+}catch(e){}
+export function saveTouch(){ try{localStorage.setItem('abductor.touch',
+  JSON.stringify({map:touchMap,inv:touchInv}));}catch(e){} }
+export function setTouchMap(axis,fn){ touchMap[axis]=fn; saveTouch(); }
+export function setTouchInv(axis,v){ touchInv[axis]=!!v; saveTouch(); }
+export function resetTouch(){ Object.assign(touchMap,MAP_DEF);Object.assign(touchInv,INV_DEF); saveTouch(); }
 /* pretty label for a bound key, for the UI */
 export function keyLabel(k){
   if(!k) return '—';
@@ -111,20 +121,25 @@ function moveKnob(h,dx,dy){ const el=joy(h); if(!el)return; const k=el.querySele
 function hideJoy(h){ const el=joy(h); if(el)el.classList.remove('on'); }
 function setBeaming(h,on){ const el=joy(h); if(el)el.classList.toggle('beaming',on); }   // hides the "double-tap" hint while beaming
 
-// One stick FLIES (forward/back + turn), the other SLIDES (strafe + altitude).
-// By default the RIGHT thumb pilots heading and throttle, the LEFT slides and
-// lifts — but `touchCfg` lets the player swap the sticks and invert any axis.
-function flies(h){ return touchCfg.swap ? (h==='L') : (h==='R'); }
-function setAxes(h,vx,vy){
-  if(flies(h)){
-    input.tTurn=dz(vx)*(touchCfg.invTurn?-1:1);
-    input.tFwd =dz(-vy)*(touchCfg.invFwd?-1:1);
-  }else{
-    input.tStrafe=dz(vx)*(touchCfg.invStrafe?-1:1);
-    input.tClimb =dz(-vy)*(touchCfg.invClimb?-1:1);
-  }
+// Every physical axis routes through its assigned function (touchMap) with an
+// optional invert. Horizontal reads +right; vertical reads +up. By default the
+// RIGHT thumb pilots heading/throttle and the LEFT slides/lifts, but any axis
+// can be remapped, so e.g. steering can live on the left and strafing on the right.
+function setFunc(fn,val){
+  if(fn==='forward')input.tFwd=val;
+  else if(fn==='turn')input.tTurn=val;
+  else if(fn==='strafe')input.tStrafe=val;
+  else if(fn==='climb')input.tClimb=val;
 }
-function clearAxes(h){ if(flies(h)){input.tTurn=0;input.tFwd=0;} else {input.tStrafe=0;input.tClimb=0;} }
+function setAxes(h,vx,vy){
+  const xA=h==='L'?'LX':'RX', yA=h==='L'?'LY':'RY';
+  setFunc(touchMap[xA], dz(vx) *(touchInv[xA]?-1:1));   // horizontal: +right
+  setFunc(touchMap[yA], dz(-vy)*(touchInv[yA]?-1:1));   // vertical:   +up
+}
+function clearAxes(h){
+  const xA=h==='L'?'LX':'RX', yA=h==='L'?'LY':'RY';
+  setFunc(touchMap[xA],0); setFunc(touchMap[yA],0);
+}
 // centre deadzone + rescale so a resting thumb reads as neutral and the usable
 // travel still spans the full -1..1 — key to a stick that feels natural.
 function dz(v){ const d=0.12, a=Math.abs(v); return a<d?0:Math.sign(v)*((a-d)/(1-d)); }

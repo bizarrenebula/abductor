@@ -7,7 +7,7 @@ import { S } from '../core/state.js';
 import { HOVER_BASE } from '../core/constants.js';
 import { env, HAS_TOUCH, TOUCH_ONLY } from '../core/env.js';
 import { input, resetInputTouch, ACTIONS, binds, keyLabel, beginCapture, cancelCapture, resetBinds,
-         touchCfg, setTouch, resetTouch } from '../core/input.js';
+         AXES, FUNCS, touchMap, touchInv, setTouchMap, setTouchInv, resetTouch } from '../core/input.js';
 import { reseed } from '../world/noise.js';
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
 import { clearWorld, updateChunks } from '../world/chunks.js';
@@ -281,27 +281,22 @@ const touchbindsEl=document.getElementById('touchbinds');
 function renderTouchControls(){
   if(!touchbindsEl)return;
   touchbindsEl.innerHTML='';
-  // which physical stick FLIES (forward/back + turn); the other slides
-  const r0=document.createElement('div');r0.className='kb-row';
-  const l0=document.createElement('span');l0.className='kb-act';l0.textContent=t('touch.flyStick');
-  const seg=document.createElement('div');seg.className='kb-seg';
-  [['L','touch.left'],['R','touch.right']].forEach(([side,key])=>{
-    const b=document.createElement('button');b.textContent=t(key);
-    const flyLeft=touchCfg.swap;                         // swap => LEFT stick flies
-    b.classList.toggle('on', side==='L'?flyLeft:!flyLeft);
-    b.addEventListener('click',()=>{ setTouch('swap',side==='L'); renderTouchControls(); });
-    seg.appendChild(b);
-  });
-  r0.appendChild(l0);r0.appendChild(seg);touchbindsEl.appendChild(r0);
-  // per-axis invert toggles
-  for(const [k,lab] of [['invFwd','touch.invFwd'],['invTurn','touch.invTurn'],
-                        ['invStrafe','touch.invStrafe'],['invClimb','touch.invClimb']]){
+  // one row per physical axis: assign a movement function + optional invert
+  for(const ax of AXES){
     const row=document.createElement('div');row.className='kb-row';
-    const l=document.createElement('span');l.className='kb-act';l.textContent=t(lab);
-    const tg=document.createElement('button');tg.className='tg'+(touchCfg[k]?' on':'');
-    tg.textContent=t(touchCfg[k]?'touch.on':'touch.off');
-    tg.addEventListener('click',()=>{ setTouch(k,!touchCfg[k]); renderTouchControls(); });
-    row.appendChild(l);row.appendChild(tg);touchbindsEl.appendChild(row);
+    const l=document.createElement('span');l.className='kb-act';l.textContent=t('axis.'+ax);
+    const sel=document.createElement('select');sel.className='kb-sel';
+    for(const fn of [...FUNCS,'']){
+      const o=document.createElement('option');o.value=fn;
+      o.textContent=t(fn?('func.'+fn):'func.none');
+      if(touchMap[ax]===fn)o.selected=true;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change',()=>{ setTouchMap(ax,sel.value); });
+    const inv=document.createElement('button');inv.className='tg'+(touchInv[ax]?' on':'');
+    inv.textContent=t('touch.invert');
+    inv.addEventListener('click',()=>{ setTouchInv(ax,!touchInv[ax]); renderTouchControls(); });
+    row.appendChild(l);row.appendChild(sel);row.appendChild(inv);touchbindsEl.appendChild(row);
   }
 }
 const touchResetBtn=document.getElementById('touchReset');

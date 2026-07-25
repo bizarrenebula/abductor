@@ -538,16 +538,17 @@
   .kb-key:hover{border-color:var(--beam-dim)}
   .kb-key.listening{color:#04160f;background:var(--beam);border-color:var(--beam);animation:kbPulse 1s infinite}
   @keyframes kbPulse{0%,100%{opacity:1}50%{opacity:.55}}
-  /* touch-controls panel: an inline Left/Right stick picker + invert toggles */
-  #touchbinds .kb-row{margin:5px 0}
-  .kb-seg{display:flex;gap:5px;width:120px;flex:0 0 auto}
-  .kb-seg button{flex:1;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--ink-soft);
+  /* touch-controls panel: per-axis function picker + invert toggle */
+  #touchbinds .kb-row{margin:5px 0;gap:6px}
+  #touchbinds .kb-act{flex:1 1 auto;min-width:0}
+  .kb-sel{flex:0 0 auto;width:118px;font-size:10px;font-weight:700;color:var(--beam);
     background:rgba(143,232,184,.06);border:1px solid var(--edge);border-radius:7px;
-    padding:5px 4px;cursor:pointer;font-family:inherit}
-  .kb-seg button.on{color:#04160f;background:linear-gradient(180deg,#7dffc0,var(--beam));border-color:var(--beam)}
-  .tg{min-width:52px;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    padding:5px 6px;cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none}
+  .kb-sel:hover{border-color:var(--beam-dim)}
+  .kb-sel option{color:#04160f;background:#cdeede}
+  .tg{flex:0 0 auto;min-width:44px;font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
     color:var(--ink-soft);background:rgba(143,232,184,.06);border:1px solid var(--edge);
-    border-radius:7px;padding:5px 10px;cursor:pointer;font-family:inherit;text-align:center}
+    border-radius:7px;padding:5px 8px;cursor:pointer;font-family:inherit;text-align:center}
   .tg.on{color:#04160f;background:linear-gradient(180deg,#7dffc0,var(--beam));border-color:var(--beam)}
   .seg.col{flex-direction:column}
   #saucerPanel .field{margin:10px 0}

@@ -34,7 +34,6 @@ import { buff, updateBuff } from './systems/buffs.js';
 import { applyCloakVisual } from './systems/cloak.js';
 import { updateCollision } from './systems/collision.js';
 import { Special } from './systems/special.js';
-import { Upgrades } from './systems/upgrades.js';
 import { CropCircles } from './systems/cropcircles.js';
 import { Clouds } from './systems/clouds.js';
 import { Fireflies } from './systems/fireflies.js';
@@ -132,10 +131,11 @@ function animate(){
 
   if(S.state==='playing'){
     perfGuard(dt);
-    /* ---- beam hold: pointer down or space (needs the BEAM module) ---- */
+    /* ---- beam hold: pointer down or space ----
+       The beam works from the very start, but a raw beam DRAINS the reactor
+       every second it's open; finding the Plasma Beam module makes it free. ---- */
     const beamWant=input.beamHold||held('beam')||Special.active;
-    if(beamWant&&!S.upHasBeam)Upgrades.beamBlockedHint();
-    const beamOn=beamWant&&S.upHasBeam;
+    const beamOn=beamWant;
     // Opening the beam breaks cloak — you cannot feed while invisible (req 1).
     if(beamOn&&S.cloak){S.cloak=false;beep(300,0.14,0.06);}
     S.beamPower=lerp(S.beamPower,beamOn?1:0,Math.min(1,dt*7));
@@ -214,15 +214,17 @@ function animate(){
     if(held('ascend'))ah+=1;
     if(held('descend'))ah-=1;
     ah=clamp(ah,-1,1);
-    // Grounded start: altitude is locked until the THRUSTERS upgrade. Any climb
-    // intent is ignored (and gently explained once) so the ship holds base hover.
-    if(!S.upAltitude){ if(ah)Upgrades.altBlockedHint(); ah=0; }
+    // Thrusters work from the start, but a raw drive DRAINS the reactor while you
+    // actively climb or dive; the Nuclear Thrusters module makes altitude free AND
+    // lifts the ceiling, so you can rise without limits once it's aboard.
+    const climbing=Math.abs(ah)>0.01;
     S.hoverV+=ah*HOVER_ACC*dt;
     S.hoverV*=Math.pow(HOVER_DRAG,dt);
     S.hoverV=clamp(S.hoverV,-HOVER_VMAX,HOVER_VMAX);
     S.hover+=S.hoverV*dt;
+    const ceil=S.upAltitude?HOVER_MAX*6:HOVER_MAX;   // Nuclear Thrusters: sky's the limit
     if(S.hover<HOVER_MIN){S.hover=HOVER_MIN;if(S.hoverV<0)S.hoverV=0;}
-    if(S.hover>HOVER_MAX){S.hover=HOVER_MAX;if(S.hoverV>0)S.hoverV=0;}
+    if(S.hover>ceil){S.hover=ceil;if(S.hoverV>0)S.hoverV=0;}
     if(ah||Math.abs(S.hoverV)>0.4)altHudT=0.8; else altHudT=Math.max(0,altHudT-dt);
     // The absolute floor scales with the commanded hover, otherwise it would
     // pin the ship at 26 and descending would do nothing over low ground.
@@ -326,10 +328,7 @@ function animate(){
     updateAbduction(dt,WEATHER[weather.cur].mult,beamOn&&bp>0.5);
     setBeamMultHUD(WEATHER[weather.cur].mult*S.beamStr);   // weather x altitude
     updateBuff(dt);
-    // The Great Pull is a beam ability — locked until the tractor beam is found.
-    const pullWant=input.spHeld||held('pull');
-    if(pullWant&&!S.upHasBeam)Upgrades.beamBlockedHint();
-    Special.update(dt,pullWant&&S.upHasBeam,S.upHasBeam);
+    Special.update(dt,input.spHeld||held('pull'));
     updateCrystals(dt,beamOn&&bp>0.5);
     updateProps(dt,beamOn&&bp>0.5);
     updateWindmills(dt);
@@ -345,9 +344,13 @@ function animate(){
     /* ---- energy ---- */
     if(S.energyMode==='drain'){
       const im=moveMag;
-      // drainAlt scales the whole rate: holding a high hover costs the reactor
-      // more, and projecting the beam that much further costs more again.
-      const dr=(1/160+(beamOn?1/70:0)+(Special.active?1/45:0)+im/220+(S.cloak?1/55:0))*drainAlt;
+      // The beam and the thrusters draw from this same reactor. A RAW beam and RAW
+      // thrusters are thirsty; collecting the Plasma Beam / Nuclear Thrusters module
+      // makes each one free. drainAlt scales the whole rate: a higher hover, and a
+      // beam projected that much further, both cost the reactor more.
+      const beamDr=beamOn&&!S.upHasBeam?1/55:0;
+      const altDr =climbing&&!S.upAltitude?1/70:0;
+      const dr=(1/160+beamDr+altDr+(Special.active?1/45:0)+im/220+(S.cloak?1/55:0))*drainAlt;
       S.energy=Math.max(0,S.energy-dr*dt);
       // tiered low-energy warnings (fire once per threshold as it drops)
       const lvl=S.energy<0.10?3:S.energy<0.25?2:S.energy<0.50?1:0;

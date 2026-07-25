@@ -26,6 +26,10 @@ import { buildHuman } from './humans.js';
 import { chunks, chunkKey } from '../world/chunks.js';
 import { saucer } from '../systems/saucer.js';
 import { carHonk } from '../audio/sfx.js';
+import { spawnPop } from '../ui/pop.js';
+import { scoreV, specV } from '../ui/dom.js';
+import { t } from '../i18n.js';
+import { Upgrades } from '../systems/upgrades.js';
 
 /* `block` marks a vehicle tall enough to stop the ship rather than be flown
    over. Cars are low: you always clear them. A bus is not — meet one at its own
@@ -72,6 +76,7 @@ export function buildVehicle(kind){
   u.cruise=V.cruise*(0.85+Math.random()*0.3);
   u.speed=u.cruise;
   u.lift=0;u.fall=0;u.vy=0;u.stun=0;u.spin=1;u.grabY=0;u.roadY=0;u.turnLock=0;
+  u.dragT=0;u.dragMult=1;u.popT=0;u.collected=0;  // beam-drag state (see updateVehicles)
   u.occupants=kind==='bus1'?(2+((Math.random()*3)|0)):(1+((Math.random()*2)|0));
   u.block=!!V.block;u.blockR=V.w*OBJ_SCALE+2.2;u.blockH=V.h*OBJ_SCALE*1.35;
   return g;
@@ -128,6 +133,14 @@ function bailOut(g){
 
 const TURN_CHANCE=0.4;   // odds a car turns rather than going straight at a level crossroad
 
+/* ---- beam-drag tuning ---------------------------------------------------
+   Hold a car in the beam and its worth multiplies the longer you drag it.
+   dragMult = 1 + min(DRAG_CAP, dragT*DRAG_RATE) — climbs 1×→6× over ~5s. */
+const OCC_PTS=6;         // base points per occupant when finally collected
+const DRAG_CAP=5;        // ceiling on the bonus (so mult tops out at ~6×)
+const DRAG_RATE=1;       // multiplier growth per second held
+const DROP_G=16;         // cinematic gravity for the release drop (old was 34)
+
 /* At a level crossroad a car may turn onto the crossing corridor (either way) or
    carry straight on; at an overpass it can't turn, it just passes under/over. jc
    is the grid coordinate (multiple of ROAD_S) it just reached along its axis. */
@@ -158,34 +171,58 @@ export function updateVehicles(dt,beamActive){
     const dx=g.position.x-saucer.position.x, dz=g.position.z-saucer.position.z;
     const d2=dx*dx+dz*dz;
 
-    /* ---- beam: too heavy to take ----
-       A vehicle rises only as far as the midpoint between where it was picked
-       up and the ship, then the beam loses its grip and it falls back. */
+    /* ---- cinematic drop ----
+       Once collected (or dropped empty) the car tumbles down under slowed
+       gravity, spinning on every axis, then settles level on its road deck. */
     if(u.fall>0){
-      bailOut(g);                                        // and on the way down
       u.fall-=dt;
-      u.vy-=34*dt;
+      u.vy-=DROP_G*dt;                                   // ~half the old pull: floaty, dramatic
       g.position.y+=u.vy*dt;
-      g.rotation.z+=dt*1.6*u.spin;
+      g.rotation.z+=dt*1.6*u.spin;                       // tumble...
+      g.rotation.x+=dt*1.3*u.spin;                       // ...on multiple axes
+      g.rotation.y+=dt*0.8;                              // with residual yaw
       if(g.position.y<=u.roadY||u.fall<=0){
-        g.position.y=u.roadY;g.rotation.z=0;u.fall=0;u.lift=0;u.vy=0;
+        g.position.y=u.roadY;g.rotation.z=0;g.rotation.x=0;u.fall=0;u.lift=0;u.vy=0;
         u.stun=1.2;                                     // sits still, shaken
       }
       continue;
     }
     const inBeam=R>0&&d2<R*R;
     if(inBeam){
+      /* ---- beam-drag: haul the car toward the ship and grow its worth ---- */
       if(u.lift===0){u.grabY=g.position.y;carHonk();}   // remember pickup height + honk in protest
       u.lift=Math.min(1,u.lift+dt*0.5);
-      const mid=(u.grabY+saucer.position.y)*0.5;        // the midpoint it can reach
-      g.position.y=u.grabY+(mid-u.grabY)*u.lift;
-      g.rotation.y+=dt*1.1;                             // swings in the column
-      g.rotation.z=Math.sin(performance.now()*0.004)*0.12*u.lift;
-      if(u.lift>0.28)bailOut(g);                        // they jump while it rises
-      if(u.lift>=1){u.fall=2.4;u.vy=0;u.spin=Math.random()<0.5?-1:1;}
+      u.dragT+=dt;
+      u.dragMult=1+Math.min(DRAG_CAP,u.dragT*DRAG_RATE);// 1×→~6× over ~5s, clamped
+      // ease up to just under the saucer, and slide under it in x,z so the
+      // player drags the car around by flying the ship
+      const targetY=saucer.position.y-4;
+      g.position.y+=(targetY-g.position.y)*Math.min(1,dt*2.2);
+      g.position.x+=(saucer.position.x-g.position.x)*Math.min(1,dt*1.4);
+      g.position.z+=(saucer.position.z-g.position.z)*Math.min(1,dt*1.4);
+      g.rotation.y+=dt*1.1;                             // slow yaw spin in the column
+      g.rotation.z=Math.sin(performance.now()*0.004)*0.14;   // gentle sway
+      // live multiplier feedback, throttled to ~3/s so it doesn't spam
+      u.popT-=dt;
+      if(u.popT<=0&&u.occupants>0){u.popT=0.35;spawnPop(g.position,'×'+u.dragMult.toFixed(1),t('hud.taken',{n:u.occupants}));}
+      // occupants stay aboard — the whole point is to keep them and cash in
       continue;
     }
-    if(u.lift>0){                                        // beam released early
+    if(u.lift>0&&!u.collected){                          // beam released while dragging: collect + drop
+      const pts=Math.round(u.occupants*OCC_PTS*u.dragMult);
+      if(pts>0){                                        // 0 occupants → drop cleanly, no score
+        S.score+=pts; S.taken+=u.occupants;
+        scoreV.textContent=S.score;
+        specV.textContent=t('hud.taken',{n:S.taken});
+        Upgrades.gain(pts);                             // feed the ship-upgrade ladder like a normal catch
+        spawnPop(g.position,'+'+pts,t('hud.taken',{n:u.occupants}));
+        carHonk();                                      // light confirmation
+      }
+      u.collected=1;u.dumped=1;u.occupants=0;           // emptied: can't be taken twice, bailOut never fires
+      u.fall=2.4;u.vy=0;u.spin=Math.random()<0.5?-1:1;  // start the cinematic drop
+      continue;
+    }
+    if(u.lift>0){                                       // an emptied car drifting out of the beam: ease back to road
       u.lift=Math.max(0,u.lift-dt*1.6);
       g.position.y=u.roadY+(g.position.y-u.roadY)*0.86;
       g.rotation.z*=0.86;

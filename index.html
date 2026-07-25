@@ -251,6 +251,19 @@
     color:var(--beam);text-shadow:0 0 20px rgba(143,232,184,.7);margin:6px 0 8px}
   .achv-guide{font-size:12px;line-height:1.5;letter-spacing:.03em;color:var(--ink)}
   @media (max-width:600px){.achv-title{font-size:16px;letter-spacing:.1em}.achv-guide{font-size:11px}}
+  /* MOBILE info messages: text only (no box), non-blocking, quick in and out but
+     still readable — a dark outline keeps the glowing text legible over the field. */
+  @media (max-width:700px){
+    #banner b{text-shadow:0 0 5px #041009,0 0 10px #041009,0 0 22px rgba(143,232,184,.75)}
+    #banner.show b{animation-duration:1.5s}
+    #achv{top:18%}
+    .achv-card{background:none!important;border:none!important;box-shadow:none!important;
+      padding:2px 10px;max-width:94vw}
+    .achv-eyebrow{text-shadow:0 0 5px #041009,0 0 8px #041009}
+    .achv-title{text-shadow:0 0 5px #041009,0 0 10px #041009,0 0 18px rgba(143,232,184,.85)}
+    .achv-guide{color:#eafff4;text-shadow:0 0 5px #041009,0 1px 4px #000,0 0 8px #041009}
+    #achv.show .achv-card{animation-duration:3.1s}
+  }
   @media (max-width:700px){
     .panel{padding:6px 9px}.val{font-size:16px}
     #hMission{top:auto;bottom:14px;left:16px;max-width:72vw;

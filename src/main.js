@@ -55,7 +55,7 @@ import { banner } from './ui/banner.js';
 import { clockV, cloakRing, cloakArc, altScale, altKnob, altVal } from './ui/dom.js';
 import { drawMinimap } from './ui/minimap.js';
 import { updateFlare } from './ui/flare.js';
-import { renderFrame, allocRT } from './ui/postfx.js';
+import { renderFrame, allocRT, setFX } from './ui/postfx.js';
 import { endGame, respawn } from './ui/screens.js';
 
 import { diagFinish, loadAllAssets, spawnModel } from './assets.js';
@@ -74,6 +74,27 @@ const RING_LEN=2*Math.PI*19;   // r=19 in the cloak-ring SVG viewBox
 let altHudT=0;                 // keeps the altitude scale up briefly after an altitude change
 let camZoom=1;                 // chase-camera distance multiplier, eased toward altitude
 let camPitchE=0;               // eased camera pitch: 0 behind-the-ship, 1 top-down (angle slider)
+
+/* Adaptive quality: if the frame rate stays low, step the presentation DOWN so
+   weaker hardware still runs smoothly — shrink the shadow map, then drop shadows,
+   then fall back to basic post-fx. One-way (never flip-flops), and only while
+   actually flying. This is the brief's "automatically deliver the best possible
+   presentation for the available hardware". */
+let fpsEMA=60, perfLowT=0, perfStep=0;
+function perfGuard(dt){
+  if(dt<=0)return;
+  fpsEMA=fpsEMA*0.93+(1/dt)*0.07;
+  if(perfStep>=3)return;
+  perfLowT = fpsEMA<27 ? perfLowT+dt : Math.max(0,perfLowT-dt*0.6);
+  if(perfLowT>4){
+    perfLowT=0; perfStep++;
+    if(perfStep===1){                                     // half-resolution shadows
+      if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}
+      sun.shadow.mapSize.set(512,512);
+    }else if(perfStep===2){ renderer.shadowMap.enabled=false; sun.castShadow=false; }  // shadows off
+    else if(perfStep===3){ setFX('basic'); }               // basic render, no post-fx
+  }
+}
 function updateShipGestureHUD(){
   if(cloakRing){               // hold-the-ship-to-cloak progress ring
     const p=input.cloakProg||0;
@@ -110,6 +131,7 @@ function animate(){
   moon.position.copy(camera.position).addScaledVector(_v.copy(sun.position).sub(saucer.position).normalize(),820);
 
   if(S.state==='playing'){
+    perfGuard(dt);
     /* ---- beam hold: pointer down or space (needs the BEAM module) ---- */
     const beamWant=input.beamHold||keys[' ']||Special.active;
     if(beamWant&&!S.upHasBeam)Upgrades.beamBlockedHint();

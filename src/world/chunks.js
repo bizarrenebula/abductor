@@ -256,12 +256,14 @@ export function buildChunk(cx,cz){
         for(let n=n0;n<=n1;n++){
           const lt=n*LAMP_S, sp=roadSample(c.axis,c.k,lt);
           if(sp.x<ox||sp.x>=ox+CHUNK||sp.z<oz||sp.z>=oz+CHUNK)continue;   // road dodged out of chunk
-          const side=(n&1)?1:-1, off=ROAD_HW+1.4;
+          // plant the post right on the carriageway EDGE (the arm reaches inward)
+          const side=(n&1)?1:-1, off=ROAD_HW+0.3;
           const lx=sp.x+sp.fz*off*side, lz=sp.z-sp.fx*off*side;
           const sm2=sample(lx,lz);
           if(sm2.biome==='water')continue;                               // no lamp posts in a lake
+          if(sp.y-sm2.h>3)continue;                                      // road is a bridge here — no floating pole
           const lamp=streetLamp();
-          lamp.position.set(lx,Math.max(sm2.h,sp.y),lz);
+          lamp.position.set(lx,sm2.h,lz);                                // base sits on the ground at the edge
           lamp.rotation.y=Math.atan2(-sp.fx*side,-sp.fz*side);           // arm/pool reach over the road
           scene.add(lamp);li.push(lamp);
         }

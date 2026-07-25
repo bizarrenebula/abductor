@@ -28,7 +28,7 @@ import { THREE } from '../core/three.js';
 import { WATER_Y, MTN_H } from '../core/constants.js';
 import { heightAt } from './terrain.js';
 
-export const ROAD_S    = 200;   // spacing between parallel corridors
+export const ROAD_S    = 300;   // spacing between parallel corridors (wider = fewer roads)
 export const ROAD_HW   = 4.0;   // half-width of the carriageway (thinner; everything
                                 // — mesh, stripes, junction node, overpass, verges —
                                 // keys off this, so roads stay uniform everywhere)
@@ -58,7 +58,7 @@ export function wob(t){ return Math.sin(t*0.011)*6 + Math.sin(t*0.023+1.7)*2.5; 
    grid indices, so it is identical in every chunk and across reloads. */
 const OP_CLEAR = 6.5;    // how high the over-road's deck rises above the crossing
 const OP_RAMP  = 58;     // half-length of the hump's approach ramp (world units)
-const OP_SHARE = 0.42;   // fraction of 4-way crossings built as an overpass
+const OP_SHARE = 0.16;   // fraction of 4-way crossings built as an overpass (kept low — most join flat)
 
 function jhash(a,b){ let h=Math.imul(a|0,73856093)^Math.imul(b|0,19349663); h^=h>>>13; return ((h>>>0)%100000)/100000; }
 /* mode for the junction at world grid coords (kx,kz) — both multiples of ROAD_S. */

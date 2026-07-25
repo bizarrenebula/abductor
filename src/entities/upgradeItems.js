@@ -18,7 +18,8 @@ import { t } from '../i18n.js';
 
 export const upgradeItems=[];   // live meshes; read by the minimap
 
-const BEACON_H=72;              // pillar height — tall enough to clear terrain
+const BEAM_BOT=4;              // beacon bottom (at the floating icon)
+const BEAM_TOP=14;            // ...to several metres above the object
 const COLLECT_R=8;              // fly this close (horizontally) to install
 const SEP_MIN=280;             // keep modules apart from each other where possible
 const BLINK_HZ=3.2;            // line-of-sight blink rate
@@ -57,14 +58,18 @@ function buildItem(key){
     icon.userData.spinX=true;
   }
   g.add(icon);
-  // --- beacon pillar + ground ring (additive glow) ---
-  const beaconMat=glowMat(col,0.16);
-  const beacon=new THREE.Mesh(new THREE.CylinderGeometry(1.0,1.7,BEACON_H,16,1,true),beaconMat);
-  beacon.position.y=BEACON_H/2;g.add(beacon);
+  // --- thin WHITE beacon a few metres above the object, with a bright pulse that
+  //     repeatedly falls from the top down onto it, plus a ground ring ---
+  const beamMat=glowMat(0xffffff,0.18);
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,BEAM_TOP-BEAM_BOT,8,1,true),beamMat);
+  beam.position.y=(BEAM_TOP+BEAM_BOT)/2;g.add(beam);
+  const pulseMat=glowMat(0xffffff,0.9);
+  const pulse=new THREE.Mesh(new THREE.SphereGeometry(0.32,10,10),pulseMat);
+  pulse.scale.set(1,1.7,1);g.add(pulse);              // a little elongated = a falling streak
   const ringMat=glowMat(col,0.5);
   const ring=new THREE.Mesh(new THREE.RingGeometry(3,4,36),ringMat);
   ring.rotation.x=-Math.PI/2;ring.position.y=0.15;g.add(ring);
-  g.userData={key,col,icon,beaconMat,ring,ringMat,phase:Math.random()*6.28,onScreen:false};
+  g.userData={key,col,icon,beamMat,pulse,pulseMat,ring,ringMat,phase:Math.random()*6.28,onScreen:false};
   return g;
 }
 
@@ -110,8 +115,13 @@ export function updateUpgradeItems(dt){
     // screen it holds a steady, subtler glow so it's still spottable from afar.
     const blinkOn=!onScreen || Math.sin(time*BLINK_HZ*6.2832+u.phase)>0;
     u.icon.visible=blinkOn;
-    u.beaconMat.opacity=onScreen?(blinkOn?0.55:0.04):0.16;
-    u.ringMat.opacity=onScreen?(blinkOn?0.95:0.06):0.45*(0.7+0.3*Math.sin(time*3+u.phase));
+    // thin white beacon: a bright pulse falls from the top down onto the object,
+    // over and over; the thin shaft itself stays a faint white line.
+    const pph=(time*0.9+u.phase*0.16)%1;                 // 0 at the top, 1 at the object
+    u.pulse.position.y=BEAM_TOP-(BEAM_TOP-BEAM_BOT)*pph;
+    u.pulseMat.opacity=(onScreen?1:0.65)*(0.1+0.9*Math.sin(pph*Math.PI));   // fade in/out at the ends
+    u.beamMat.opacity=onScreen?0.22:0.14;
+    u.ringMat.opacity=onScreen?(blinkOn?0.9:0.2):0.45*(0.7+0.3*Math.sin(time*3+u.phase));
     u.ring.scale.setScalar(1+0.05*Math.sin(time*3+u.phase));
     // install on close approach
     const dx=g.position.x-sx, dz=g.position.z-sz;

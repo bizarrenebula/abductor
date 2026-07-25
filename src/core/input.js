@@ -135,6 +135,9 @@ renderer.domElement.addEventListener('pointerdown',e=>{
   // Press-and-hold on the saucer toggles cloak (works with any pointer). A press
   // that moves past SHIP_SLOP cancels — so it never fights a nearby joystick drag.
   if(tappedSaucer(e)){
+    // Cloak not found yet? Don't spin up the hold/loading ring — just flash the
+    // "cloak locked" message (toggleCloak refuses and shows it) and bail.
+    if(!S.upCloak&&!S.cloak){ toggleCloak(); return; }
     cloakPtr=e.pointerId;cloakSX=e.clientX;cloakSY=e.clientY;cloakT0=performance.now();
     cloakTimer=setTimeout(()=>{cloakTimer=0;input.cloakProg=0;cloakPtr=null;toggleCloak();},CLOAK_HOLD_MS);
     return;

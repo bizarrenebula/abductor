@@ -326,7 +326,10 @@ function animate(){
     updateAbduction(dt,WEATHER[weather.cur].mult,beamOn&&bp>0.5);
     setBeamMultHUD(WEATHER[weather.cur].mult*S.beamStr);   // weather x altitude
     updateBuff(dt);
-    Special.update(dt,input.spHeld||held('pull'));
+    // The Great Pull is a beam ability — locked until the tractor beam is found.
+    const pullWant=input.spHeld||held('pull');
+    if(pullWant&&!S.upHasBeam)Upgrades.beamBlockedHint();
+    Special.update(dt,pullWant&&S.upHasBeam,S.upHasBeam);
     updateCrystals(dt,beamOn&&bp>0.5);
     updateProps(dt,beamOn&&bp>0.5);
     updateWindmills(dt);

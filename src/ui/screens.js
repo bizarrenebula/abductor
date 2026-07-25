@@ -36,22 +36,7 @@ import { t, setLang, onLang } from '../i18n.js';
 const startScreen=document.getElementById('startScreen');
 const overScreen=document.getElementById('overScreen');
 const hud=document.getElementById('hud');
-const sLock=document.getElementById('sLock'),oLock=document.getElementById('oLock');
-const sBeam=document.getElementById('sBeam'),oBeam=document.getElementById('oBeam');
-const sTime=document.getElementById('sTime'),oTime=document.getElementById('oTime');
-const cEndless=document.getElementById('cEndless');
 const oExtra=document.getElementById('oExtra');   // "Tuning" sector chip summary
-
-function syncLabels(){
-  oLock.textContent=(+sLock.value===0)?t('unit.instant'):t('unit.s',{n:(+sLock.value).toFixed(2)});
-  oBeam.textContent=t('unit.m',{n:sBeam.value});
-  oTime.textContent=cEndless.checked?t('unit.endless'):t('unit.min',{n:sTime.value});
-  sTime.disabled=cEndless.checked;
-  if(oExtra)oExtra.textContent=cEndless.checked?t('unit.endless'):t('unit.min',{n:sTime.value});
-}
-[sLock,sBeam,sTime].forEach(el=>el.addEventListener('input',syncLabels));
-cEndless.addEventListener('change',syncLabels);
-syncLabels();
 
 /* opts.keep — "run it back" after a crash keeps the ship's earned upgrades
    (the save point survives a crash / disaster, per spec). Any other entry
@@ -59,10 +44,8 @@ syncLabels();
    Called directly as a click handler too, where the arg is an Event → no .keep. */
 export function startGame(opts){
   const keepUpgrades=!!(opts&&opts.keep===true);
-  S.lockTime=+sLock.value;
-  S.beamR=(+sBeam.value)/2;
-  S.endless=cEndless.checked;
-  S.timeLimit=(+sTime.value)*60;
+  // Beam lock time, beam diameter and the survey window used to be tunable in
+  // settings; they're now fixed at the defaults declared in core/state.js.
   S.timeLeft=S.timeLimit;
   S.score=0;scoreV.textContent='0';
   S.taken=0;S.tally={};specV.textContent=t('hud.taken',{n:0});
@@ -315,7 +298,9 @@ export function applyGfx(mode){
   S.gfx=(mode==='full')?'full':'basic';
   setFX(S.gfx==='full'?'full':'basic');
   if(segGfx)segGfx.querySelectorAll('[data-g]').forEach(x=>x.classList.toggle('on',x.dataset.g===S.gfx));
-  if(oGraphics)oGraphics.textContent=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
+  const gfxLabel=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
+  if(oGraphics)oGraphics.textContent=gfxLabel;
+  if(oExtra)oExtra.textContent=gfxLabel;                 // Tuning sector chip summary
   try{localStorage.setItem('abductor.gfx',S.gfx);}catch(e){}
 }
 if(segGfx)segGfx.addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(b)applyGfx(b.dataset.g);});
@@ -329,11 +314,11 @@ applyGfx(_gfx0);
 document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLang(b.getAttribute('data-lang'))));
 onLang(()=>{
   // re-render dynamic menu bits that aren't plain [data-i18n] elements
-  syncLabels();
   document.getElementById('oWorld').textContent=t('world.'+S.world);
   document.getElementById('oMode').textContent=t(S.storyMode?'mode.story':'mode.exploreShort');
   document.getElementById('oEnergy').textContent=t(S.energyMode==='drain'?'reactor.drain':'reactor.inf');
   if(oGraphics)oGraphics.textContent=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
+  if(oExtra)oExtra.textContent=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
   if(oMusicSrc)oMusicSrc.textContent=t(S.musicMode==='procedural'?'music.procedural':'music.soundtrack');
   if(specV)specV.textContent=t('hud.taken',{n:S.taken});
   renderKeybinds();                       // action labels are localized

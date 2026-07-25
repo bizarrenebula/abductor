@@ -13,7 +13,7 @@ import { t } from '../i18n.js';
 export const Special={
   charge:1,active:false,RADIUS:70,
   gainAnimal(){this.charge=Math.min(1,this.charge+1/20);},
-  update(dt,held){
+  update(dt,held,avail=true){
     if(this.active){ if(!held||this.charge<=0)this.active=false; }
     else if(held&&this.charge>=1){this.active=true;beep(196,0.4,0.09);}
     if(this.active){
@@ -39,7 +39,7 @@ export const Special={
     // (positioned in CSS). It shows only while the special is fully charged and
     // idle; press-and-hold fires the pull, which starts draining the charge —
     // dropping it below full — so the button hides while it (re)charges.
-    const show=this.charge>=1&&!this.active;
+    const show=avail&&this.charge>=1&&!this.active;
     if(show)spBtn.textContent=t('hud.pull');
     spBtn.classList.toggle('show',show);
   }

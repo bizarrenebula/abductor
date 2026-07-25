@@ -3,6 +3,7 @@
    the sustained beam loop, and creature cries. All route through Music.sfx.
    ========================================================================= */
 import { Music, beep } from './music.js';
+import { Samples } from './samples.js';
 
 export function sweep(f0,f1,dur,vol){try{Music.ensure();const c=Music.ac;if(c.state==='suspended')c.resume();
   const o=c.createOscillator(),g=c.createGain();o.type='sine';
@@ -164,8 +165,12 @@ function honkBlast(when){
 }
 export function carHonk(){ honkBlast(0); honkBlast(0.24); }
 
-/* Fired from the abduction loop for every captured creature/human. */
+/* Fired from the abduction loop for every captured creature/human. A recorded
+   sample (assets/sfx via the manifest) wins if one exists for this creature;
+   otherwise we fall back to the synthesized voice. */
 export function cry(name){
+  Samples.init();                                  // lazy, one-time manifest load
+  if(Samples.has(name) && Samples.play(name)) return;
   if(name==='Hiker'||name==='Villager'){ humanScream(); return; }
   animalCry(name);
 }

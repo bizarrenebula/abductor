@@ -182,7 +182,7 @@ function animate(){
     // drag / gradual stop with delay — high retention so the heavy hull keeps
     // gliding when you release the stick (momentum), coasting to rest over a
     // second or so rather than braking on a dime. Moon glides even further.
-    const drag=Math.pow(World.name==='moon'?0.48:0.34,dt);
+    const drag=Math.pow(World.name==='moon'?0.34:0.22,dt);   // less coast = tighter, more responsive
     S.vel.x*=drag; S.vel.z*=drag;
     // FREE FLIGHT (experiment): the ship no longer looks ahead and auto-climbs over
     // the ground/structures — you fly exactly where you point it. A rise or object

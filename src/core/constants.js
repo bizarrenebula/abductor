@@ -38,13 +38,13 @@ export const HOVER_BASE = 15, HOVER_MIN = 4, HOVER_MAX = HOVER_BASE * 3;
    roughly where it was; only the *time* to reach or shed it has grown.
    Bump the ACC/VMAX values for more agility; raise the DRAG retentions for more
    glide/float. */
-export const MOVE_ACC   = 64;    // horizontal thrust accel, world units/s^2 (heavy but a touch more responsive)
-export const BEAM_MOVE  = 0.6;   // thrust multiplier while the beam is open — you can still
+export const MOVE_ACC   = 98;    // horizontal thrust accel, world units/s^2 (agile: responds hard to the stick)
+export const BEAM_MOVE  = 0.65;  // thrust multiplier while the beam is open — you can still
                                  // fly and steer, but slower (the ship is heavy while feeding)
 
-export const HOVER_ACC  = 42;    // world units/s^2 added to the climb rate while held (was 70)
-export const HOVER_DRAG = 0.13;  // per-second retention of climb rate when released (raised: rises/settles slowly)
-export const HOVER_VMAX = 18;    // max climb/dive rate, world units/s (was 26 — a massive hull lifts gently)
+export const HOVER_ACC  = 68;    // world units/s^2 added to the climb rate while held (snappy altitude)
+export const HOVER_DRAG = 0.10;  // per-second retention of climb rate when released (settles quickly)
+export const HOVER_VMAX = 28;    // max climb/dive rate, world units/s (quick to gain height)
 
 /* Ship heading. ← / → (desktop) or the right joystick x-axis (touch) push an
    angular acceleration onto S.yawV, which coasts down through YAW_DRAG and is
@@ -53,9 +53,9 @@ export const HOVER_VMAX = 18;    // max climb/dive rate, world units/s (was 26 �
    Turning is now slow and weighty: a low ACC gives the input a moment of delay
    before the nose starts to come round, a higher DRAG lets the swing carry, and
    a lower VMAX caps how fast such a big disc can rotate. */
-export const YAW_ACC  = 3.4;     // rad/s^2 added to spin rate while turning (heavy, but turns in a little quicker)
-export const YAW_DRAG = 0.16;    // per-second retention of spin rate when released (settles a bit faster)
-export const YAW_VMAX = 1.75;    // max yaw rate, rad/s (a heavy craft, but not sluggish)
+export const YAW_ACC  = 5.6;     // rad/s^2 added to spin rate while turning (agile: the nose comes round fast)
+export const YAW_DRAG = 0.10;    // per-second retention of spin rate when released (settles quickly, little coast)
+export const YAW_VMAX = 2.6;     // max yaw rate, rad/s (turns briskly)
 
 /* Ship collision radius. Deliberately under the ~5u visual hull so glancing
    passes read as near-misses rather than unfair phantom hits. */

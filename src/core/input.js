@@ -144,7 +144,8 @@ function clearAxes(h){
 }
 // centre deadzone + rescale so a resting thumb reads as neutral and the usable
 // travel still spans the full -1..1 — key to a stick that feels natural.
-function dz(v){ const d=0.12, a=Math.abs(v); return a<d?0:Math.sign(v)*((a-d)/(1-d)); }
+// Small deadzone + linear response so the stick answers almost immediately.
+function dz(v){ const d=0.06, a=Math.abs(v); return a<d?0:Math.sign(v)*((a-d)/(1-d)); }
 
 // per-half state; `ids` holds the active pointer ids that started in that half.
 // The right half also tracks a double-tap so it can open the beam (see below).

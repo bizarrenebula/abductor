@@ -3,8 +3,10 @@
    the center, scaled by weather + HUNGER buff); when it fills they're taken.
    ========================================================================= */
 import { lerp } from '../core/math.js';
+import { WATER_Y } from '../core/constants.js';
 import { S } from '../core/state.js';
 import { scene } from '../core/engine.js';
+import { heightAt } from '../world/terrain.js';
 import { animals } from '../entities/registry.js';
 import { saucer } from './saucer.js';
 import { effBeamR } from './beam.js';
@@ -18,6 +20,8 @@ import { spawnPop } from '../ui/pop.js';
 import { scoreV, specV, hTarget, barFill, tName } from '../ui/dom.js';
 import { Story } from '../story/story.js';
 import { t } from '../i18n.js';
+
+const LEV_H=1.2;   // how far (world units, ~1 m) a creature is drawn off the ground while locking
 
 export function updateAbduction(dt,weatherMult,beamOn){
   const bx=saucer.position.x, bz=saucer.position.z;
@@ -36,18 +40,38 @@ export function updateAbduction(dt,weatherMult,beamOn){
     }
     const dx=a.position.x-bx, dz=a.position.z-bz;
     const d2=dx*dx+dz*dz;
-    const inBeam=R>0&&a.visible&&!(a.userData.hidden>0)&&d2<R*R;
+    const u=a.userData;
+    const inBeam=R>0&&a.visible&&!(u.hidden>0)&&d2<R*R;
     if(inBeam){
       if(S.lockTime<=0.001){ triggerAbduct(a); continue; }
       const closeness=1-Math.sqrt(d2)/R;            // 0 at edge, 1 at center
       // S.beamStr falls off with altitude: the same creature takes far longer
       // to lock from a high hover than from a low pass.
-      a.userData.progress+=dt*weatherMult*(0.6+1.6*closeness)*(buff==='lock'?2:1)*(S.beamStr||1);
-      if(a.userData.progress>=S.lockTime){ triggerAbduct(a); continue; }
+      u.progress+=dt*weatherMult*(0.6+1.6*closeness)*(buff==='lock'?2:1)*(S.beamStr||1);
+      u.beamLift=Math.min(1,(u.beamLift||0)+dt*1.3);   // slowly drawn ~1m off the ground
+      u.panicked=0;                                    // re-arm the release panic
     }else{
-      a.userData.progress=0;
+      u.progress=0;
+      // Beam lost while it was suspended: it drops back down and, panicking, makes
+      // a couple of quick bolts away from the ship before it settles.
+      if((u.beamLift||0)>0.25 && !u.panicked){
+        u.panicked=1;
+        if(u.humanKind){ u.fleeT=Math.max(u.fleeT||0,1.3); u.bolt=null; }
+        else u.panic=1.1;
+      }
+      u.beamLift=Math.max(0,(u.beamLift||0)-dt*4);     // fall back to the ground
     }
-    if(a.userData.progress>bestP){bestP=a.userData.progress;best=a;}
+    // Suspend the creature ~1m up while the lock builds (and as it drops back on
+    // release). Overrides the ground y that updateAnimals set earlier this frame.
+    const bl=u.beamLift||0;
+    if(bl>0.001&&!u.fly){
+      const gy=(u.biome==='water')?WATER_Y+0.12:Math.max(heightAt(a.position.x,a.position.z),WATER_Y);
+      a.position.y=gy+bl*LEV_H+Math.sin(performance.now()*0.006+(u.face||0))*0.06*bl;
+      a.rotation.y+=dt*bl*1.4;                          // turns gently in the beam
+    }
+    // lock complete → carry it the rest of the way up (starting from the lifted y)
+    if(inBeam && u.progress>=S.lockTime){ triggerAbduct(a); continue; }
+    if(u.progress>bestP){bestP=u.progress;best=a;}
   }
   if(best){
     hTarget.classList.add('show');

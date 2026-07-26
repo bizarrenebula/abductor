@@ -161,12 +161,37 @@ function stepOK(u,x0,z0,tx,tz){
   return true;
 }
 
+/* A creature the beam just dropped: fast hops straight away from the ship for
+   ~1s, then u.panic runs out and normal movement (calm) resumes. Reuses the hop
+   system with a short duration and an `away` heading; a blocked escape just calms. */
+function panicHop(a,u,dt){
+  u.panic-=dt;
+  const dx=a.position.x-saucer.position.x, dz=a.position.z-saucer.position.z;
+  const d=Math.hypot(dx,dz)||0.001;
+  if(!u.hop||!u.hop.panic){
+    const dist=3.6, tx=a.position.x+dx/d*dist, tz=a.position.z+dz/d*dist;
+    if(stepOK(u,a.position.x,a.position.z,tx,tz)){
+      u.hop={fx:a.position.x,fz:a.position.z,tx,tz,t:0,dur:0.26,panic:true};
+      u.phase='step'; a.rotation.y=Math.atan2(dx/d,dz/d);
+    }else{ u.panic=0; u.hop=null; u.phase='idle'; return; }   // nowhere to run → calm
+  }
+  u.hop.t+=dt/u.hop.dur;
+  const tt=Math.min(1,u.hop.t);
+  const x=lerp(u.hop.fx,u.hop.tx,tt), z=lerp(u.hop.fz,u.hop.tz,tt);
+  a.position.set(x, rideY(u,x,z)+Math.sin(Math.PI*tt)*0.6, z);
+  if(tt>=1){ u.hop=null; if(u.panic<=0)u.phase='idle'; }       // bolt done; another follows until calm
+}
+
 export function updateAnimals(dt){
   for(const a of animals){
     if(a.userData.abducting>0) continue;
     const u=a.userData;
     if(u.humanKind){updateHuman(a,u,dt);continue;}
     if(u.wormKind){updateWorm(a,u,dt);continue;}
+
+    // Dropped by the beam: a short panic of fast hops directly away, then it calms
+    // back into its normal wander.
+    if(u.panic>0){ panicHop(a,u,dt); continue; }
 
     // special.js cancels movement by nulling u.hop; drop out of stepping too.
     if(u.phase==='step'&&!u.hop)u.phase='idle';

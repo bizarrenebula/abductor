@@ -182,31 +182,10 @@ function animate(){
     // second or so rather than braking on a dime. Moon glides even further.
     const drag=Math.pow(World.name==='moon'?0.48:0.34,dt);
     S.vel.x*=drag; S.vel.z*=drag;
-    // --- terrain look-ahead: sample the surface a little way along travel so the
-    // ship ANTICIPATES a rise. Two things fall out of it: a heavy craft visibly
-    // slows as it noses up to clear a higher structure (uphill road, hill, bridge
-    // approach), and the altitude target below can start climbing early. Only the
-    // higher ground ahead counts here — drops are left to the gentle descent, so
-    // nothing pre-empts a fall. ---
-    const surfHere=Math.max(heightAt(saucer.position.x,saucer.position.z),
-                            roadHeightAt(saucer.position.x,saucer.position.z));
-    let surfAhead=surfHere;
-    const spd=Math.hypot(S.vel.x,S.vel.z);
-    if(spd>1){
-      const ux=S.vel.x/spd, uz=S.vel.z/spd, look=Math.min(44,12+spd*0.6);
-      for(let d=8;d<=look;d+=8){
-        const g=Math.max(heightAt(saucer.position.x+ux*d,saucer.position.z+uz*d),
-                         roadHeightAt(saucer.position.x+ux*d,saucer.position.z+uz*d));
-        if(g>surfAhead)surfAhead=g;
-      }
-      // Labour up and over: brake for the climb, but only when flying low enough
-      // that the rise is actually in the way, and never so hard it stalls.
-      const climb=surfAhead-surfHere, aglNow=saucer.position.y-surfHere;
-      if(climb>0.8 && aglNow<S.hover+12){
-        const brake=Math.pow(clamp(1-climb*0.012,0.72,1),dt*6);
-        S.vel.x*=brake; S.vel.z*=brake;
-      }
-    }
+    // FREE FLIGHT (experiment): the ship no longer looks ahead and auto-climbs over
+    // the ground/structures — you fly exactly where you point it. A rise or object
+    // the hull flies into is a collision (handled below and in collision.js), so the
+    // player has to be careful where they steer.
     saucer.position.x+=S.vel.x*dt;
     saucer.position.z+=S.vel.z*dt;
 
@@ -237,16 +216,15 @@ function animate(){
     const gh=Math.max(heightAt(saucer.position.x,saucer.position.z),
                       roadHeightAt(saucer.position.x,saucer.position.z));
     const floorY=26*(S.hover/HOVER_BASE);
-    // Follow the surface with WEIGHT. The climb target is the look-ahead surface,
-    // so the ship begins rising BEFORE it reaches a higher structure; once past a
-    // crest it settles onto the surface under the hull. The vertical follow speed
-    // is capped — a firm-but-limited climb up and over, and a soft, slow drop off a
-    // bridge or downhill — so altitude eases in and out gradually instead of
-    // snapping to height. (Genuine mountain faces are still a hard collision below.)
-    const climbRef=Math.max(gh,surfAhead);
-    const targetY=Math.max(floorY,climbRef+S.hover)+Math.sin(t*1.4)*0.5;
+    // Hold the commanded clearance over the ground DIRECTLY BELOW only (no look-
+    // ahead), and climb slowly — so a hill or bridge you fly into is NOT auto-
+    // cleared: you have to gain the height yourself with the thrusters, or crash.
+    // The follow also never climbs a MOUNTAIN (capped at MTN_H): mountain faces are
+    // solid walls you fly into, not slopes the ship rides up.
+    const followH=Math.min(gh,MTN_H);
+    const targetY=Math.max(floorY,followH+S.hover)+Math.sin(t*1.4)*0.5;
     const dy=targetY-saucer.position.y;
-    const cap=(dy>0?20:8)*dt;                 // max climb / gentler descent, units/s
+    const cap=(dy>0?10:8)*dt;                 // slow auto-climb / gentle descent, units/s
     saucer.position.y+=clamp(dy*Math.min(1,dt*2.6),-cap,cap);
 
     /* Altitude trade-off, derived once from the ship's true height above ground
@@ -257,17 +235,19 @@ function animate(){
     const drainAlt=ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,DRAIN_ALT_LOW,1,DRAIN_ALT_HIGH);
     updateShipGestureHUD();
 
-    // Mountains are solid. Sample the terrain a little ahead along travel: if it's
-    // a mountain (above MTN_H) and the hull is below its face, you crash into it.
-    // Hills stay passable, and climbing high enough still clears a peak.
+    // Everything the hull touches interacts: ANY ground the ship flies into — a
+    // hillside, an embankment, a road/bridge deck, a mountain face — is a fatal
+    // impact at the touchpoint, not just tall peaks. Check directly below plus a
+    // short step ahead along travel (so a wall met head-on still lands).
     const sp=Math.hypot(S.vel.x,S.vel.z);
-    if(sp>2){
-      const hx=saucer.position.x+S.vel.x/sp*8, hz=saucer.position.z+S.vel.z/sp*8;
-      const hAhead=heightAt(hx,hz);
-      if(hAhead>MTN_H&&saucer.position.y-1.5<hAhead){
-        S.crashReason='impact';S.state='crashing';S.vy=-3;
-        BeamSFX.stop();S.prevBeam=false;
-      }
+    let hitH=gh;
+    if(sp>1.2){
+      const hx=saucer.position.x+S.vel.x/sp*4.5, hz=saucer.position.z+S.vel.z/sp*4.5;
+      hitH=Math.max(hitH,heightAt(hx,hz),roadHeightAt(hx,hz));
+    }
+    if(saucer.position.y-1.2<hitH){
+      S.crashReason='impact';S.state='crashing';S.vy=-3;
+      BeamSFX.stop();S.prevBeam=false;
     }
 
     // banking swing: roll into the turn, plus pitch/roll from motion in the

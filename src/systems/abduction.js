@@ -46,30 +46,33 @@ export function updateAbduction(dt,weatherMult,beamOn){
       // S.beamStr falls off with altitude: the same creature takes far longer
       // to lock from a high hover than from a low pass.
       u.progress+=dt*weatherMult*(0.6+1.6*closeness)*(buff==='lock'?2:1)*(S.beamStr||1);
-      u.beamLift=Math.min(1,(u.beamLift||0)+dt*1.3);   // slowly drawn ~1m off the ground
+      // Levitation TRACKS THE LOCK: the creature is drawn gradually up from the
+      // surface toward the ship across the whole lock, reaching it as it completes.
+      u.beamLift=Math.min(1,u.progress/S.lockTime);
       u.panicked=0;                                    // re-arm the release panic
     }else{
       u.progress=0;
       // Beam lost while it was suspended: it drops back down and, panicking, makes
       // a couple of quick bolts away from the ship before it settles.
-      if((u.beamLift||0)>0.25 && !u.panicked){
+      if((u.beamLift||0)>0.12 && !u.panicked){
         u.panicked=1;
         if(u.humanKind){ u.fleeT=Math.max(u.fleeT||0,1.3); u.bolt=null; }
         else u.panic=1.1;
       }
       u.beamLift=Math.max(0,(u.beamLift||0)-dt*2.2);   // fall back to the ground
     }
-    // Suspend the creature HALFWAY between the ground and the ship while the lock
-    // builds (a noticeably high levitation), and let it drop back on release.
-    // Overrides the ground y that updateAnimals set earlier this frame.
+    // Draw it up toward the ship as the lock fills — and funnel it in over the
+    // beam's centre as it nears the top. Overrides the ground y updateAnimals set.
     const bl=u.beamLift||0;
     if(bl>0.001&&!u.fly){
       const gy=(u.biome==='water')?WATER_Y+0.12:Math.max(heightAt(a.position.x,a.position.z),WATER_Y);
-      const mid=(gy+saucer.position.y)*0.5;             // half way up to the ship
-      a.position.y=gy+bl*(mid-gy)+Math.sin(performance.now()*0.006+(u.face||0))*0.12*bl;
-      a.rotation.y+=dt*bl*1.4;                          // turns gently in the beam
+      const topY=saucer.position.y-2.5;                 // just under the hull
+      a.position.y=gy+bl*(topY-gy)+Math.sin(performance.now()*0.006+(u.face||0))*0.1*(1-bl);
+      a.position.x=lerp(a.position.x,saucer.position.x,Math.min(1,dt*bl*2));
+      a.position.z=lerp(a.position.z,saucer.position.z,Math.min(1,dt*bl*2));
+      a.rotation.y+=dt*(0.9+bl*1.8);                    // spins a touch faster as it rises
     }
-    // lock complete → carry it the rest of the way up (starting from the lifted y)
+    // lock complete → it's at the ship; the final shrink-and-vanish plays from there
     if(inBeam && u.progress>=S.lockTime){ triggerAbduct(a); continue; }
     if(u.progress>bestP){bestP=u.progress;best=a;}
   }

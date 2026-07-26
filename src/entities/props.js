@@ -192,8 +192,9 @@ export function updateProps(dt,beamActive){
   const R=effBeamR(), now=performance.now()*0.001;
   for(let i=props.length-1;i>=0;i--){
     const p=props[i],u=p.userData;
-    // slow wind sway on trees — a barely-there lean that breathes with the wind
-    if(u.sway!=null&&u.lift===0&&u.gone==null)
+    const isTree=u.sway!=null;
+    // slow wind sway on STANDING trees only (not lifted, not toppled)
+    if(isTree&&u.lift===0&&!u.fallen&&u.gone==null)
       p.rotation.z=Math.sin(now*0.7+u.sway)*0.03+Math.sin(now*1.9+u.sway)*0.012;
     if(u.gone!=null){
       u.gone-=dt;
@@ -207,12 +208,30 @@ export function updateProps(dt,beamActive){
     const inBeam=beamActive&&(dx*dx+dz*dz)<R*R;
     if(inBeam){
       u.lift=Math.min(1,u.lift+dt*0.55);
-      p.rotation.y+=dt*4*u.spin;
-      if(!u.human&&u.lift>0.8){u.gone=0.5;beep(180+Math.random()*120,0.15,0.05);continue;}
+      p.rotation.y+=dt*(isTree?1.4:4)*u.spin;      // trees turn slower, as a big mass
+      if(isTree){
+        // torn from the roots: pick a lean direction, and mark it uprooted once it
+        // has really come free (so a graze doesn't topple it). Trees are too heavy
+        // to absorb — they only hang, then fall.
+        if(u.tilt==null)u.tilt=(0.35+Math.random()*0.4)*(u.spin<0?-1:1);
+        if(u.lift>0.25)u.uprooted=1;
+      }else if(u.lift>0.8){ u.gone=0.5;beep(180+Math.random()*120,0.15,0.05);continue; } // rocks/cacti absorbed
     }else if(u.lift>0){
-      u.lift=Math.max(0,u.lift-dt*1.9);   // dropped
-      if(u.lift===0&&u.human)beep(90,0.12,0.06);
+      u.lift=Math.max(0,u.lift-dt*1.9);            // drops back to the ground
+      if(isTree&&u.uprooted){
+        if(u.toppleSign==null)u.toppleSign=(u.tilt<0?-1:1);
+        u.fallen=Math.min(1,(u.fallen||0)+dt*2.2);          // topples over as it lands
+        if(u.fallen>=1&&u.top>2)u.top=1.8;                  // a felled log is low — no longer a tall crash wall
+      }
     }
-    p.position.y=u.baseY+u.lift*(saucer.position.y-u.baseY-4);
+    if(isTree){
+      const mid=(u.baseY+saucer.position.y)*0.5;            // levitate half way up to the ship
+      p.position.y=u.baseY+u.lift*(mid-u.baseY);
+      const topple=u.fallen||0;
+      const lean=(u.tilt||0)*Math.min(1,u.lift*1.4);
+      p.rotation.x=lean*(1-topple)+(u.toppleSign||1)*1.5*topple;   // torn lean → laid flat on the ground
+    }else{
+      p.position.y=u.baseY+u.lift*(saucer.position.y-u.baseY-4);
+    }
   }
 }

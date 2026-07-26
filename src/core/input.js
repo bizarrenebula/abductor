@@ -71,7 +71,9 @@ export function held(id){ const k=binds[id]; return !!k && !!keys[k]; }
      axis ids : LX LY RX RY           function ids : forward turn strafe climb ''  */
 export const AXES=['LX','LY','RX','RY'];
 export const FUNCS=['forward','turn','strafe','climb'];   // '' (none) also valid
-const MAP_DEF={ LX:'strafe', LY:'climb', RX:'turn', RY:'forward' };   // current default feel
+// Default: RIGHT stick translates (strafe X / forward-back Y), LEFT stick steers
+// and lifts (turn X / altitude Y). Any axis is remappable in the touch settings.
+const MAP_DEF={ LX:'turn', LY:'climb', RX:'strafe', RY:'forward' };
 const INV_DEF={ LX:false, LY:false, RX:false, RY:false };
 export const touchMap=Object.assign({},MAP_DEF);
 export const touchInv=Object.assign({},INV_DEF);

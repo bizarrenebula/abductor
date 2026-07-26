@@ -21,8 +21,6 @@ import { scoreV, specV, hTarget, barFill, tName } from '../ui/dom.js';
 import { Story } from '../story/story.js';
 import { t } from '../i18n.js';
 
-const LEV_H=1.2;   // how far (world units, ~1 m) a creature is drawn off the ground while locking
-
 export function updateAbduction(dt,weatherMult,beamOn){
   const bx=saucer.position.x, bz=saucer.position.z;
   const R=beamOn?effBeamR():-1;   // beam off: nothing is in range, locks decay
@@ -59,14 +57,16 @@ export function updateAbduction(dt,weatherMult,beamOn){
         if(u.humanKind){ u.fleeT=Math.max(u.fleeT||0,1.3); u.bolt=null; }
         else u.panic=1.1;
       }
-      u.beamLift=Math.max(0,(u.beamLift||0)-dt*4);     // fall back to the ground
+      u.beamLift=Math.max(0,(u.beamLift||0)-dt*2.2);   // fall back to the ground
     }
-    // Suspend the creature ~1m up while the lock builds (and as it drops back on
-    // release). Overrides the ground y that updateAnimals set earlier this frame.
+    // Suspend the creature HALFWAY between the ground and the ship while the lock
+    // builds (a noticeably high levitation), and let it drop back on release.
+    // Overrides the ground y that updateAnimals set earlier this frame.
     const bl=u.beamLift||0;
     if(bl>0.001&&!u.fly){
       const gy=(u.biome==='water')?WATER_Y+0.12:Math.max(heightAt(a.position.x,a.position.z),WATER_Y);
-      a.position.y=gy+bl*LEV_H+Math.sin(performance.now()*0.006+(u.face||0))*0.06*bl;
+      const mid=(gy+saucer.position.y)*0.5;             // half way up to the ship
+      a.position.y=gy+bl*(mid-gy)+Math.sin(performance.now()*0.006+(u.face||0))*0.12*bl;
       a.rotation.y+=dt*bl*1.4;                          // turns gently in the beam
     }
     // lock complete → carry it the rest of the way up (starting from the lifted y)

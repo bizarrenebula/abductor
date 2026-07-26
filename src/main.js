@@ -29,6 +29,7 @@ import { updateUpgradeItems } from './entities/upgradeItems.js';
 
 import { saucer, beamLight, shipLight, glowLight, ebarBG, ebarFill3, updateEnergyBar, updateSaucer } from './systems/saucer.js';
 import { NightLights } from './systems/nightlights.js';
+import { updateDestruction } from './systems/destruction.js';
 import { beam, beamMat, disc, discMat, effBeamR } from './systems/beam.js';
 import { updateAbduction } from './systems/abduction.js';
 import { buff, updateBuff } from './systems/buffs.js';
@@ -129,6 +130,7 @@ function animate(){
   updateDust();
   NightLights.set(S.dayF,t);        // street lamps / station / headlight pools fade in at night
   updateSaucer(t);                  // lid wave-glow + chasing border lights (all states)
+  updateDestruction(dt);            // toppling wreckage + gas-station explosions animate
   stars.position.set(camera.position.x,0,camera.position.z);
   moon.position.copy(camera.position).addScaledVector(_v.copy(sun.position).sub(saucer.position).normalize(),820);
 

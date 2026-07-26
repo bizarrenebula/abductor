@@ -18,6 +18,7 @@ import { resetBuffs } from '../systems/buffs.js';
 import { Upgrades } from '../systems/upgrades.js';
 import { spawnUpgradeItems, clearUpgradeItems } from '../entities/upgradeItems.js';
 import { CropCircles } from '../systems/cropcircles.js';
+import { resetDestruction } from '../systems/destruction.js';
 import { Clouds } from '../systems/clouds.js';
 import { Fireflies } from '../systems/fireflies.js';
 import { ValleyFog } from '../systems/valleyfog.js';
@@ -61,7 +62,7 @@ export function startGame(opts){
   resetGeysers();
   resetLightning();
   S.vel.set(0,0,0);saucer.position.set(0,40,0);
-  reseed();clearWorld();updateChunks(0,0);
+  reseed();clearWorld();resetDestruction();updateChunks(0,0);
   // Ship upgrades: keep them through a "run it back" after a crash, otherwise
   // start grounded. Then scatter whichever field parts aren't installed yet.
   if(keepUpgrades)Upgrades.restore(); else Upgrades.reset();

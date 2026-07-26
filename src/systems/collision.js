@@ -15,6 +15,7 @@ import { SHIP_R } from '../core/constants.js';
 import { saucer } from './saucer.js';
 import { props, buildings, vehicles } from '../entities/registry.js';
 import { BeamSFX } from '../audio/sfx.js';
+import { damageStruct } from './destruction.js';
 
 /* Only things nearer than this in X/Z are examined at all. Comfortably larger
    than any solid's radius plus the ship, so it cannot cause a missed hit. */
@@ -69,6 +70,7 @@ export function updateCollision(){
   blockVehicles();
   const o=scan(buildings)||scan(props);
   if(!o)return;
+  damageStruct(o);            // the object takes damage too (topple / explode)
   S.crashReason='impact';
   S.state='crashing';
   S.vy=-3;

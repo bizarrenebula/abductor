@@ -61,16 +61,22 @@ export function updateAbduction(dt,weatherMult,beamOn){
       }
       u.beamLift=Math.max(0,(u.beamLift||0)-dt*2.2);   // fall back to the ground
     }
-    // Draw it up toward the ship as the lock fills — and funnel it in over the
-    // beam's centre as it nears the top. Overrides the ground y updateAnimals set.
+    // Draw it up toward the ship as the lock fills — funnelling in over the beam
+    // centre and SHRINKING the nearer it gets (as if being pulled into the hull).
+    // Overrides the ground y / scale updateAnimals set this frame.
     const bl=u.beamLift||0;
     if(bl>0.001&&!u.fly){
+      if(u.abScale0==null)u.abScale0=a.scale.x;         // remember its size before the draw-up
       const gy=(u.biome==='water')?WATER_Y+0.12:Math.max(heightAt(a.position.x,a.position.z),WATER_Y);
       const topY=saucer.position.y-2.5;                 // just under the hull
       a.position.y=gy+bl*(topY-gy)+Math.sin(performance.now()*0.006+(u.face||0))*0.1*(1-bl);
       a.position.x=lerp(a.position.x,saucer.position.x,Math.min(1,dt*bl*2));
       a.position.z=lerp(a.position.z,saucer.position.z,Math.min(1,dt*bl*2));
       a.rotation.y+=dt*(0.9+bl*1.8);                    // spins a touch faster as it rises
+      a.scale.setScalar(u.abScale0*(1-0.85*bl));        // smaller the closer it is to the ship
+    }else if(u.abScale0!=null){
+      a.scale.setScalar(u.abScale0);                    // beam cancelled → back to its original form
+      u.abScale0=null;
     }
     // lock complete → it's at the ship; the final shrink-and-vanish plays from there
     if(inBeam && u.progress>=S.lockTime){ triggerAbduct(a); continue; }

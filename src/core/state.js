@@ -29,6 +29,7 @@ export const S={
   beamStr:1,               // beam strength multiplier from altitude (1 at HOVER_BASE)
   vel:new THREE.Vector3(),
   yaw:0, yawV:0,           // ship heading (rad) + its angular velocity; the flight frame turns with it
+  pitch:0,                 // nose angle (rad), mirrored from the flight model
   tiltX:0,tiltZ:0,
   // rolling "last living point" for the story-mode respawn (see main.js)
   safePos:new THREE.Vector3(0,40,0), safeYaw:0, safeT:0,

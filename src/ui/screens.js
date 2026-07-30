@@ -130,6 +130,16 @@ export function endGame(reason){
 document.getElementById('startBtn').addEventListener('click',()=>{
   Tutorial.prompt(()=>{ startGame(); Tutorial.start(); }, ()=>startGame());
 });
+/* Injected so the tutorial's closing modal can restart the run or switch to
+   Story mode — screens.js owns startGame, so handing the callbacks down keeps
+   the import one-way (screens -> tutorial). */
+Tutorial.replayRun=()=>{ startGame(); Tutorial.start(); };
+Tutorial.playStory=()=>{
+  S.storyMode=true;
+  document.querySelectorAll('#segMode [data-m]').forEach(x=>x.classList.toggle('on',x.dataset.m==='story'));
+  const om=document.getElementById('oMode'); if(om)om.textContent=t('mode.story');
+  startGame();                       // startGame calls Tutorial.stop() and begins the story
+};
 // "run it back" continues the same ship — a crash never costs your upgrades.
 document.getElementById('againBtn').addEventListener('click',()=>startGame({keep:true}));
 document.getElementById('settingsBtn').addEventListener('click',()=>{

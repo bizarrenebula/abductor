@@ -16,6 +16,7 @@ import { saucer } from './saucer.js';
 import { TOUCH_ONLY } from '../core/env.js';
 import { heightAt } from '../world/terrain.js';
 import { animals } from '../entities/registry.js';
+import { banner } from '../ui/banner.js';
 
 const TOUCH = TOUCH_ONLY;   // pick touch vs keyboard wording for the hints
 
@@ -79,6 +80,16 @@ function build(){
      of the zone instead of covering the view — it clears fully on task completion */
   #tutJoy.engaged .tut-half.on{opacity:.3}
   #tutJoy.engaged .tut-stick.on{opacity:.34}
+
+  /* HUD staging: the map and the equipment checklist stay out of the way while
+     the player learns to fly, then are revealed (and explained) at the end. */
+  body.tut-no-map #minimap{display:none!important}
+  body.tut-no-equip #hEquip{display:none!important}
+  /* a soft ring drawing the eye to whatever was just revealed */
+  @keyframes tutReveal{0%{box-shadow:0 0 0 0 rgba(143,232,184,.55)}
+    70%{box-shadow:0 0 0 16px rgba(143,232,184,0)} 100%{box-shadow:0 0 0 0 rgba(143,232,184,0)}}
+  body.tut-point-map #minimap{border-radius:50%;animation:tutReveal 1.6s ease-out 3}
+  body.tut-point-equip #hEquip{border-radius:10px;animation:tutReveal 1.6s ease-out 3}
   #tutJoy .tut-base{position:absolute;inset:0;border-radius:50%;
     border:1.5px solid rgba(143,232,184,.34);background:rgba(143,232,184,.055);
     box-shadow:inset 0 0 22px rgba(143,232,184,.08),0 0 18px rgba(0,0,0,.35)}
@@ -90,9 +101,14 @@ function build(){
     background:rgba(5,12,10,.55);border:1px solid rgba(143,232,184,.22);border-radius:20px;
     padding:5px 10px;text-shadow:0 0 10px rgba(0,0,0,.8)}
   /* per-task knob motion */
+  #tutJoy[data-anim=look]  .tut-stick.left  .tut-knob{animation:tutLook 4.4s ease-in-out infinite}
   #tutJoy[data-anim=move]  .tut-stick.right .tut-knob{animation:tutMove 3.2s ease-in-out infinite}
   #tutJoy[data-anim=alt]   .tut-stick.left  .tut-knob{animation:tutAlt  2.6s ease-in-out infinite}
   #tutJoy[data-anim=beam]  .tut-stick.right .tut-knob{animation:tutTap  2.8s ease-in-out infinite}
+  /* look: sweep left, right, up, down — the four directions of the look stick */
+  @keyframes tutLook{ 0%,5%{transform:translate(0,0)} 15%{transform:translate(-33px,0)}
+    30%{transform:translate(33px,0)} 43%,48%{transform:translate(0,0)}
+    58%{transform:translate(0,-31px)} 73%{transform:translate(0,31px)} 88%,100%{transform:translate(0,0)} }
   @keyframes tutMove{ 0%,8%{transform:translate(0,0)} 26%,38%{transform:translate(0,-34px)}
     56%{transform:translate(30px,-16px)} 74%{transform:translate(-30px,-16px)} 92%,100%{transform:translate(0,0)} }
   @keyframes tutAlt{ 0%,10%{transform:translate(0,0)} 32%,46%{transform:translate(0,-36px)}
@@ -149,7 +165,12 @@ function showJoyDemo(side,anim){
   clearTimeout(joyDimT);
   d.joy.classList.remove('engaged');   // fresh step → full-strength guide again
   joySide=(TOUCH&&side)?side:null;
-  if(!joySide){ d.joy.classList.remove('on'); return; }
+  if(!joySide){                        // steps with no stick lesson (or desktop): clear it out
+    d.joy.classList.remove('on'); d.joy.dataset.anim='';
+    d.halves.forEach(el=>el.classList.remove('on'));
+    d.sticks.forEach(el=>el.classList.remove('on'));
+    return;
+  }
   d.joy.classList.add('on');
   d.joy.dataset.anim=anim||'';
   d.halves.forEach(el=>el.classList.toggle('on',el.classList.contains(side)));
@@ -180,6 +201,22 @@ function showModal(eyebrow,title,body,buttons){
   d.modal.classList.add('on');
 }
 function hideModal(){ if(dom)dom.modal.classList.remove('on'); }
+
+/* ---- HUD staging ----------------------------------------------------------
+   During the flying lessons the minimap and the equipment checklist are hidden
+   so the player has nothing to read but the task. They are revealed one at a
+   time at the end, each with its own explanation. `point` pulses a highlight
+   ring around whichever was just revealed. */
+function hud({map=false,equip=false,point=null}={}){
+  const b=document.body.classList;
+  b.toggle('tut-no-map',!map);
+  b.toggle('tut-no-equip',!equip);
+  b.toggle('tut-point-map',point==='map');
+  b.toggle('tut-point-equip',point==='equip');
+}
+function hudRestore(){
+  document.body.classList.remove('tut-no-map','tut-no-equip','tut-point-map','tut-point-equip');
+}
 
 /* ---- world beacon (the navigation target) --------------------------------- */
 let beacon=null;
@@ -239,26 +276,45 @@ function trackMarker(s){
 /* ---- the tutorial steps --------------------------------------------------- */
 const _p=new THREE.Vector3();
 const steps=[
-  { key:'move', task:'Take the controls', joy:{side:'right',anim:'move'},
+  // 1 — LOOK. Nothing but the view: sweep the camera all four ways first, so the
+  // player learns the left half before anything is asked of the right.
+  { key:'look', task:'Look around', joy:{side:'left',anim:'look'}, hud:{},
+    say(s){ const need=[];
+            if(!s.yawOK)need.push('left and right');
+            if(!s.pitchOK)need.push('up and down');
+            const what=need.join(', then ')||'around';
+            return TOUCH?('Drag on the LEFT half to look '+what+'.')
+                        :('Move the mouse to look '+what+'.'); },
+    begin(s){ s.yawAcc=0; s.lastYaw=S.yaw; s.minP=s.maxP=S.pitch||0; s.yawOK=false; s.pitchOK=false; },
+    test(s){
+      let d=S.yaw-s.lastYaw;                       // shortest way round, so wrapping never spikes it
+      while(d>Math.PI)d-=Math.PI*2; while(d<-Math.PI)d+=Math.PI*2;
+      s.yawAcc+=Math.abs(d); s.lastYaw=S.yaw;
+      const p=S.pitch||0; if(p<s.minP)s.minP=p; if(p>s.maxP)s.maxP=p;
+      s.yawOK=s.yawAcc>=2.2; s.pitchOK=(s.maxP-s.minP)>=0.30;
+      return s.yawOK&&s.pitchOK; } },
+  // 2 — MOVE (right half).
+  { key:'move', task:'Take the controls', joy:{side:'right',anim:'move'}, hud:{},
     say:()=>TOUCH?'Touch anywhere on the RIGHT half and drag to fly.'
                  :'Fly with W A S D. Explore a little.',
     begin(s){ s.acc=0; s.last=saucer.position.clone(); },
     test(s){ s.acc+=Math.hypot(saucer.position.x-s.last.x,saucer.position.z-s.last.z);
              s.last.copy(saucer.position); return s.acc>=55; } },
-  { key:'alt', task:'Change altitude', joy:{side:'left',anim:'alt'},
-    say:()=>TOUCH?'On the LEFT half: drag up to climb, down to dive.'
+  // 3 — ALTITUDE. On touch this is the two halves together: nose up, then thrust.
+  { key:'alt', task:'Change altitude', joy:{side:'left',anim:'alt'}, hud:{},
+    say:()=>TOUCH?'Nose UP on the LEFT, then push forward on the RIGHT to climb.'
                  :'Hold SHIFT to climb, CTRL to dive.',
     begin(s){ s.minY=s.maxY=saucer.position.y; },
     test(s){ const y=saucer.position.y; if(y<s.minY)s.minY=y; if(y>s.maxY)s.maxY=y;
              return s.maxY-s.minY>=22; } },
-  { key:'nav', task:'Navigate the world', joy:{side:'right',anim:'move'},
+  { key:'nav', task:'Navigate the world', joy:{side:'right',anim:'move'}, hud:{},
     say(s){ const d=Math.round(Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z));
             return 'Fly to the glowing beacon — '+d+' m away.'; },
     begin(s){ const a=S.yaw+0.9, dx=Math.sin(a)*150, dz=Math.cos(a)*150;
               placeBeacon(saucer.position.x+dx,saucer.position.z+dz); },
     test(s){ return Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z)<24; },
     end(){ if(beacon)beacon.visible=false; } },
-  { key:'beam', task:'Beam up a creature', joy:{side:'right',anim:'beam'},
+  { key:'beam', task:'Beam up a creature', joy:{side:'right',anim:'beam'}, hud:{},
     say(s){
       if(S.beamLock>0.03) return 'Locked on — hold it steady!';
       if(S.beamPower>0.12) return 'Beam open — centre it on the creature.';
@@ -268,20 +324,38 @@ const steps=[
     begin(s){ s.base=S.taken; s.target=null; },
     test(s){ trackMarker(s); return S.taken>s.base; },
     end(){ if(marker)marker.visible=false; } },
+  // 6 — the MAP is revealed last, once flying is second nature, and explained.
+  { key:'map', task:'Your radar', hud:{map:true,point:'map'}, dwell:9,
+    say(s){ return 'Bottom-left: a heading-up radar. You are the arrow at its '+
+                   'centre, and it pings nearby crystals and ship parts. ('+Math.ceil(s.t)+'s)'; },
+    begin(s){ s.t=this.dwell; },
+    test(s,dt){ s.t-=dt; return s.t<=0; } },
+  // 7 — ship upgrades + the full HUD.
+  { key:'upgrades', task:'Ship upgrades', hud:{map:true,equip:true,point:'equip'}, dwell:11,
+    say(s){ return 'Your ship starts bare. That checklist tracks the three modules '+
+                   'scattered out there — thrusters, plasma beam, cloak. Fly over one to '+
+                   'install it. Everything you beam up widens your beam. ('+Math.ceil(s.t)+'s)'; },
+    begin(s){ s.t=this.dwell; },
+    test(s,dt){ s.t-=dt; return s.t<=0; } },
 ];
+const ROAM_SECS=180;   // free flight after the lessons, before the "what next?" modal
 
 /* ---- controller ----------------------------------------------------------- */
 export const Tutorial={
   active:false,
   _i:0,
   _s:null,
-  _order:null,      // step order; the two basic-control steps swap per run (see start)
+  _roam:0,          // seconds of free flight left before the "what next?" modal
+  /* Set by screens.js (which owns startGame) so the closing modal can restart
+     the tutorial or drop the player into Story mode without an import cycle. */
+  replayRun:null,
+  playStory:null,
 
   /* Offer the tutorial from the Play button. onYes / onSkip start the game. */
   prompt(onYes,onSkip){
     showModal('Night Harvest Protocol','Play the tutorial?',
-      'A quick guided run teaches you to fly, change altitude, navigate and beam '+
-      'up your first catch. You can skip straight into free play instead.',
+      'A quick guided run teaches you to look around, fly, navigate, beam up your '+
+      'first catch, and read your HUD. You can skip straight into free play instead.',
       [ {label:'Show me',primary:true,onClick:onYes},
         {label:'Skip',onClick:onSkip} ]);
   },
@@ -290,19 +364,17 @@ export const Tutorial={
   start(){
     build();
     this.active=true; S.tutorial=true;   // suppresses lethal hazards (lightning)
-    // Each run opens on a different thumb: swap the two basic-control steps so the
-    // tutorial starts with either the RIGHT-half (move) or LEFT-half (altitude)
-    // touch guide. The later steps keep their order.
-    this._order=(Math.random()<0.5)?[0,1,2,3]:[1,0,2,3];
+    this._roam=0;
     this._i=0; this._begin();
     this.hint.classList.add('on');
   },
   get hint(){ return build().hint; },
-  _cur(){ return steps[(this._order||[0,1,2,3])[this._i]]; },
+  _cur(){ return steps[this._i]; },
 
   _begin(){
     const st=this._cur(); this._s={};
     if(st.begin)st.begin(this._s);
+    hud(st.hud||{});                                        // stage the HUD for this step
     showJoyDemo(st.joy&&st.joy.side,st.joy&&st.joy.anim);   // animated stick guide (touch only)
     this._render();
   },
@@ -322,33 +394,53 @@ export const Tutorial={
   update(dt){
     if(!this.active)return;
     if(S.state!=='playing'){ return; }                 // paused / crashed: leave the card as-is
+    // Lessons done — the player roams with the full HUD for a few minutes before
+    // being asked what to do next.
+    if(this._roam>0){
+      this._roam-=dt;
+      if(this._roam<=0)this._ask();
+      return;
+    }
     const st=this._cur();
-    // refresh the dynamic line (e.g. the beacon distance)
+    // refresh the dynamic line (e.g. the beacon distance, a dwell countdown)
     build().doo.textContent=st.say(this._s);
-    if(st.test(this._s)){
+    if(st.test(this._s,dt)){
       if(st.end)st.end();
       this._i++;
-      if(this._i>=steps.length){ this._finish(); return; }
+      if(this._i>=steps.length){ this._roamPhase(); return; }
       this._begin();
     }
   },
 
-  _finish(){
+  /* All lessons passed: clear the coaching UI, leave the HUD fully visible and
+     let the player just fly for a while. */
+  _roamPhase(){
     this.hint.classList.remove('on');
     showJoyDemo(null);
-    showModal('Training complete','Nicely done, pilot','You can keep flying this '+
-      'world, or run the tutorial again.',
-      [ {label:'Continue',primary:true,onClick:()=>{ this.active=false; S.tutorial=false; }},
-        {label:'Replay',onClick:()=>{ this.start(); }} ]);
+    hud({map:true,equip:true});     // full HUD, no highlight rings
+    this._roam=ROAM_SECS;
+    banner('TRAINING COMPLETE — THE VALLEY IS YOURS');
+  },
+
+  /* The closing choice. */
+  _ask(){
+    this._roam=0;
+    showModal('Training complete','Where to now, pilot?',
+      'You have the controls, the beam and the HUD. Keep roaming this world, run '+
+      'the training again, or take on the story.',
+      [ {label:'Keep exploring',primary:true,onClick:()=>{ this.active=false; S.tutorial=false; }},
+        {label:'Replay tutorial',onClick:()=>{ if(this.replayRun)this.replayRun(); else this.start(); }},
+        {label:'Story mode',onClick:()=>{ if(this.playStory)this.playStory(); else{ this.active=false; S.tutorial=false; } }} ]);
   },
 
   /* Tear everything down (called by startGame on any fresh run). */
   stop(){
-    this.active=false; S.tutorial=false; this._i=0; this._s=null;
+    this.active=false; S.tutorial=false; this._i=0; this._s=null; this._roam=0;
     joySide=null; clearTimeout(joyDimT);
     if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); dom.joy.classList.remove('on'); }
     if(beacon)beacon.visible=false;
     if(marker)marker.visible=false;
+    hudRestore();
   },
 };
 export default Tutorial;

@@ -206,6 +206,7 @@ function animate(){
       saucer.rotateY(shipSpin);
     }
     S.yaw=flight.yaw;
+    S.pitch=flight.pitch;                             // nose angle (read by the tutorial)
     S.vel.x=flight.velocity.x; S.vel.z=flight.velocity.z;
     const moveMag=Math.min(1,Math.hypot(fin.forward,fin.strafe));
     const climbing=Math.abs(fin.vertical)>0.01;

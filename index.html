@@ -196,7 +196,7 @@
   .eqRow.got{opacity:.5}
   /* "great pull" trigger — a fixed target above the centre of the right half
      (75% across, above mid-height), revealed (.show) only while fully charged */
-  #spBtn{position:fixed;left:75%;top:38%;transform:translate(-50%,-50%) scale(.6);
+  #spBtn{position:fixed;right:20px;top:118px;transform:scale(.6);
     width:84px;height:84px;border-radius:50%;
     pointer-events:none;opacity:0;cursor:pointer;border:1.5px solid var(--beam);
     color:#eafff4;text-shadow:0 1px 3px rgba(0,0,0,.9);
@@ -204,7 +204,7 @@
     background:radial-gradient(circle at 42% 36%,rgba(143,232,184,.85),rgba(30,120,86,.6) 70%);
     box-shadow:0 0 26px rgba(143,232,184,.6),inset 0 0 16px rgba(0,0,0,.3);
     transition:opacity .18s ease,transform .18s ease;z-index:15}
-  #spBtn.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);
+  #spBtn.show{opacity:1;pointer-events:auto;transform:scale(1);
     animation:spPulse 1.4s infinite}
   @keyframes spPulse{0%,100%{box-shadow:0 0 20px rgba(143,232,184,.5),inset 0 0 16px rgba(0,0,0,.3)}
     50%{box-shadow:0 0 42px rgba(143,232,184,.95),inset 0 0 16px rgba(0,0,0,.3)}}

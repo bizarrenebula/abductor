@@ -29,11 +29,13 @@ import { toggleCloak } from '../systems/cloak.js';
 
 export const keys={};
 export const input={
-  tFwd:0, tStrafe:0, tTurn:0, tClimb:0,   // touch joystick axes, each -1..1
+  tFwd:0, tStrafe:0, tTurn:0, tClimb:0,   // MOVE axes (right stick / WSAD), each -1..1
+  lookStickX:0, lookStickY:0,             // LOOK axes (left stick, mobile), -1..1 (rate)
+  mDX:0, mDY:0,                            // accumulated mouse-look deltas (PC), consumed per frame
   beamHold:false, spHeld:false,
   zoom:1,                                  // camera-zoom multiplier, driven by the slider
-  camPitch:0.35,                           // 0 = low/side, ~0.35 = behind, 1 = top-down; the angle slider
-  cloakProg:0,                             // 0..1 progress of the hold-the-ship-to-cloak timer
+  camPitch:0.35,                           // angle slider (kept for compatibility; look now drives pitch)
+  cloakProg:0,                             // 0..1 progress of the hold-to-cloak timer (touch OR RMB)
 };
 
 export const CLOAK_HOLD_MS=2000;   // press-and-hold the saucer this long to toggle cloak
@@ -45,17 +47,19 @@ const SHIP_SLOP=12;                // px of travel that cancels a pending cloak 
    the player can remap any of them in Settings. Defaults match the on-screen
    hints; overrides persist in localStorage. main.js reads inputs via held(). */
 export const ACTIONS=[
-  {id:'forward',def:'arrowup'}, {id:'back',def:'arrowdown'},
-  {id:'turnL',def:'arrowleft'}, {id:'turnR',def:'arrowright'},
+  {id:'forward',def:'w'},       {id:'back',def:'s'},
   {id:'strafeL',def:'a'},       {id:'strafeR',def:'d'},
-  {id:'ascend',def:'w'},        {id:'descend',def:'s'},
+  {id:'ascend',def:'shift'},    {id:'descend',def:'control'},
+  {id:'turnL',def:'arrowleft'}, {id:'turnR',def:'arrowright'},   // optional keyboard yaw (mouse is primary)
   {id:'beam',def:' '},          {id:'pull',def:'q'},   {id:'cloak',def:'c'},
 ];
 const BIND_DEF={}; ACTIONS.forEach(a=>BIND_DEF[a.id]=a.def);
 export const binds=Object.assign({},BIND_DEF);
-try{ const s=JSON.parse(localStorage.getItem('abductor.binds')||'{}');
+// 'abductor.binds2' — bumped from the old key so the new WASD/Shift/Ctrl scheme
+// is not shadowed by a player's stored pre-mouse-look bindings.
+try{ const s=JSON.parse(localStorage.getItem('abductor.binds2')||'{}');
   for(const a of ACTIONS) if(typeof s[a.id]==='string') binds[a.id]=s[a.id]; }catch(e){}
-export function saveBinds(){ try{localStorage.setItem('abductor.binds',JSON.stringify(binds));}catch(e){} }
+export function saveBinds(){ try{localStorage.setItem('abductor.binds2',JSON.stringify(binds));}catch(e){} }
 export function setBind(id,key){
   for(const a of ACTIONS) if(a.id!==id && binds[a.id]===key) binds[a.id]='';   // one key -> one action
   binds[id]=key; saveBinds();
@@ -133,14 +137,18 @@ function setFunc(fn,val){
   else if(fn==='strafe')input.tStrafe=val;
   else if(fn==='climb')input.tClimb=val;
 }
+// Fixed mobile scheme (per design): LEFT stick = LOOK (x=yaw, y=pitch, like the
+// PC mouse), RIGHT stick = MOVE (x=strafe, y=forward, like WSAD). Forward while
+// pitched up climbs; backward while pitched down descends — falls out of the
+// flight model's facing-frame thrust. (touchMap/inv kept for the settings panel
+// but no longer routes flight here.)
 function setAxes(h,vx,vy){
-  const xA=h==='L'?'LX':'RX', yA=h==='L'?'LY':'RY';
-  setFunc(touchMap[xA], dz(vx) *(touchInv[xA]?-1:1));   // horizontal: +right
-  setFunc(touchMap[yA], dz(-vy)*(touchInv[yA]?-1:1));   // vertical:   +up
+  if(h==='L'){ input.lookStickX=dz(vx); input.lookStickY=dz(vy); }   // y:+down = look down
+  else       { input.tStrafe=dz(vx);    input.tFwd=dz(-vy); }        // y:+up   = forward
 }
 function clearAxes(h){
-  const xA=h==='L'?'LX':'RX', yA=h==='L'?'LY':'RY';
-  setFunc(touchMap[xA],0); setFunc(touchMap[yA],0);
+  if(h==='L'){ input.lookStickX=0; input.lookStickY=0; }
+  else       { input.tStrafe=0;    input.tFwd=0; }
 }
 // centre deadzone + rescale so a resting thumb reads as neutral and the usable
 // travel still spans the full -1..1 — key to a stick that feels natural.
@@ -169,7 +177,8 @@ function cancelCloakHold(){ if(cloakTimer){clearTimeout(cloakTimer);cloakTimer=0
 
 renderer.domElement.addEventListener('pointerdown',e=>{
   if(S.state!=='playing')return;
-  // Press-and-hold on the saucer toggles cloak (works with any pointer). A press
+  if(e.pointerType==='mouse')return;                        // PC is handled below (mouse-look + LMB/RMB)
+  // Press-and-hold on the saucer toggles cloak (touch). A press
   // that moves past SHIP_SLOP cancels — so it never fights a nearby joystick drag.
   if(tappedSaucer(e)){
     // Cloak not found yet? Don't spin up the hold/loading ring — just flash the
@@ -235,9 +244,41 @@ function endPtr(e){
 addEventListener('pointerup',endPtr);
 addEventListener('pointercancel',endPtr);
 
-/* Feed the hold-to-cloak progress ring the HUD reads. */
+/* ---- PC: pointer-lock mouse-look + LMB beam + RMB hold-2s cloak ---- */
+let locked=false, pcCloakTimer=0, pcCloakT0=0;
+const MOUSE_SENS=0.0022;                 // radians per pixel, before the model's turnRate
+function cancelPcCloak(){ if(pcCloakTimer){clearTimeout(pcCloakTimer);pcCloakTimer=0;} pcCloakT0=0; }
+document.addEventListener('pointerlockchange',()=>{
+  locked=document.pointerLockElement===renderer.domElement;
+  if(!locked){ input.beamHold=false; cancelPcCloak(); }
+});
+renderer.domElement.addEventListener('mousedown',e=>{
+  if(S.state!=='playing')return;
+  if(!locked){ renderer.domElement.requestPointerLock(); return; }   // first click grabs the mouse
+  if(e.button===0){ input.beamHold=true; }
+  else if(e.button===2){
+    if(!S.upCloak&&!S.cloak){ toggleCloak(); return; }               // locked: just flash the message
+    pcCloakT0=performance.now();
+    pcCloakTimer=setTimeout(()=>{ pcCloakTimer=0; pcCloakT0=0; toggleCloak(); },CLOAK_HOLD_MS);
+  }
+});
+addEventListener('mouseup',e=>{
+  if(e.button===0)input.beamHold=false;
+  else if(e.button===2)cancelPcCloak();
+});
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('mousemove',e=>{
+  if(!locked)return;
+  input.mDX+=e.movementX*MOUSE_SENS;
+  input.mDY+=e.movementY*MOUSE_SENS;
+});
+
+/* Feed the hold-to-cloak progress ring the HUD reads (touch saucer-hold OR RMB). */
 setInterval(()=>{
-  input.cloakProg=(cloakPtr!=null&&cloakTimer)?Math.min(1,(performance.now()-cloakT0)/CLOAK_HOLD_MS):0;
+  let p=0;
+  if(cloakPtr!=null&&cloakTimer)p=(performance.now()-cloakT0)/CLOAK_HOLD_MS;
+  if(pcCloakTimer&&pcCloakT0)p=Math.max(p,(performance.now()-pcCloakT0)/CLOAK_HOLD_MS);
+  input.cloakProg=Math.min(1,p);
 },33);
 
 /* ---- zoom slider (top-right) ---- */
@@ -261,7 +302,8 @@ if(angleSlider){
 /* Reset all touch intents (called by startGame / respawn). */
 export function resetInputTouch(){
   input.tFwd=input.tStrafe=input.tTurn=input.tClimb=0;
-  input.beamHold=false;input.spHeld=false;input.cloakProg=0;
+  input.lookStickX=input.lookStickY=input.mDX=input.mDY=0;
+  input.beamHold=false;input.spHeld=false;input.cloakProg=0;cancelPcCloak();
   half.L.ids.length=0;half.R.ids.length=0;
   half.L.beamPtr=null;half.L.lastWasTap=false;half.R.beamPtr=null;half.R.lastWasTap=false;
   ptrHalf.clear();pos.clear();cancelCloakHold();

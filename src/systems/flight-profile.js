@@ -32,33 +32,27 @@ export const L = 143;   // saucer ~10u / dragonfly 0.07m
 
 export const FLIGHT_PROFILE = {
   flight: {
-    // maxSpeed 4.0 → 572 → 130 [craft]: 57 bl/s is insect-zippy; a heavy craft
-    // in this crash-sensitive world cruises ~13 bl/s (still ~2× the old game).
-    maxSpeed: 130,          // units/s
-    // acceleration 14 → 2002 → 416 [craft]: v∞ = accel/drag = 416/3.2 = 130 =
-    // maxSpeed, so cruise still reaches the cap — but 416 (vs 2002) builds speed
-    // over ~0.3–0.6 s, so it reads as mass instead of a teleporting insect.
-    acceleration: 416,      // units/s²
-    drag: 3.2,              // 1/s   — unchanged (rate). Coast time τ = 1/k ≈ 0.31 s.
-    // verticalSpeed 2.2 → 314.6 → 75 [craft]: responsive climb (the free-flight
-    // game needs to gain height to clear obstacles) without the insect's 314 u/s.
-    verticalSpeed: 75,      // units/s
-    boostMultiplier: 2.5,   // unchanged (ratio)
+    // [heavy] A huge ship, not a dragonfly. maxSpeed 130→120; acceleration
+    // 416→220 and drag 3.2→1.9 (v∞=220/1.9≈116≈maxSpeed) so it builds speed over
+    // ~0.7 s and coasts to rest over ~1.5 s — real mass and glide, not twitch.
+    maxSpeed: 120,          // units/s
+    acceleration: 220,      // units/s²
+    drag: 1.9,              // 1/s   — longer coast (τ = 1/k ≈ 0.53 s) = heavier.
+    verticalSpeed: 60,      // units/s — [heavy] 75→60
+    boostMultiplier: 2.0,   // [heavy] 2.5→2.0
 
-    turnRate: 1.9,          // rad/s — 2.6 unchanged → 1.9 [craft]: full-stick yaw
-                            //         ≈ 109°/s; a heavy disc turns deliberately.
-    pitchRate: 1.6,         // rad/s — 2.0 → 1.6 [craft]; unused while pitchDelta=0
-                            //         (a hovering saucer holds level — see adapter).
-    pitchLimit: 0.35,       // rad   — 1.1 → 0.35 [craft]: ~20°, a disc barely tips.
+    turnRate: 1.3,          // rad/s — [heavy] 1.9→1.3: a big disc yaws deliberately.
+    pitchRate: 1.1,         // rad/s — [heavy] look up/down authority (now ACTIVE:
+                            //         mouse / left-stick Y drive pitch → climb/dive).
+    pitchLimit: 0.6,        // rad   — ~34°: enough nose-up/down to climb or dive.
 
-    bankAmount: 0.22,       // rad   — 0.55 → 0.22 [craft]: ~13° lean into a turn,
-                            //         not the insect's 31°.
-    bankSpeed: 4.0,         // 1/s   — unchanged (how quickly roll settles).
+    bankAmount: 0.18,       // rad   — ~10° lean into a turn.
+    bankSpeed: 2.6,         // 1/s   — [heavy] 4.0→2.6: roll eases in/out slowly.
 
-    // Hover character — "never appears static". Amplitudes are lengths → ×L.
-    hoverBobAmount: 0.55,   // units — 0.004 → 0.572 → 0.55
+    // Hover character — steadier for a large hull. Amplitudes are lengths (×L).
+    hoverBobAmount: 0.35,   // units — [heavy] 0.55→0.35
     hoverBobSpeed: 2.4,     // unchanged
-    hoverDriftAmount: 0.42, // units — 0.003 → 0.429 → 0.42
+    hoverDriftAmount: 0.28, // units — [heavy] 0.42→0.28
     hoverDriftSpeed: 0.7,   // unchanged
 
     floorY: 0,              // soft floor (added for reuse); a terrain game lowers
@@ -73,10 +67,9 @@ export const FLIGHT_PROFILE = {
     zoomMax: 52,            // units — 0.40 → 57.2 → 52
     zoomSpeed: 5,           // units — 0.04 → 5.7 → 5
 
-    positionStiffness: 6.5, // rad/s — 9.0 → 6.5 [craft]: LOWER natural frequency =
-                            //         a floatier, weightier spring, fitting mass.
-    positionDamping: 0.88,  // ζ — unchanged (slight overshoot keeps it alive).
-    rotationStiffness: 5.5, // 1/s — 7.0 → 5.5 [craft]: aim catches up a touch slower.
+    positionStiffness: 5.0, // rad/s — [heavy] 6.5→5.0: floatier, weightier spring.
+    positionDamping: 0.9,   // ζ — slight overshoot keeps it alive.
+    rotationStiffness: 4.5, // 1/s — [heavy] 5.5→4.5: aim catches up slower (mass).
 
     velocityLag: 0.035,     // SECONDS — unchanged. Trail = speed×0.035 auto-scales.
     velocityLagMax: 17,     // units — 0.12 → 17.2 → 17 (clamp; a safety leash).

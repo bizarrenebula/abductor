@@ -25,7 +25,7 @@ globalThis.window.THREE = THREE;
 const { FlightModel } = await import('../src/systems/flight.js');
 const { CameraRig } = await import('../src/systems/camera-rig.js');
 const { FLIGHT_PROFILE, L } = await import('../src/systems/flight-profile.js');
-const { flightInputFrom } = await import('../src/systems/flight-input.js');
+const { flightInputFrom, STICK_LOOK } = await import('../src/systems/flight-input.js');
 
 const F = FLIGHT_PROFILE.flight;
 const C = FLIGHT_PROFILE.camera;
@@ -50,16 +50,18 @@ check('profile injected (no global config)', flight.f === F && rig.c === C);
 // --- Input adapter ---------------------------------------------------------
 console.log('\ninput adapter');
 {
-  const stubInput = { tFwd: 1, tStrafe: 0, tTurn: 1, tClimb: -1 };
-  const held = () => false;
   const dt = 1 / 60;
-  const mapped = flightInputFrom(stubInput, held, dt);
-  check('axes mapped through', mapped.forward === 1 && mapped.vertical === -1);
-  check('yaw is rate×dt (framerate-correct)', Math.abs(mapped.yawDelta - 1 * dt) < 1e-12);
-  check('no pitch look on the craft', mapped.pitchDelta === 0);
-  const held2 = (id) => id === 'forward' || id === 'turnL';
-  const m2 = flightInputFrom({}, held2, dt);
-  check('keys mapped through', m2.forward === 1 && Math.abs(m2.yawDelta + dt) < 1e-12);
+  // Mobile: left stick = look (yaw/pitch, rate×dt), right stick = move.
+  const m = flightInputFrom({ tFwd: 1, tStrafe: -1, lookStickX: 1, lookStickY: -1 }, () => false, dt);
+  check('move axes mapped (right stick)', m.forward === 1 && m.strafe === -1);
+  check('look stick is rate×dt', Math.abs(m.yawDelta - STICK_LOOK * dt) < 1e-12
+    && Math.abs(m.pitchDelta + STICK_LOOK * dt) < 1e-12);
+  // PC: mouse deltas (consumed) + WASD move + Shift/Ctrl vertical.
+  const inp = { mDX: 0.02, mDY: -0.01 };
+  const held = (id) => id === 'forward' || id === 'ascend';
+  const m2 = flightInputFrom(inp, held, dt);
+  check('mouse look + keys mapped', Math.abs(m2.yawDelta - 0.02) < 1e-12 && m2.forward === 1 && m2.vertical === 1);
+  check('mouse deltas consumed', inp.mDX === 0 && inp.mDY === 0);
 }
 
 // --- Simulation (randomised input) -----------------------------------------

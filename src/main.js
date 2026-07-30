@@ -317,11 +317,9 @@ function animate(){
        Zoom slider (0.5..2.5) + altitude pull-back drive the follow distance;
        the angle slider raises the camera for a higher, more overhead framing. */
     const CAMP=FLIGHT_PROFILE.camera;
-    camPitchE=lerp(camPitchE,input.camPitch,Math.min(1,dt*3));
     const altPull=ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,0.85,1,1.6);
     camRig.zoom=clamp(CAMP.distance*input.zoom*altPull,CAMP.zoomMin,CAMP.zoomMax);
-    CAMP.height=8+camPitchE*70;               // angle slider 0→1 lifts the eye overhead
-    camRig.update(dt,flight);
+    camRig.update(dt,flight);   // pitch (mouse / left-stick) drives the look; height stays the tuned base
 
     /* ---- clock ---- */
     S.elapsed+=dt;

@@ -131,6 +131,12 @@ export const ASSETS = {
 };
 
 /* Roadside population, per chunk that contains road. */
+/* Global multiplier on how much a chunk spawns (creatures, crystals, scenery,
+   traffic). Lower = fewer live objects, which means less GPU memory held at any
+   moment and less churn as chunks stream. 0.7 = 30% lighter than the original
+   tuning. This is the one knob for world density; see world/chunks.js. */
+export const SPAWN_DENSITY = 0.7;
+
 export const VEH_PER_CHUNK = 1;      // attempts per road-bearing chunk (~55% take)
 export const VEH_STOP_R    = 26;     // ship within this radius -> traffic halts
 export const STATION_CHANCE= 0.10;   // chance a road-bearing chunk gets a station

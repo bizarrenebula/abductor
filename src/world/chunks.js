@@ -5,8 +5,10 @@
    ========================================================================= */
 import { THREE } from '../core/three.js';
 import { env } from '../core/env.js';
-import { CHUNK, SEG, WATER_Y, MTN_H, GROUND_TILING, VEH_PER_CHUNK, STATION_CHANCE, PROP_ROAD_GAP } from '../core/constants.js';
+import { CHUNK, SEG, WATER_Y, MTN_H, GROUND_TILING, VEH_PER_CHUNK, STATION_CHANCE, PROP_ROAD_GAP,
+         SPAWN_DENSITY } from '../core/constants.js';
 import { scene } from '../core/engine.js';
+import { disposeDeep } from '../core/dispose.js';
 import { World } from './world-config.js';
 import { sample } from './terrain.js';
 import { TEX, grassTex, sandTex, rockTex, snowTex } from './textures.js';
@@ -109,7 +111,9 @@ export function buildChunk(cx,cz){
   const mark=(x,z,r)=>placed.push({x,z,r});
   // A building needs roughly level ground under its footprint.
   const flatEnough=(x,z,r)=>{const h0=sample(x,z).h; for(const d of [[r,0],[-r,0],[0,r],[0,-r]])if(Math.abs(sample(x+d[0],z+d[1]).h-h0)>3.5)return false; return true;};
-  const tries=LOW_END?4:7;
+  // SPAWN_DENSITY thins every population uniformly (never below one attempt).
+  const dens=n=>Math.max(1,Math.round(n*SPAWN_DENSITY));
+  const tries=dens(LOW_END?4:7);
   for(let t=0;t<tries;t++){
     const wx=ox+Math.random()*CHUNK, wz=oz+Math.random()*CHUNK;
     const sm=sample(wx,wz);
@@ -151,9 +155,9 @@ export function buildChunk(cx,cz){
     a.rotation.y=a.userData.face;
     scene.add(a);animals.push(a);spawned.push(a);
   }
-  if(Math.random()<0.38){
+  if(Math.random()<0.38*SPAWN_DENSITY){
     const ccx2=ox+Math.random()*CHUNK, ccz2=oz+Math.random()*CHUNK;
-    const nCr=2+((Math.random()*3)|0);
+    const nCr=dens(2+((Math.random()*3)|0));
     for(let k=0;k<nCr;k++){
       const wx=ccx2+(Math.random()-0.5)*10, wz=ccz2+(Math.random()-0.5)*10;
       const sm=sample(wx,wz);
@@ -169,7 +173,7 @@ export function buildChunk(cx,cz){
   // Scenery: forests are tree-dense, plains sparse, deserts get the odd cactus.
   // More attempts per chunk, with the take-rate driven by biome so a forest
   // reads as a proper grove rather than scattered trees.
-  const propTries=LOW_END?6:12;
+  const propTries=dens(LOW_END?6:12);
   for(let t=0;t<propTries;t++){
     const wx=ox+Math.random()*CHUNK, wz=oz+Math.random()*CHUNK;
     const sm=sample(wx,wz);
@@ -326,7 +330,7 @@ export function buildChunk(cx,cz){
       }
       // traffic
       for(let i=0;i<VEH_PER_CHUNK;i++){
-        if(Math.random()<0.45)continue;
+        if(Math.random()<1-(1-0.45)*SPAWN_DENSITY)continue;   // ~55% take, thinned by SPAWN_DENSITY
         const t=t0+Math.random()*(t1-t0);
         const roll=Math.random();
         const kind=roll<0.45?'car1':roll<0.8?'car2':'bus1';
@@ -374,13 +378,17 @@ export function updateChunks(px,pz){
   for(const [k,c] of chunks){
     const [kx,kz]=k.split('|').map(Number);
     if(Math.abs(kx-ccx)>VIEW_R+0.5||Math.abs(kz-ccz)>VIEW_R+0.5){
+      // Free the GPU side too: scene.remove() alone drops the JS reference but
+      // leaves the buffers/textures allocated, which is what made a long session
+      // creep upward. disposeDeep only frees per-instance resources (see
+      // core/dispose.js), so shared lamp/headlight assets are untouched.
       scene.remove(c.mesh);c.mesh.geometry.dispose();
-      c.animals.forEach(a=>{scene.remove(a);const idx=animals.indexOf(a);if(idx>=0)animals.splice(idx,1);});
-      c.pickups.forEach(o=>{scene.remove(o);const idx=pickups.indexOf(o);if(idx>=0)pickups.splice(idx,1);});
-      c.props.forEach(o=>{scene.remove(o);const idx=props.indexOf(o);if(idx>=0)props.splice(idx,1);});
-      c.builds.forEach(o=>{scene.remove(o);const idx=buildings.indexOf(o);if(idx>=0)buildings.splice(idx,1);});
-      (c.vehs||[]).forEach(o=>{scene.remove(o);const idx=vehicles.indexOf(o);if(idx>=0)vehicles.splice(idx,1);});
-      (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});});
+      c.animals.forEach(a=>{scene.remove(a);disposeDeep(a);const idx=animals.indexOf(a);if(idx>=0)animals.splice(idx,1);});
+      c.pickups.forEach(o=>{scene.remove(o);disposeDeep(o);const idx=pickups.indexOf(o);if(idx>=0)pickups.splice(idx,1);});
+      c.props.forEach(o=>{scene.remove(o);disposeDeep(o);const idx=props.indexOf(o);if(idx>=0)props.splice(idx,1);});
+      c.builds.forEach(o=>{scene.remove(o);disposeDeep(o);const idx=buildings.indexOf(o);if(idx>=0)buildings.splice(idx,1);});
+      (c.vehs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);const idx=vehicles.indexOf(o);if(idx>=0)vehicles.splice(idx,1);});
+      (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});disposeDeep(o);});
       c.shel.forEach(s=>{const idx=shelters.indexOf(s);if(idx>=0)shelters.splice(idx,1);});
       chunks.delete(k);
     }
@@ -388,12 +396,12 @@ export function updateChunks(px,pz){
 }
 export function clearWorld(){
   for(const [k,c] of chunks){scene.remove(c.mesh);c.mesh.geometry.dispose();
-    c.animals.forEach(a=>scene.remove(a));
-    c.pickups.forEach(o=>scene.remove(o));
-    c.props.forEach(o=>scene.remove(o));
-    c.builds.forEach(o=>scene.remove(o));
-    (c.vehs||[]).forEach(o=>scene.remove(o));
-    (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});});}
+    c.animals.forEach(a=>{scene.remove(a);disposeDeep(a);});
+    c.pickups.forEach(o=>{scene.remove(o);disposeDeep(o);});
+    c.props.forEach(o=>{scene.remove(o);disposeDeep(o);});
+    c.builds.forEach(o=>{scene.remove(o);disposeDeep(o);});
+    (c.vehs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);});
+    (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});disposeDeep(o);});}
   clearRoadCache();
   chunks.clear();animals.length=0;pickups.length=0;props.length=0;buildings.length=0;vehicles.length=0;shelters.length=0;
 }

@@ -8,6 +8,7 @@
 import { THREE } from '../core/three.js';
 import { OBJ_SCALE } from '../core/constants.js';
 import { mat, part, measureSolid } from '../core/mesh.js';
+import { disposable } from '../core/dispose.js';
 
 /* A random, unreadable poster: a bright field with a few blocks and bars in
    contrasting colours — enough to read as "an advert" from the air. */
@@ -39,9 +40,11 @@ export function buildBillboard(){
   g.add(part(new THREE.BoxGeometry(4.6,0.22,0.22),frame,0,6.4,0));
   // the board: frame + a glowing ad face pointing +Z (toward the road)
   g.add(part(new THREE.BoxGeometry(6.4,3.4,0.3),frame,0,8.7,0));
-  const tex=adTexture();
-  const faceMat=new THREE.MeshStandardMaterial({map:tex,emissive:0xffffff,emissiveMap:tex,
-    emissiveIntensity:0.4,roughness:0.7,metalness:0,flatShading:true});
+  // Each billboard paints its own ad canvas, so both the texture and the material
+  // that holds it are per-instance and must be freed when the chunk unloads.
+  const tex=disposable(adTexture());
+  const faceMat=disposable(new THREE.MeshStandardMaterial({map:tex,emissive:0xffffff,emissiveMap:tex,
+    emissiveIntensity:0.4,roughness:0.7,metalness:0,flatShading:true}));
   g.add(part(new THREE.PlaneGeometry(6.0,3.0),faceMat,0,8.7,0.17));
   g.scale.setScalar(OBJ_SCALE);
   g.userData.solid=true;          // crashing into it behaves like a barn

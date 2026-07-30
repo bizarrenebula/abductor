@@ -5,21 +5,37 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Flight/Camera port — feel test</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#05090c;font-family:ui-monospace,Menlo,monospace}
+  html,body{margin:0;height:100%;overflow:hidden;background:#05090c;
+    font-family:ui-monospace,Menlo,monospace;touch-action:none;-webkit-user-select:none;user-select:none}
+  canvas{display:block}
   #hud{position:fixed;left:12px;top:12px;color:#8fe8b8;font-size:12px;line-height:1.6;
     text-shadow:0 1px 3px #000;pointer-events:none;white-space:pre}
-  #hint{position:fixed;left:12px;bottom:12px;color:#7a9;font-size:11px;text-shadow:0 1px 3px #000}
+  #hint{position:fixed;left:12px;bottom:10px;right:12px;color:#7a9;font-size:11px;text-shadow:0 1px 3px #000;pointer-events:none}
+  /* touch UI */
+  .joy{position:fixed;width:120px;height:120px;border-radius:50%;border:1px solid #2c5560;
+    background:rgba(30,60,70,.18);display:none;pointer-events:none}
+  .joy .knob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px;border-radius:50%;
+    background:rgba(120,220,200,.35);border:1px solid #7fe8c8}
+  .btn{position:fixed;width:84px;height:84px;border-radius:50%;display:none;
+    align-items:center;justify-content:center;color:#bff;font-size:12px;letter-spacing:.1em;
+    border:2px solid #3c7a86;background:rgba(20,50,60,.35);touch-action:none}
+  .btn.on{background:rgba(80,220,255,.35);border-color:#8fe8ff}
+  #bBeam{right:24px;bottom:120px}
+  #bCloak{right:120px;bottom:40px;overflow:hidden}
+  #bCloak .fill{position:absolute;left:0;bottom:0;width:100%;background:rgba(150,110,255,.45);height:0%}
+  .touch .btn{display:flex}
 </style>
 </head>
 <body>
 <div id="hud"></div>
-<div id="hint">click = mouse-look yaw · WASD move · Space/Shift up/down · ←/→ yaw · ↑/↓ pitch · E boost · wheel zoom · H horizon-lock · F fov-kick</div>
+<div id="hint"></div>
+<div class="joy" id="joyL"><div class="knob"></div></div>
+<div class="joy" id="joyR"><div class="knob"></div></div>
+<div class="btn" id="bBeam">BEAM</div>
+<div class="btn" id="bCloak"><div class="fill"></div><span>CLOAK</span></div>
 
 <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script type="module">
-// The ported modules read window.THREE via core/three.js — already set by the CDN
-// script above. core/three.js also imports env.js, which needs these globals in a
-// plain page; the browser provides them, so nothing to shim here.
 import { FlightModel } from './src/systems/flight.js';
 import { CameraRig } from './src/systems/camera-rig.js';
 import { FLIGHT_PROFILE, L } from './src/systems/flight-profile.js';
@@ -38,12 +54,10 @@ scene.fog = new THREE.FogExp2(0x0a141a, 0.0016);
 
 const C = FLIGHT_PROFILE.camera;
 const camera = new THREE.PerspectiveCamera(C.fov, innerWidth / innerHeight, C.near, C.far);
-
 scene.add(new THREE.HemisphereLight(0x9fc4d8, 0x0a1014, 0.9));
 const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(1, 2, 1); scene.add(sun);
 
-// Ground grid for scale + reference obstacles ~saucer-sized and taller.
-const grid = new THREE.GridHelper(4000, 200, 0x2b4a52, 0x152a30); scene.add(grid);
+scene.add(new THREE.GridHelper(4000, 200, 0x2b4a52, 0x152a30));
 const boxMat = new THREE.MeshStandardMaterial({ color: 0x3d5a63, roughness: 0.9, flatShading: true });
 for (let i = 0; i < 120; i++) {
   const w = 6 + Math.random() * 12, h = 8 + Math.random() * 60;
@@ -51,67 +65,161 @@ for (let i = 0; i < 120; i++) {
   m.position.set((Math.random() - 0.5) * 1600, h / 2, (Math.random() - 0.5) * 1600);
   scene.add(m);
 }
-// Saucer proxy — ~10u disc so the camera framing reads at true scale.
+
+// Saucer proxy (~10u disc)
 const saucer = new THREE.Group();
-const hull = new THREE.Mesh(new THREE.SphereGeometry(5, 32, 16),
-  new THREE.MeshStandardMaterial({ color: 0x223038, metalness: 0.8, roughness: 0.4 }));
-hull.scale.set(1, 0.28, 1); saucer.add(hull);
-const dome = new THREE.Mesh(new THREE.SphereGeometry(2.4, 24, 12, 0, 6.28, 0, 1.57),
-  new THREE.MeshStandardMaterial({ color: 0x59d9ff, emissive: 0x1a5266, emissiveIntensity: 0.5, transparent: true, opacity: 0.8 }));
-dome.position.y = 1.1; saucer.add(dome);
+const hullMat = new THREE.MeshStandardMaterial({ color: 0x223038, metalness: 0.8, roughness: 0.4, transparent: true });
+const hull = new THREE.Mesh(new THREE.SphereGeometry(5, 32, 16), hullMat); hull.scale.set(1, 0.28, 1); saucer.add(hull);
+const domeMat = new THREE.MeshStandardMaterial({ color: 0x59d9ff, emissive: 0x1a5266, emissiveIntensity: 0.5, transparent: true, opacity: 0.8 });
+const dome = new THREE.Mesh(new THREE.SphereGeometry(2.4, 24, 12, 0, 6.28, 0, 1.57), domeMat); dome.position.y = 1.1; saucer.add(dome);
 scene.add(saucer);
+
+// Beam stub — additive cone from the hull to the ground (grid at y=0), + disc.
+const beamMat = new THREE.MeshBasicMaterial({ color: 0x35d6ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(2, 9, 1, 24, 1, true), beamMat); beam.visible = false; scene.add(beam);
+const discMat = new THREE.MeshBasicMaterial({ color: 0x8fe8ff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
+const disc = new THREE.Mesh(new THREE.CircleGeometry(9, 24), discMat); disc.rotation.x = -Math.PI / 2; disc.visible = false; scene.add(disc);
 
 // --- Flight + rig ----------------------------------------------------------
 const flight = new FlightModel(FLIGHT_PROFILE.flight, new THREE.Vector3(0, 40, 0));
 const rig = new CameraRig(camera, C);
 
-// --- Input (test-local; mirrors the flight input shape) --------------------
-const keys = new Set();
-addEventListener('keydown', e => {
-  keys.add(e.code);
-  if (e.code === 'Space') e.preventDefault();
-  if (e.code === 'KeyH') C.horizonLock = !C.horizonLock;
-  if (e.code === 'KeyF') C.enableFovKick = !C.enableFovKick;
-});
-addEventListener('keyup', e => keys.delete(e.code));
-let mouseYaw = 0, mousePitch = 0, locked = false;
-renderer.domElement.addEventListener('click', () => { if (!locked) renderer.domElement.requestPointerLock(); });
-document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === renderer.domElement; });
-document.addEventListener('mousemove', e => { if (!locked) return; mouseYaw += e.movementX * 0.0016; mousePitch += e.movementY * 0.0016; });
-addEventListener('wheel', e => rig.addZoom(Math.sign(e.deltaY)), { passive: true });
-const k = (a, b) => (keys.has(a) ? 1 : 0) - (keys.has(b) ? 1 : 0);
+// --- Beam / cloak state ----------------------------------------------------
+let beamOn = false, cloak = false, beamPow = 0, cloakOp = 1;
+let cloakCharge = 0, cloakHolding = false;
+const CLOAK_HOLD = 2.0;
 
-function sampleInput(dt) {
-  const turn = k('ArrowLeft', 'ArrowRight');          // held → rate×dt
-  const input = {
-    forward: k('KeyW', 'KeyS'),
-    strafe: k('KeyD', 'KeyA'),
-    vertical: k('Space', 'ShiftLeft') || k('Space', 'ControlLeft'),
-    yawDelta: -turn * dt + mouseYaw,                  // keys (rate) + mouse (per-frame)
-    pitchDelta: k('ArrowUp', 'ArrowDown') * dt + mousePitch,
-    boost: keys.has('KeyE'),
+// --- Input -----------------------------------------------------------------
+const IS_TOUCH = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+document.body.classList.toggle('touch', IS_TOUCH);
+const axesIn = { fwd: 0, strafe: 0, vert: 0, yaw: 0, pitch: 0, boost: false };
+
+if (!IS_TOUCH) {
+  // ---- PC: keyboard + pointer-lock mouse-look + LMB beam + RMB hold cloak ----
+  const keys = new Set();
+  addEventListener('keydown', e => {
+    keys.add(e.code);
+    if (e.code === 'Space') e.preventDefault();
+    if (e.code === 'KeyH') C.horizonLock = !C.horizonLock;
+    if (e.code === 'KeyF') C.enableFovKick = !C.enableFovKick;
+  });
+  addEventListener('keyup', e => keys.delete(e.code));
+  let locked = false, mYaw = 0, mPitch = 0;
+  renderer.domElement.addEventListener('mousedown', e => {
+    if (!locked) { renderer.domElement.requestPointerLock(); return; }  // first click just locks
+    if (e.button === 0) beamOn = true;
+    if (e.button === 2) cloakHolding = true;
+  });
+  renderer.domElement.addEventListener('mouseup', e => {
+    if (e.button === 0) beamOn = false;
+    if (e.button === 2) cloakHolding = false;
+  });
+  renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === renderer.domElement; });
+  document.addEventListener('mousemove', e => { if (!locked) return; mYaw += e.movementX * 0.0016; mPitch += e.movementY * 0.0016; });
+  addEventListener('wheel', e => rig.addZoom(Math.sign(e.deltaY)), { passive: true });
+  const k = (a, b) => (keys.has(a) ? 1 : 0) - (keys.has(b) ? 1 : 0);
+  window.__sampleAxes = (dt) => {
+    axesIn.fwd = k('KeyW', 'KeyS'); axesIn.strafe = k('KeyD', 'KeyA');
+    axesIn.vert = (keys.has('Space') ? 1 : 0) - (keys.has('ShiftLeft') || keys.has('ControlLeft') ? 1 : 0);
+    axesIn.yaw = -k('ArrowLeft', 'ArrowRight') * dt + mYaw;
+    axesIn.pitch = k('ArrowUp', 'ArrowDown') * dt + mPitch;
+    axesIn.boost = keys.has('KeyE');
+    mYaw = 0; mPitch = 0;
   };
-  mouseYaw = 0; mousePitch = 0;
-  return input;
+  document.getElementById('hint').textContent = 'click to lock · WASD move · Space/Shift up-down · ←/→ yaw · LMB beam · RMB hold 2s cloak · wheel zoom · H horizon-lock · F fov-kick';
+} else {
+  // ---- Mobile: twin sticks (L=translate, R=yaw+altitude) + BEAM/CLOAK buttons ----
+  document.getElementById('hint').textContent = 'left stick: move · right stick: turn + up/down · BEAM hold · CLOAK hold 2s';
+  const R = 55;
+  const sticks = { L: null, R: null };  // {id, ox, oy, dx, dy, el, knob}
+  const elFor = h => document.getElementById(h === 'L' ? 'joyL' : 'joyR');
+  function start(h, x, y, id) {
+    const el = elFor(h); el.style.display = 'block'; el.style.left = (x - 60) + 'px'; el.style.top = (y - 60) + 'px';
+    sticks[h] = { id, ox: x, oy: y, dx: 0, dy: 0, el, knob: el.querySelector('.knob') };
+  }
+  function move(h, x, y) {
+    const s = sticks[h]; if (!s) return;
+    let dx = x - s.ox, dy = y - s.oy; const d = Math.hypot(dx, dy);
+    if (d > R) { dx *= R / d; dy *= R / d; }
+    s.dx = dx / R; s.dy = dy / R;
+    s.knob.style.transform = `translate(${dx}px,${dy}px)`;
+  }
+  function end(h) { const s = sticks[h]; if (!s) return; s.el.style.display = 'none'; s.knob.style.transform = ''; sticks[h] = null; }
+  renderer.domElement.addEventListener('pointerdown', e => {
+    const h = e.clientX < innerWidth / 2 ? 'L' : 'R';
+    if (sticks[h]) return; start(h, e.clientX, e.clientY, e.pointerId);
+  });
+  renderer.domElement.addEventListener('pointermove', e => {
+    for (const h of ['L', 'R']) if (sticks[h] && sticks[h].id === e.pointerId) move(h, e.clientX, e.clientY);
+  });
+  const up = e => { for (const h of ['L', 'R']) if (sticks[h] && sticks[h].id === e.pointerId) end(h); };
+  renderer.domElement.addEventListener('pointerup', up);
+  renderer.domElement.addEventListener('pointercancel', up);
+  const dz = v => Math.abs(v) < 0.12 ? 0 : v;
+  window.__sampleAxes = (dt) => {
+    const Lx = sticks.L ? dz(sticks.L.dx) : 0, Ly = sticks.L ? dz(sticks.L.dy) : 0;
+    const Rx = sticks.R ? dz(sticks.R.dx) : 0, Ry = sticks.R ? dz(sticks.R.dy) : 0;
+    axesIn.strafe = Lx; axesIn.fwd = -Ly;      // left stick: strafe + forward
+    axesIn.yaw = Rx * dt; axesIn.vert = -Ry;   // right stick: yaw (rate) + altitude
+    axesIn.pitch = 0; axesIn.boost = false;
+  };
+  // buttons
+  const bBeam = document.getElementById('bBeam'), bCloak = document.getElementById('bCloak');
+  bBeam.addEventListener('pointerdown', e => { e.stopPropagation(); beamOn = true; bBeam.classList.add('on'); });
+  const beamUp = e => { beamOn = false; bBeam.classList.remove('on'); };
+  bBeam.addEventListener('pointerup', beamUp); bBeam.addEventListener('pointercancel', beamUp);
+  bCloak.addEventListener('pointerdown', e => { e.stopPropagation(); cloakHolding = true; });
+  const cloakUp = e => { cloakHolding = false; };
+  bCloak.addEventListener('pointerup', cloakUp); bCloak.addEventListener('pointercancel', cloakUp);
 }
 
 // --- Loop ------------------------------------------------------------------
 const hud = document.getElementById('hud');
+const cloakFill = document.querySelector('#bCloak .fill');
 let prev = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
-  flight.update(dt, sampleInput(dt));
+  window.__sampleAxes(dt);
+
+  flight.update(dt, {
+    forward: axesIn.fwd, strafe: axesIn.strafe, vertical: axesIn.vert,
+    yawDelta: axesIn.yaw, pitchDelta: axesIn.pitch, boost: axesIn.boost,
+  });
   saucer.position.copy(flight.position);
   saucer.quaternion.copy(flight.quaternion);
   rig.update(dt, flight);
+
+  // cloak: hold 2s to toggle; opening the beam breaks it (like the game)
+  if (beamOn && cloak) cloak = false;
+  if (cloakHolding && !beamOn) {
+    cloakCharge += dt / CLOAK_HOLD;
+    if (cloakCharge >= 1) { cloak = !cloak; cloakCharge = 0; cloakHolding = false; }
+  } else cloakCharge = Math.max(0, cloakCharge - dt / CLOAK_HOLD);
+  if (cloakFill) cloakFill.style.height = (cloakCharge * 100) + '%';
+  cloakOp += ((cloak ? 0.25 : 1) - cloakOp) * Math.min(1, dt * 8);
+  hullMat.opacity = cloakOp; domeMat.opacity = 0.8 * cloakOp;
+
+  // beam visual
+  beamPow += ((beamOn && !cloak ? 1 : 0) - beamPow) * Math.min(1, dt * 10);
+  const showBeam = beamPow > 0.02;
+  beam.visible = disc.visible = showBeam;
+  if (showBeam) {
+    const gy = 0, h = Math.max(1, flight.position.y - gy);
+    beam.position.set(flight.position.x, gy + h / 2, flight.position.z);
+    beam.scale.set(beamPow, h, beamPow);
+    beamMat.opacity = 0.22 * beamPow;
+    disc.position.set(flight.position.x, gy + 0.1, flight.position.z);
+    disc.scale.setScalar(beamPow); discMat.opacity = 0.4 * beamPow;
+  }
+
   renderer.render(scene, camera);
   hud.textContent =
     `L = ${L}   (saucer ~10u)\n` +
     `speed   ${flight.speed.toFixed(1)} u/s  (${(flight.speed / 10).toFixed(1)} body-len/s)\n` +
     `alt     ${flight.position.y.toFixed(1)} u\n` +
-    `zoom    ${rig.zoom.toFixed(0)} u\n` +
-    `camdist ${camera.position.distanceTo(flight.position).toFixed(1)} u\n` +
-    `roll    ${(flight.roll * 57.3).toFixed(0)}°   horizonLock ${C.horizonLock}   fovKick ${C.enableFovKick}`;
+    `beam ${beamOn ? 'ON ' : 'off'}   cloak ${cloak ? 'ON ' : 'off'}${cloakCharge > 0 ? ` (charging ${(cloakCharge * 100) | 0}%)` : ''}\n` +
+    `camdist ${camera.position.distanceTo(flight.position).toFixed(1)} u   roll ${(flight.roll * 57.3).toFixed(0)}°`;
   requestAnimationFrame(frame);
 }
 addEventListener('resize', () => {

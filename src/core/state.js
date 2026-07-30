@@ -16,6 +16,7 @@ export const S={
   crystals:0, missionIdx:0, prevBeam:false, crashReason:null,
   isDay:true, dayF:1, storyMode:false,
   cloak:false, warnLevel:0, elapsed:0,
+  tutorial:false,          // guided intro running — suppresses lethal hazards (see hazards/lightning.js)
   gfx:'full',              // graphics quality: 'full' (cinematic) | 'basic' — set by screens.js
   musicMode:'soundtrack',  // music source: 'soundtrack' (bundled MP3) | 'procedural' synth
   // Ship upgrade perk (see systems/upgrades.js). The ship starts "grounded":

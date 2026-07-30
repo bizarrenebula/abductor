@@ -75,6 +75,9 @@ export function clearStrikes(){for(let i=strikes.length-1;i>=0;i--){scene.remove
 export function resetLightning(){clearStrikes();lightningTimer=22;}
 export function updateLightning(dt){
   if(World.name!=='earth'){if(strikes.length)clearStrikes();return;}
+  // No lightning during the guided tutorial — a lethal, unavoidable hazard has no
+  // place while the player is still being taught the controls.
+  if(S.tutorial){if(strikes.length)clearStrikes();return;}
   // only storms bring lightning
   const storming=(weather.cur==='rain');
   if(storming){

@@ -196,7 +196,8 @@ export const Tutorial={
   /* Begin the walkthrough (the game must already be running). */
   start(){
     build();
-    this.active=true; this._i=0; this._begin();
+    this.active=true; S.tutorial=true;   // suppresses lethal hazards (lightning)
+    this._i=0; this._begin();
     this.hint.classList.add('on');
   },
   get hint(){ return build().hint; },
@@ -237,13 +238,13 @@ export const Tutorial={
     this.hint.classList.remove('on');
     showModal('Training complete','Nicely done, pilot','You can keep flying this '+
       'world, or run the tutorial again.',
-      [ {label:'Continue',primary:true,onClick:()=>{ this.active=false; }},
+      [ {label:'Continue',primary:true,onClick:()=>{ this.active=false; S.tutorial=false; }},
         {label:'Replay',onClick:()=>{ this.start(); }} ]);
   },
 
   /* Tear everything down (called by startGame on any fresh run). */
   stop(){
-    this.active=false; this._i=0; this._s=null;
+    this.active=false; S.tutorial=false; this._i=0; this._s=null;
     if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); }
     if(beacon)beacon.visible=false;
     if(marker)marker.visible=false;

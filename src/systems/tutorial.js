@@ -75,6 +75,10 @@ function build(){
   #tutJoy .tut-stick.left{left:25%;margin-left:-59px}
   #tutJoy .tut-stick.right{left:75%;margin-left:-59px}
   #tutJoy .tut-stick.on{opacity:1}
+  /* the player has taken hold and the linger elapsed: ease back to a faint marker
+     of the zone instead of covering the view — it clears fully on task completion */
+  #tutJoy.engaged .tut-half.on{opacity:.3}
+  #tutJoy.engaged .tut-stick.on{opacity:.34}
   #tutJoy .tut-base{position:absolute;inset:0;border-radius:50%;
     border:1.5px solid rgba(143,232,184,.34);background:rgba(143,232,184,.055);
     box-shadow:inset 0 0 22px rgba(143,232,184,.08),0 0 18px rgba(0,0,0,.35)}
@@ -132,12 +136,18 @@ function build(){
 /* Light up one half of the screen + its ghost stick, running `anim`'s motion.
    side: 'left' | 'right' | null (hide). Touch devices only.
 
-   FIRST COME, FIRST SERVED: the guide is only there until the player finds the
-   zone. The first touch that lands on the demoed half dismisses it immediately —
-   the task itself carries on with the text hint. */
-let joySide=null;
+   LIFECYCLE: the guide stays up while the player works the step — it does not
+   vanish the instant they touch down. The first touch on the demoed half starts
+   a linger; once that elapses the guide eases back to a faint state so it stops
+   covering the view but still marks the zone. It only disappears outright when
+   the step's actions are done (the next step swaps in its own guide, and the
+   final step's completion tears it down). */
+const JOY_LINGER=2600;                 // ms the guide stays at full strength after first touch
+let joySide=null, joyDimT=0;
 function showJoyDemo(side,anim){
   const d=build();
+  clearTimeout(joyDimT);
+  d.joy.classList.remove('engaged');   // fresh step → full-strength guide again
   joySide=(TOUCH&&side)?side:null;
   if(!joySide){ d.joy.classList.remove('on'); return; }
   d.joy.classList.add('on');
@@ -150,7 +160,10 @@ function showJoyDemo(side,anim){
 addEventListener('pointerdown',e=>{
   if(!joySide)return;
   const half=(e.clientX<innerWidth/2)?'left':'right';
-  if(half===joySide){ joySide=null; if(dom)dom.joy.classList.remove('on'); }
+  if(half!==joySide)return;
+  joySide=null;                        // only the FIRST touch on this half arms the fade
+  clearTimeout(joyDimT);
+  joyDimT=setTimeout(()=>{ if(dom)dom.joy.classList.add('engaged'); },JOY_LINGER);
 },{passive:true,capture:true});
 /* Show a modal with a set of {label, primary, onClick} buttons. */
 function showModal(eyebrow,title,body,buttons){
@@ -332,6 +345,7 @@ export const Tutorial={
   /* Tear everything down (called by startGame on any fresh run). */
   stop(){
     this.active=false; S.tutorial=false; this._i=0; this._s=null;
+    joySide=null; clearTimeout(joyDimT);
     if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); dom.joy.classList.remove('on'); }
     if(beacon)beacon.visible=false;
     if(marker)marker.visible=false;

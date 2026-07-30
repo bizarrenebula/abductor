@@ -36,12 +36,13 @@ export const FLIGHT_PROFILE = {
     // acceleration 220→130 and drag 1.9→1.4 (v∞=130/1.4≈93≈maxSpeed) so it builds
     // speed over ~1.5 s and coasts to rest over ~2 s — heavy mass, real momentum
     // and a clear delay between input and response, not twitch.
-    maxSpeed: 90,           // units/s — [heavy] 120→90: lower top speed.
-    acceleration: 130,      // units/s² — [heavy] 220→130: slow build-up (input lag).
+    maxSpeed: 55,           // units/s — [heavy] 120→90→55: cruises slowly, no dash.
+    acceleration: 68,       // units/s² — [heavy] 220→130→68: gentle build-up, never
+                            //         lurches (v∞ = 68/1.4 ≈ 49 ≈ maxSpeed).
     drag: 1.4,              // 1/s   — [heavy] 1.9→1.4: longer coast/glide
                             //         (τ = 1/k ≈ 0.71 s) = heavier, takes ~2 s to stop.
-    verticalSpeed: 44,      // units/s — [heavy] 60→44: slower vertical.
-    boostMultiplier: 2.0,   // [heavy] 2.5→2.0
+    verticalSpeed: 38,      // units/s — [heavy] 60→44→38: slower vertical.
+    boostMultiplier: 1.6,   // [heavy] 2.5→2.0→1.6: boost nudges, doesn't dash.
 
     turnRate: 0.9,          // rad/s — [heavy] 1.3→0.9: a big disc yaws deliberately.
     pitchRate: 0.9,         // rad/s — [heavy] 1.1→0.9: slower, weightier nose authority
@@ -71,18 +72,21 @@ export const FLIGHT_PROFILE = {
     zoomMax: 52,            // units — 0.40 → 57.2 → 52
     zoomSpeed: 5,           // units — 0.04 → 5.7 → 5
 
-    positionStiffness: 4.2, // rad/s — [heavy] 5.0→4.2: floatier, weightier spring.
+    positionStiffness: 5.2, // rad/s — [craft] 4.2→5.2: camera catches up faster so the
+                            //         ship stays centred and never runs off-screen.
     positionDamping: 0.9,   // ζ — slight overshoot keeps it alive.
     rotationStiffness: 3.8, // 1/s — [heavy] 4.5→3.8: aim catches up slower (mass).
 
-    velocityLag: 0.035,     // SECONDS — unchanged. Trail = speed×0.035 auto-scales.
-    velocityLagMax: 17,     // units — 0.12 → 17.2 → 17 (clamp; a safety leash).
+    velocityLag: 0.018,     // SECONDS — [craft] 0.035→0.018: much less trailing at
+                            //         speed, keeping the ship close to the camera.
+    velocityLagMax: 8,      // units — [craft] 17→8: cap the trail so it stays tight.
 
     lookAhead: 9,           // units — 0.06 → 8.6 → 9
     lookDrop: 11,           // units — [craft] new: lower the aim point below the ship
                             //         so the default view tilts down and the ground
                             //         beneath the saucer (the beam) is always visible.
-    leashSlack: 21,         // units — source hardcoded 0.15 → 21.5 → 21 (was inline).
+    leashSlack: 10,         // units — [craft] 21→10: tighter hard leash so the ship
+                            //         can never drift far from the camera.
 
     fov: 62,                // deg — 68 → 62 [craft]: matches the game's existing
                             //       camera; a UFO needs no compound-eye wide FOV.

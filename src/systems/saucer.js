@@ -96,7 +96,7 @@ scene.add(glowLight);
    surface instead of clipping through and vanishing. No ring, no glow: it reads
    as the ship's shadow, and because it sits exactly under the hull it doubles as
    an aim aid for the beam. Always-visible in flight, even in daylight. */
-const SH_SUB=6, SH_HALF=7;               // grid subdivisions + half-extent (units)
+const SH_SUB=8, SH_HALF=7;               // grid subdivisions + half-extent (units)
 function buildShadowGeo(){
   const n=SH_SUB+1, verts=n*n;
   const pos=new Float32Array(verts*3), uv=new Float32Array(verts*2);
@@ -123,7 +123,11 @@ function buildShadowGeo(){
 }
 const shadowMesh=new THREE.Mesh(buildShadowGeo(),
   new THREE.MeshBasicMaterial({map:shadowTex(),color:0x000000,transparent:true,
-    opacity:0.4,depthWrite:false,side:THREE.DoubleSide}));
+    opacity:0.4,depthWrite:false,side:THREE.DoubleSide,
+    // Bias the fragment depth toward the camera so the shadow always wins the
+    // depth test against the ground it lies on — it never gets absorbed by the
+    // surface, while real occluders in front (hills, the hull) still cover it.
+    polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4}));
 shadowMesh.renderOrder=2;
 shadowMesh.frustumCulled=false;          // vertices move every frame; skip stale-bounds culling
 scene.add(shadowMesh);
@@ -153,9 +157,16 @@ export function updateShadow(groundAt){
   const k=Math.max(0.4,Math.min(1,1-(agl-20)/170));
   const scale=0.9+0.4*k;
   shadowMesh.position.set(sx,0,sz);
+  const m=0.95;   // neighbourhood half-step (~half the grid spacing) for the max sample
   for(let i=0;i<baseX.length;i++){
     const lx=baseX[i]*scale, lz=baseZ[i]*scale;
-    p.setXYZ(i, lx, groundAt(sx+lx,sz+lz)+0.18, lz);   // drape onto the surface
+    const wx=sx+lx, wz=sz+lz;
+    // Sit each vertex ABOVE the highest terrain in its cell, not just the point
+    // under it — so the flat triangles between vertices can't poke through the
+    // draped plane on faceted / stepped ground. Small lift on top of that.
+    const h=Math.max(groundAt(wx,wz),groundAt(wx+m,wz),groundAt(wx-m,wz),
+                     groundAt(wx,wz+m),groundAt(wx,wz-m));
+    p.setXYZ(i, lx, h+0.3, lz);
   }
   p.needsUpdate=true;
   shadowMesh.material.opacity=(S.cloak?0.12:0.24)+0.24*k;

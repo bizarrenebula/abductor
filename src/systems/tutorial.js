@@ -18,6 +18,7 @@ import { heightAt } from '../world/terrain.js';
 import { animals } from '../entities/registry.js';
 import { banner } from '../ui/banner.js';
 import { Special } from './special.js';
+import { mark as markWaypoint } from './waypoints.js';
 
 const TOUCH = TOUCH_ONLY;   // pick touch vs keyboard wording for the hints
 
@@ -275,6 +276,7 @@ function trackMarker(s){
     m.position.set(tgt.position.x,tgt.position.y+5+bob,tgt.position.z);
     const p=0.85+0.15*Math.sin(performance.now()*0.008);
     m.scale.setScalar(p);
+    markWaypoint(m.position,'#ffe28a',18);   // arrow to the creature you must beam
   } else m.visible=false;
 }
 
@@ -317,7 +319,10 @@ const steps=[
             return 'Fly to the glowing beacon — '+d+' m away.'; },
     begin(s){ const a=S.yaw+0.9, dx=Math.sin(a)*150, dz=Math.cos(a)*150;
               placeBeacon(saucer.position.x+dx,saucer.position.z+dz); },
-    test(s){ return Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z)<24; },
+    test(s){
+      // an on-screen arrow points the way for as long as the beacon is the goal
+      markWaypoint(beacon.position,'#6cf0c4',24);
+      return Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z)<24; },
     end(){ if(beacon)beacon.visible=false; } },
   { key:'beam', task:'Beam up a creature', joy:{side:'right',anim:'beam'}, hud:{},
     say(s){
@@ -379,6 +384,7 @@ export const Tutorial={
   start(){
     build();
     this.active=true; S.tutorial=true;   // suppresses lethal hazards (lightning)
+    S.tutorialLesson=true;               // and hides unrelated objective arrows
     this._roam=0;
     this._i=0; this._begin();
     this.hint.classList.add('on');
@@ -432,6 +438,7 @@ export const Tutorial={
   _roamPhase(){
     this.hint.classList.remove('on');
     showJoyDemo(null);
+    S.tutorialLesson=false;        // free flight — show every objective again
     hud({map:true,equip:true});     // full HUD, no highlight rings
     this._roam=ROAM_SECS;
     banner('TRAINING COMPLETE — THE VALLEY IS YOURS');
@@ -443,14 +450,14 @@ export const Tutorial={
     showModal('Training complete','Where to now, pilot?',
       'You have the controls, the beam and the HUD. Keep roaming this world, run '+
       'the training again, or take on the story.',
-      [ {label:'Keep exploring',primary:true,onClick:()=>{ this.active=false; S.tutorial=false; }},
+      [ {label:'Keep exploring',primary:true,onClick:()=>{ this.active=false; S.tutorial=false; S.tutorialLesson=false; }},
         {label:'Replay tutorial',onClick:()=>{ if(this.replayRun)this.replayRun(); else this.start(); }},
         {label:'Story mode',onClick:()=>{ if(this.playStory)this.playStory(); else{ this.active=false; S.tutorial=false; } }} ]);
   },
 
   /* Tear everything down (called by startGame on any fresh run). */
   stop(){
-    this.active=false; S.tutorial=false; this._i=0; this._s=null; this._roam=0;
+    this.active=false; S.tutorial=false; S.tutorialLesson=false; this._i=0; this._s=null; this._roam=0;
     joySide=null; clearTimeout(joyDimT);
     if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); dom.joy.classList.remove('on'); }
     if(beacon)beacon.visible=false;

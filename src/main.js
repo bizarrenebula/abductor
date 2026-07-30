@@ -69,6 +69,7 @@ const _v=new THREE.Vector3();
    camera; the rest of the game (beam, cloak, collision, energy, HUD) reads the
    synced S.* fields exactly as before. */
 import { Tutorial } from './systems/tutorial.js';
+import { renderWaypoints, clearWaypoints } from './systems/waypoints.js';
 import { FlightModel } from './systems/flight.js';
 import { CameraRig } from './systems/camera-rig.js';
 import { FLIGHT_PROFILE } from './systems/flight-profile.js';
@@ -363,8 +364,12 @@ function animate(){
     dayNightUpdate(dt);
     applyDayNightLight();
     Tutorial.update(dt);              // optional guided intro (no-op unless active)
+    // Draw the direction arrows for everything the systems above marked this
+    // frame (story objectives, ship parts, tutorial goals).
+    renderWaypoints(camera,saucer.position);
 
   } else if(S.state==='crashing'){
+    clearWaypoints();                 // no guidance arrows while going down
     /* powerless: the ship falls */
     S.vy-=42*dt;
     saucer.position.y+=S.vy*dt;
@@ -387,6 +392,7 @@ function animate(){
       if(Story.active)respawn(); else endGame(S.crashReason||'crash');
     }
   } else if(S.state==='menu'||S.state==='over'){
+    clearWaypoints();
     /* menu / over idle: gentle drift + slow orbit */
     saucer.position.y=40+Math.sin(t*1.2)*0.6;
     saucer.rotation.y+=dt*0.3;

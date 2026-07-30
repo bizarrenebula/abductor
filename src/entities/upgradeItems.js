@@ -1,9 +1,9 @@
 /* =========================================================================
    UPGRADE ITEMS — the findable ship parts (Thrusters, High-End Engine). Each
    run scatters the not-yet-installed ones far apart at random spots on the map,
-   each with a tall glowing beacon so it reads from a distance and a ground
-   ring. When a part falls in the ship's line of sight it BLINKS to draw the
-   eye (rather than a steady highlight). Fly over one to install it (works at
+   each GLOWING (shared objective marker) so it reads from a distance, with an
+   on-screen arrow pointing the way until you arrive. The glow eases off over the
+   last stretch as you close in. Fly over one to install it (works at
    any altitude — Thrusters has to be reachable while the ship is still
    grounded). Marked on the radar too.
    ========================================================================= */
@@ -11,24 +11,20 @@ import { THREE } from '../core/three.js';
 import { WATER_Y } from '../core/constants.js';
 import { scene, camera } from '../core/engine.js';
 import { heightAt } from '../world/terrain.js';
+import { S } from '../core/state.js';
 import { saucer } from '../systems/saucer.js';
 import { Upgrades, UP_ITEMS, ITEM_KEYS } from '../systems/upgrades.js';
 import { spawnPop } from '../ui/pop.js';
+import { objectiveGlow, updateGlow, mark } from '../systems/waypoints.js';
 import { t } from '../i18n.js';
+
+const _wp=new THREE.Vector3();
 
 export const upgradeItems=[];   // live meshes; read by the minimap
 
-const BEAM_BOT=4;              // beacon bottom (at the floating icon)
-const BEAM_TOP=14;            // ...to several metres above the object
 const COLLECT_R=8;              // fly this close (horizontally) to install
 const SEP_MIN=280;             // keep modules apart from each other where possible
-const BLINK_HZ=3.2;            // line-of-sight blink rate
 const _v=new THREE.Vector3(), _pop=new THREE.Vector3();
-
-function glowMat(col,op){
-  return new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,
-    depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
-}
 
 function buildItem(key){
   const col=UP_ITEMS[key].col;
@@ -58,18 +54,11 @@ function buildItem(key){
     icon.userData.spinX=true;
   }
   g.add(icon);
-  // --- thin WHITE beacon a few metres above the object, with a bright pulse that
-  //     repeatedly falls from the top down onto it, plus a ground ring ---
-  const beamMat=glowMat(0xffffff,0.18);
-  const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,BEAM_TOP-BEAM_BOT,8,1,true),beamMat);
-  beam.position.y=(BEAM_TOP+BEAM_BOT)/2;g.add(beam);
-  const pulseMat=glowMat(0xffffff,0.9);
-  const pulse=new THREE.Mesh(new THREE.SphereGeometry(0.32,10,10),pulseMat);
-  pulse.scale.set(1,1.7,1);g.add(pulse);              // a little elongated = a falling streak
-  const ringMat=glowMat(col,0.5);
-  const ring=new THREE.Mesh(new THREE.RingGeometry(3,4,36),ringMat);
-  ring.rotation.x=-Math.PI/2;ring.position.y=0.15;g.add(ring);
-  g.userData={key,col,icon,beamMat,pulse,pulseMat,ring,ringMat,phase:Math.random()*6.28,onScreen:false};
+  // The part simply GLOWS until you are close enough to take it (shared marker,
+  // also used by the story objectives), and an on-screen arrow points the way.
+  const glow=objectiveGlow(col,1.15);
+  g.add(glow);
+  g.userData={key,col,icon,glow,phase:Math.random()*6.28,onScreen:false};
   return g;
 }
 
@@ -109,22 +98,19 @@ export function updateUpgradeItems(dt){
     u.onScreen=onScreen;
     // float + steady spin
     u.icon.position.y=4+Math.sin(time*1.6+u.phase)*0.35;
+    u.icon.visible=true;
     u.icon.rotation.y+=dt*1.2;
     if(u.icon.userData.spinX)u.icon.rotation.x+=dt*1.1;
-    // In line of sight the whole marker BLINKS on/off to catch the eye; off
-    // screen it holds a steady, subtler glow so it's still spottable from afar.
-    const blinkOn=!onScreen || Math.sin(time*BLINK_HZ*6.2832+u.phase)>0;
-    u.icon.visible=blinkOn;
-    // thin white beacon: a bright pulse falls from the top down onto the object,
-    // over and over; the thin shaft itself stays a faint white line.
-    const pph=(time*0.9+u.phase*0.16)%1;                 // 0 at the top, 1 at the object
-    u.pulse.position.y=BEAM_TOP-(BEAM_TOP-BEAM_BOT)*pph;
-    u.pulseMat.opacity=(onScreen?1:0.65)*(0.1+0.9*Math.sin(pph*Math.PI));   // fade in/out at the ends
-    u.beamMat.opacity=onScreen?0.22:0.14;
-    u.ringMat.opacity=onScreen?(blinkOn?0.9:0.2):0.45*(0.7+0.3*Math.sin(time*3+u.phase));
-    u.ring.scale.setScalar(1+0.05*Math.sin(time*3+u.phase));
-    // install on close approach
+    // Glow, no blinking: it keeps emitting light until you are close enough to
+    // take it, then eases off over the last stretch as you close in.
     const dx=g.position.x-sx, dz=g.position.z-sz;
+    const dist=Math.hypot(dx,dz);
+    updateGlow(u.glow,time,Math.min(1,Math.max(0,(dist-COLLECT_R)/22)));
+    // During a tutorial lesson only the taught objective gets an arrow, so the
+    // parts keep glowing but stay out of the guidance until the lessons are done.
+    if(!S.tutorialLesson)
+      mark(_wp.set(g.position.x,g.position.y+5,g.position.z),'#'+u.col.toString(16).padStart(6,'0'),COLLECT_R+4);
+    // install on close approach
     if(dx*dx+dz*dz<COLLECT_R*COLLECT_R){
       Upgrades.collectItem(u.key);
       spawnPop(_pop.set(g.position.x,g.position.y+4,g.position.z),'★',t('upg.name.'+u.key));

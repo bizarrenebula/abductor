@@ -16,7 +16,11 @@ import { spawnPop } from '../ui/pop.js';
 import { scoreV } from '../ui/dom.js';
 import { saucer } from '../systems/saucer.js';
 import { effBeamR } from '../systems/beam.js';
+import { objectiveGlow, updateGlow, mark as markWaypoint } from '../systems/waypoints.js';
 import { t } from '../i18n.js';
+
+const _wp=new THREE.Vector3();
+const css6=c=>'#'+c.toString(16).padStart(6,'0');
 
 // Mars stage-3 asks for five of each species; tracked per-type so the HUD can
 // show "Strider 3/5 · Tumbler 1/5 …" the way the player asked for.
@@ -479,7 +483,30 @@ export const Story={
     if(this.world==='earth')this.updateEarth(dt,beamActive,t);
     else if(this.world==='moon')this.updateMoon(dt,beamActive,t);
     else if(this.world==='mars')this.updateMars(dt,beamActive,t);
+    this._guide(t);
     this.hud();
+  },
+  /* Every live objective GLOWS and gets an on-screen arrow pointing the way, so
+     "find the thing" is never a search of an empty map. The glow eases out as
+     the ship closes in — still glowing means still outstanding. Objectives are
+     tagged lazily, so respawned/late-spawned items pick it up automatically. */
+  _guide(t){
+    const sp=saucer.position;
+    const guide=(o,col,size,near)=>{
+      if(!o)return;
+      let g=o.userData.__glow;
+      if(!g){ g=objectiveGlow(col,size); o.add(g); o.userData.__glow=g; }
+      const d=Math.hypot(o.position.x-sp.x,o.position.z-sp.z);
+      updateGlow(g,t,Math.min(1,Math.max(0,(d-near)/26)));
+      markWaypoint(_wp.set(o.position.x,o.position.y+4,o.position.z),css6(col),near);
+    };
+    for(const o of this.targets) guide(o,0xff5a48,1.0,14);
+    for(const o of this.samples) guide(o,0x9fe8ff,1.0,14);
+    for(const o of this.debris)  guide(o,0xffb060,0.8,14);
+    // the mothership / destination is a place, not a collectible — arrow only
+    if(this.shipPos)
+      markWaypoint(_wp.set(this.shipPos.x,(this.shipPos.y||heightAt(this.shipPos.x,this.shipPos.z))+22,this.shipPos.z),
+                   '#ff5a48',26);
   },
   _liftInBeam(p,u,dt,beamActive){
     const R=effBeamR();

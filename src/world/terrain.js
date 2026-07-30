@@ -5,7 +5,7 @@
 import { THREE } from '../core/three.js';
 import { WATER_Y } from '../core/constants.js';
 import { smoothstep, lerp } from '../core/math.js';
-import { nElev, nHill, nMtn, nRiver, nTemp, nMoist, nCanyon, fbm } from './noise.js';
+import { nElev, nHill, nMtn, nRiver, nTemp, nMoist, fbm } from './noise.js';
 import { World } from './world-config.js';
 
 const _c=new THREE.Color();
@@ -25,25 +25,17 @@ export function sampleEarth(x,z){
   const mm=Math.max(0,mtnMask-0.14);
   h+=mm*mm*250;                        // steep summits on top
 
-  // Broad LAKES in the lowlands — replaces the old thin river channels that
-  // scattered the map with little holes. Only genuine deep dips in already-low
-  // land flood, so the water reads as proper lakes, not gaps.
+  // Broad LAKES in the lowlands — the only water/dips on the map. A gentle basin
+  // that floods where already-low land dips, so water reads as proper lakes with
+  // soft shorelines. No dry canyons/gorges: the land is hills, meadows, lakes and
+  // mountains, never sharp chasms.
   const lakeF=fbm(nRiver,x*0.0030,z*0.0030,3);
-  const lakeAmt=smoothstep(-0.08,-0.30,lakeF)*(1-smoothstep(14,34,h));
-  if(lakeAmt>0)h=lerp(h,Math.min(h,WATER_Y-7),lakeAmt);        // deep lake bed
-
-  // Deliberate DEEP, DRY canyons: thin ridged gorges cut into the land (kept out
-  // of the lakes and the high peaks). Carved to just above the water line so they
-  // read as deep dry chasms, not more water.
-  const cr=1-Math.abs(fbm(nCanyon,x*0.0052,z*0.0052,3))*7.0;
-  const canyon=smoothstep(0.55,0.9,cr)*(1-smoothstep(24,40,h))*(1-lakeAmt);
-  const isCanyon=canyon>0.5 && h>WATER_Y+3;
-  if(canyon>0 && h>WATER_Y+3)h=lerp(h,WATER_Y+1.2,canyon);     // deep dry canyon floor
+  const lakeAmt=smoothstep(-0.10,-0.34,lakeF)*(1-smoothstep(14,34,h));
+  if(lakeAmt>0)h=lerp(h,Math.min(h,WATER_Y-5),lakeAmt);        // gentle lake bed
 
   // biome
   let biome;
   if(h<WATER_Y+0.15) biome='water';
-  else if(isCanyon) biome='canyon';                            // dry rocky gorge
   else if(h>30||mtnMask>0.5) biome='mountain';
   else{
     const temp=nTemp(x*0.004+200,z*0.004+200);
@@ -58,7 +50,6 @@ export function sampleEarth(x,z){
   if(biome==='water'){ r=0.02;g=0.05;b=0.08; }
   else if(h<WATER_Y+1.4){ r=0.26;g=0.23;b=0.17; }              // muddy shore
   else if(biome==='desert'){ r=0.50+tint;g=0.40+tint*0.6;b=0.24; }
-  else if(biome==='canyon'){ const rk=0.24+tint; r=rk+0.06;g=rk;b=rk-0.02; }   // reddish rock
   else if(biome==='mountain'){
     if(h>40){ r=0.74;g=0.80;b=0.90; }                          // dim snow cap
     else{ const rock=0.19+tint; r=rock;g=rock+0.01;b=rock+0.04; }

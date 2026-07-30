@@ -143,7 +143,9 @@ export function updateShadow(groundAt){
   shadowMesh.quaternion.copy(_shQ);
   shadowMesh.position.set(sx, gy+0.25, sz);
   shadowMesh.scale.setScalar(0.9+0.4*k);
-  shadowMesh.material.opacity=(S.cloak?0.12:0.24)+0.24*k;
+  // Very light and subtle — just a faint darkening under the ship, so any imperfect
+  // transition where it crosses between surfaces stays unobtrusive (no fine-tuning).
+  shadowMesh.material.opacity=(S.cloak?0.05:0.09)+0.09*k;
 }
 
 /* floating energy bar above the saucer — shows while beaming or when low */

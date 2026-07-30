@@ -187,7 +187,7 @@ function animate(){
     // to horizontal — quickly but smoothly — so the ship settles into level flight
     // instead of holding a climb/dive angle. (PC keeps its mouse-look pitch.)
     if(TOUCH_ONLY && Math.abs(input.lookStickY)<0.02 && Math.abs(flight.pitch)>0.004){
-      flight.pitch-=flight.pitch*Math.min(1,dt*7);      // τ≈0.14s → level in ~0.4s
+      flight.pitch-=flight.pitch*Math.min(1,dt*3);      // gentle: τ≈0.33s → level in ~1s
       if(Math.abs(flight.pitch)<0.004)flight.pitch=0;
     }
     flight.update(dt,fin);

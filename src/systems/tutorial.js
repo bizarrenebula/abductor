@@ -130,15 +130,28 @@ function build(){
   return dom;
 }
 /* Light up one half of the screen + its ghost stick, running `anim`'s motion.
-   side: 'left' | 'right' | null (hide). Touch devices only. */
+   side: 'left' | 'right' | null (hide). Touch devices only.
+
+   FIRST COME, FIRST SERVED: the guide is only there until the player finds the
+   zone. The first touch that lands on the demoed half dismisses it immediately —
+   the task itself carries on with the text hint. */
+let joySide=null;
 function showJoyDemo(side,anim){
   const d=build();
-  if(!TOUCH||!side){ d.joy.classList.remove('on'); return; }
+  joySide=(TOUCH&&side)?side:null;
+  if(!joySide){ d.joy.classList.remove('on'); return; }
   d.joy.classList.add('on');
   d.joy.dataset.anim=anim||'';
   d.halves.forEach(el=>el.classList.toggle('on',el.classList.contains(side)));
   d.sticks.forEach(el=>el.classList.toggle('on',el.classList.contains(side)));
 }
+/* Passive, capture-phase: observes touches without consuming them, so the game's
+   own joysticks still receive every pointer event. */
+addEventListener('pointerdown',e=>{
+  if(!joySide)return;
+  const half=(e.clientX<innerWidth/2)?'left':'right';
+  if(half===joySide){ joySide=null; if(dom)dom.joy.classList.remove('on'); }
+},{passive:true,capture:true});
 /* Show a modal with a set of {label, primary, onClick} buttons. */
 function showModal(eyebrow,title,body,buttons){
   const d=build();
@@ -249,6 +262,7 @@ export const Tutorial={
   active:false,
   _i:0,
   _s:null,
+  _order:null,      // step order; the two basic-control steps swap per run (see start)
 
   /* Offer the tutorial from the Play button. onYes / onSkip start the game. */
   prompt(onYes,onSkip){
@@ -263,19 +277,24 @@ export const Tutorial={
   start(){
     build();
     this.active=true; S.tutorial=true;   // suppresses lethal hazards (lightning)
+    // Each run opens on a different thumb: swap the two basic-control steps so the
+    // tutorial starts with either the RIGHT-half (move) or LEFT-half (altitude)
+    // touch guide. The later steps keep their order.
+    this._order=(Math.random()<0.5)?[0,1,2,3]:[1,0,2,3];
     this._i=0; this._begin();
     this.hint.classList.add('on');
   },
   get hint(){ return build().hint; },
+  _cur(){ return steps[(this._order||[0,1,2,3])[this._i]]; },
 
   _begin(){
-    const st=steps[this._i]; this._s={};
+    const st=this._cur(); this._s={};
     if(st.begin)st.begin(this._s);
     showJoyDemo(st.joy&&st.joy.side,st.joy&&st.joy.anim);   // animated stick guide (touch only)
     this._render();
   },
   _render(){
-    const d=build(), st=steps[this._i];
+    const d=build(), st=this._cur();
     d.step.textContent='Task '+(this._i+1)+' of '+steps.length;
     d.task.textContent=st.task;
     d.doo.textContent=st.say(this._s);
@@ -290,7 +309,7 @@ export const Tutorial={
   update(dt){
     if(!this.active)return;
     if(S.state!=='playing'){ return; }                 // paused / crashed: leave the card as-is
-    const st=steps[this._i];
+    const st=this._cur();
     // refresh the dynamic line (e.g. the beacon distance)
     build().doo.textContent=st.say(this._s);
     if(st.test(this._s)){

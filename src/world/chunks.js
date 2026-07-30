@@ -73,8 +73,12 @@ junctionGeo.rotateX(-Math.PI/2);junctionGeo.rotateY(Math.PI/8);
   uv.needsUpdate=true;
 })();
 
+// Mobile (LOW_END) uses a slightly coarser mesh than desktop so the per-chunk
+// build (SEG² terrain samples) stays cheap while streaming — still much finer
+// than the old 14, so shorelines/slopes read smoother without a build hitch.
+const MESH_SEG = LOW_END ? 22 : SEG;
 export function buildChunk(cx,cz){
-  const geo=new THREE.PlaneGeometry(CHUNK,CHUNK,SEG,SEG);
+  const geo=new THREE.PlaneGeometry(CHUNK,CHUNK,MESH_SEG,MESH_SEG);
   geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position;
   const colors=new Float32Array(pos.count*3);

@@ -15,10 +15,12 @@
 export const OBJ_SCALE = 1.35;
 
 export const WATER_Y = -3;
-export const CHUNK = 80, SEG = 14;   // coarser mesh = larger "folded-paper" facets (art
-                                     // brief). The height field is all long-wavelength, so a
-                                     // sparser mesh still tracks it closely — physics (analytic
-                                     // heightAt) is unchanged; only the visible tessellation drops.
+export const CHUNK = 80, SEG = 28;   // terrain tessellation per chunk (desktop). Finer than
+                                     // the old 14 so slopes and lake shorelines read smoother
+                                     // (~2.9 u/facet vs 5.7). Mobile uses a lower value in
+                                     // chunks.js to keep the per-chunk build cheap. The height
+                                     // field is long-wavelength, so physics (analytic heightAt)
+                                     // is unchanged; only the visible tessellation gets denser.
 
 /* Hover altitude, in world units above the terrain directly below the ship.
    HOVER_BASE is the resting height the ship has always flown at; arrow up/down

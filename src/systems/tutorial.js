@@ -53,6 +53,51 @@ function build(){
   .tut-dot{width:22px;height:4px;border-radius:2px;background:rgba(143,232,184,.22)}
   .tut-dot.done{background:rgba(143,232,184,.9)}
   .tut-dot.now{background:rgba(143,232,184,.55)}
+
+  /* ---- animated joystick demo (touch devices) ----------------------------
+     Shows WHICH half of the screen drives the current task and animates a ghost
+     stick doing the motion being taught. Purely decorative: pointer-events are
+     off everywhere, so real touches pass straight through to the game. */
+  #tutJoy{position:fixed;inset:0;z-index:38;pointer-events:none;display:none}
+  #tutJoy.on{display:block}
+  /* dashed split: the screen's left/right touch halves */
+  #tutJoy .tut-split{position:absolute;left:50%;top:0;bottom:0;width:0;
+    border-left:1px dashed rgba(143,232,184,.28)}
+  /* the highlighted half for the current task */
+  #tutJoy .tut-half{position:absolute;top:0;bottom:0;width:50%;opacity:0;transition:opacity .35s;
+    background:linear-gradient(to bottom,rgba(143,232,184,0),rgba(143,232,184,.09) 55%,rgba(143,232,184,.14))}
+  #tutJoy .tut-half.left{left:0}  #tutJoy .tut-half.right{right:0}
+  #tutJoy .tut-half.on{opacity:1}
+  /* ghost stick, parked in the natural thumb spot of its half */
+  /* sat high enough to clear the bottom-left HUD (collectible list + minimap) */
+  #tutJoy .tut-stick{position:absolute;bottom:30%;width:118px;height:118px;opacity:0;
+    transition:opacity .35s}
+  #tutJoy .tut-stick.left{left:25%;margin-left:-59px}
+  #tutJoy .tut-stick.right{left:75%;margin-left:-59px}
+  #tutJoy .tut-stick.on{opacity:1}
+  #tutJoy .tut-base{position:absolute;inset:0;border-radius:50%;
+    border:1.5px solid rgba(143,232,184,.34);background:rgba(143,232,184,.055);
+    box-shadow:inset 0 0 22px rgba(143,232,184,.08),0 0 18px rgba(0,0,0,.35)}
+  #tutJoy .tut-knob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;
+    border-radius:50%;background:radial-gradient(circle at 40% 34%,#bff5dd,#3f8f6c 72%);
+    box-shadow:0 0 18px rgba(143,232,184,.55),inset 0 0 10px rgba(0,0,0,.35)}
+  #tutJoy .tut-lbl{position:absolute;left:50%;transform:translateX(-50%);top:-30px;white-space:nowrap;
+    font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#8fe8b8;
+    background:rgba(5,12,10,.55);border:1px solid rgba(143,232,184,.22);border-radius:20px;
+    padding:5px 10px;text-shadow:0 0 10px rgba(0,0,0,.8)}
+  /* per-task knob motion */
+  #tutJoy[data-anim=move]  .tut-stick.right .tut-knob{animation:tutMove 3.2s ease-in-out infinite}
+  #tutJoy[data-anim=alt]   .tut-stick.left  .tut-knob{animation:tutAlt  2.6s ease-in-out infinite}
+  #tutJoy[data-anim=beam]  .tut-stick.right .tut-knob{animation:tutTap  2.8s ease-in-out infinite}
+  @keyframes tutMove{ 0%,8%{transform:translate(0,0)} 26%,38%{transform:translate(0,-34px)}
+    56%{transform:translate(30px,-16px)} 74%{transform:translate(-30px,-16px)} 92%,100%{transform:translate(0,0)} }
+  @keyframes tutAlt{ 0%,10%{transform:translate(0,0)} 32%,46%{transform:translate(0,-36px)}
+    68%,82%{transform:translate(0,36px)} 96%,100%{transform:translate(0,0)} }
+  /* tap · tap · hold — two quick dips, then a long held press */
+  @keyframes tutTap{ 0%,6%{transform:scale(1);filter:brightness(1)}
+    12%{transform:scale(.82);filter:brightness(1.5)} 20%{transform:scale(1);filter:brightness(1)}
+    28%{transform:scale(.82);filter:brightness(1.5)}
+    36%,86%{transform:scale(.9);filter:brightness(1.85)} 96%,100%{transform:scale(1);filter:brightness(1)} }
   `;
   document.head.appendChild(css);
 
@@ -60,18 +105,39 @@ function build(){
   hint.innerHTML='<div class="tut-step"></div><div class="tut-task"></div><div class="tut-do"></div><div class="tut-dots"></div>';
   document.body.appendChild(hint);
 
+  const joy=document.createElement('div');joy.id='tutJoy';
+  joy.innerHTML=
+    '<div class="tut-split"></div>'+
+    '<div class="tut-half left"></div><div class="tut-half right"></div>'+
+    '<div class="tut-stick left"><div class="tut-lbl">left · look &amp; altitude</div>'+
+      '<div class="tut-base"></div><div class="tut-knob"></div></div>'+
+    '<div class="tut-stick right"><div class="tut-lbl">right · move</div>'+
+      '<div class="tut-base"></div><div class="tut-knob"></div></div>';
+  document.body.appendChild(joy);
+
   const modal=document.createElement('div');modal.className='tut-modal';
   modal.innerHTML='<div class="tut-card"><div class="tut-eyebrow"></div><div class="tut-title"></div><div class="tut-body"></div><div class="tut-row"></div></div>';
   document.body.appendChild(modal);
 
   dom={
-    hint, modal,
+    hint, modal, joy,
     step:hint.querySelector('.tut-step'), task:hint.querySelector('.tut-task'),
     doo:hint.querySelector('.tut-do'), dots:hint.querySelector('.tut-dots'),
     eyebrow:modal.querySelector('.tut-eyebrow'), title:modal.querySelector('.tut-title'),
     body:modal.querySelector('.tut-body'), row:modal.querySelector('.tut-row'),
+    halves:joy.querySelectorAll('.tut-half'), sticks:joy.querySelectorAll('.tut-stick'),
   };
   return dom;
+}
+/* Light up one half of the screen + its ghost stick, running `anim`'s motion.
+   side: 'left' | 'right' | null (hide). Touch devices only. */
+function showJoyDemo(side,anim){
+  const d=build();
+  if(!TOUCH||!side){ d.joy.classList.remove('on'); return; }
+  d.joy.classList.add('on');
+  d.joy.dataset.anim=anim||'';
+  d.halves.forEach(el=>el.classList.toggle('on',el.classList.contains(side)));
+  d.sticks.forEach(el=>el.classList.toggle('on',el.classList.contains(side)));
 }
 /* Show a modal with a set of {label, primary, onClick} buttons. */
 function showModal(eyebrow,title,body,buttons){
@@ -147,26 +213,26 @@ function trackMarker(s){
 /* ---- the tutorial steps --------------------------------------------------- */
 const _p=new THREE.Vector3();
 const steps=[
-  { key:'move', task:'Take the controls',
-    say:()=>TOUCH?'Drag the RIGHT stick to fly. Explore a little.'
+  { key:'move', task:'Take the controls', joy:{side:'right',anim:'move'},
+    say:()=>TOUCH?'Touch anywhere on the RIGHT half and drag to fly.'
                  :'Fly with W A S D. Explore a little.',
     begin(s){ s.acc=0; s.last=saucer.position.clone(); },
     test(s){ s.acc+=Math.hypot(saucer.position.x-s.last.x,saucer.position.z-s.last.z);
              s.last.copy(saucer.position); return s.acc>=55; } },
-  { key:'alt', task:'Change altitude',
-    say:()=>TOUCH?'Pull the LEFT stick up to climb, down to dive.'
+  { key:'alt', task:'Change altitude', joy:{side:'left',anim:'alt'},
+    say:()=>TOUCH?'On the LEFT half: drag up to climb, down to dive.'
                  :'Hold SHIFT to climb, CTRL to dive.',
     begin(s){ s.minY=s.maxY=saucer.position.y; },
     test(s){ const y=saucer.position.y; if(y<s.minY)s.minY=y; if(y>s.maxY)s.maxY=y;
              return s.maxY-s.minY>=22; } },
-  { key:'nav', task:'Navigate the world',
+  { key:'nav', task:'Navigate the world', joy:{side:'right',anim:'move'},
     say(s){ const d=Math.round(Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z));
             return 'Fly to the glowing beacon — '+d+' m away.'; },
     begin(s){ const a=S.yaw+0.9, dx=Math.sin(a)*150, dz=Math.cos(a)*150;
               placeBeacon(saucer.position.x+dx,saucer.position.z+dz); },
     test(s){ return Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z)<24; },
     end(){ if(beacon)beacon.visible=false; } },
-  { key:'beam', task:'Beam up a creature',
+  { key:'beam', task:'Beam up a creature', joy:{side:'right',anim:'beam'},
     say(s){
       if(S.beamLock>0.03) return 'Locked on — hold it steady!';
       if(S.beamPower>0.12) return 'Beam open — centre it on the creature.';
@@ -205,6 +271,7 @@ export const Tutorial={
   _begin(){
     const st=steps[this._i]; this._s={};
     if(st.begin)st.begin(this._s);
+    showJoyDemo(st.joy&&st.joy.side,st.joy&&st.joy.anim);   // animated stick guide (touch only)
     this._render();
   },
   _render(){
@@ -236,6 +303,7 @@ export const Tutorial={
 
   _finish(){
     this.hint.classList.remove('on');
+    showJoyDemo(null);
     showModal('Training complete','Nicely done, pilot','You can keep flying this '+
       'world, or run the tutorial again.',
       [ {label:'Continue',primary:true,onClick:()=>{ this.active=false; S.tutorial=false; }},
@@ -245,7 +313,7 @@ export const Tutorial={
   /* Tear everything down (called by startGame on any fresh run). */
   stop(){
     this.active=false; S.tutorial=false; this._i=0; this._s=null;
-    if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); }
+    if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); dom.joy.classList.remove('on'); }
     if(beacon)beacon.visible=false;
     if(marker)marker.visible=false;
   },

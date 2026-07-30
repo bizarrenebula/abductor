@@ -64,6 +64,19 @@ import { t as tr, applyStaticDOM, onLang } from './i18n.js';   // aliased: `t` i
 
 const _v=new THREE.Vector3();
 
+/* Ported "Many Lives" flight model + intimate follow camera (isolated modules,
+   profile-injected). They own the ship's position/heading and the playing-state
+   camera; the rest of the game (beam, cloak, collision, energy, HUD) reads the
+   synced S.* fields exactly as before. */
+import { FlightModel } from './systems/flight.js';
+import { CameraRig } from './systems/camera-rig.js';
+import { FLIGHT_PROFILE } from './systems/flight-profile.js';
+import { flightInputFrom } from './systems/flight-input.js';
+const flight=new FlightModel(FLIGHT_PROFILE.flight,new THREE.Vector3(0,HOVER_BASE,0));
+const camRig=new CameraRig(camera,FLIGHT_PROFILE.camera);
+const ACCEL_BASE=FLIGHT_PROFILE.flight.acceleration;
+let prevState='';
+
 /* =========================================================================
    MAIN LOOP
    ========================================================================= */
@@ -149,90 +162,35 @@ function animate(){
     S.prevBeam=beamOn;
     BeamSFX.set(S.beamPower);
 
-    /* ---- heading: A / D (desktop) or the left joystick's x-axis (touch) spin
-       the ship on its own axis. Momentum: the intent accelerates S.yawV, which
-       then coasts down and is capped, so turns wind up and unwind. ---- */
-    let turn=input.tTurn;
-    if(held('turnL'))turn-=1;
-    if(held('turnR'))turn+=1;
-    turn=clamp(turn,-1,1);
-    S.yawV+=turn*YAW_ACC*dt;
-    S.yawV*=Math.pow(YAW_DRAG,dt);
-    S.yawV=clamp(S.yawV,-YAW_VMAX,YAW_VMAX);
-    S.yaw-=S.yawV*dt;                                  // +turn (right) swings the nose clockwise
-
-    /* ---- translation, relative to the heading:
-         forward/back  ↑ / ↓  or left-joystick y
-         strafe        ← / →  or right-joystick x                             ---- */
-    const fx=-Math.sin(S.yaw), fz=-Math.cos(S.yaw);    // nose / forward (into the screen at yaw 0)
-    const rx= Math.cos(S.yaw), rz=-Math.sin(S.yaw);    // ship's right
-    let fwd=input.tFwd, side=input.tStrafe;
-    if(held('forward'))fwd+=1;
-    if(held('back'))fwd-=1;
-    if(held('strafeR'))side+=1;
-    if(held('strafeL'))side-=1;
-    fwd=clamp(fwd,-1,1);side=clamp(side,-1,1);
-    const il=Math.hypot(fwd,side); if(il>1){fwd/=il;side/=il;}
-    const moveMag=Math.min(1,Math.hypot(fwd,side));
-    const ax=rx*side+fx*fwd, az=rz*side+fz*fwd;
-    // Beaming keeps full steering but cuts thrust (BEAM_MOVE) — you fly slower
-    // while feeding, not stuck. Handling (drag) stays the same so it still glides.
-    const ACC=MOVE_ACC*(S.upSpeed||1)*(beamOn?BEAM_MOVE:1)*(buff==='speed'?1.6:1)*(World.name==='moon'?1.4:1)*(1.2-0.35*S.dayF);   // faster at night; S.upSpeed is the earned engine upgrade
-    S.vel.x+=ax*ACC*dt; S.vel.z+=az*ACC*dt;
-    // drag / gradual stop with delay — high retention so the heavy hull keeps
-    // gliding when you release the stick (momentum), coasting to rest over a
-    // second or so rather than braking on a dime. Moon glides even further.
-    const drag=Math.pow(World.name==='moon'?0.34:0.22,dt);   // less coast = tighter, more responsive
-    S.vel.x*=drag; S.vel.z*=drag;
-    // FREE FLIGHT (experiment): the ship no longer looks ahead and auto-climbs over
-    // the ground/structures — you fly exactly where you point it. A rise or object
-    // the hull flies into is a collision (handled below and in collision.js), so the
-    // player has to be careful where they steer.
-    saucer.position.x+=S.vel.x*dt;
-    saucer.position.z+=S.vel.z*dt;
-
-    /* ---- altitude: W / S or the left joystick's y-axis. Momentum-driven — the
-       input feeds a climb rate (hoverV) that eases in and coasts out, so a climb
-       reads like a takeoff and a descent like a settling landing. ---- */
-    let ah=input.tClimb;
-    if(held('ascend'))ah+=1;
-    if(held('descend'))ah-=1;
-    ah=clamp(ah,-1,1);
-    // Thrusters work from the start, but a raw drive DRAINS the reactor while you
-    // actively climb or dive; the Nuclear Thrusters module makes altitude free AND
-    // lifts the ceiling, so you can rise without limits once it's aboard.
-    const climbing=Math.abs(ah)>0.01;
-    S.hoverV+=ah*HOVER_ACC*dt;
-    S.hoverV*=Math.pow(HOVER_DRAG,dt);
-    S.hoverV=clamp(S.hoverV,-HOVER_VMAX,HOVER_VMAX);
-    S.hover+=S.hoverV*dt;
-    const ceil=S.upAltitude?HOVER_MAX*6:HOVER_MAX;   // Nuclear Thrusters: sky's the limit
-    if(S.hover<HOVER_MIN){S.hover=HOVER_MIN;if(S.hoverV<0)S.hoverV=0;}
-    if(S.hover>ceil){S.hover=ceil;if(S.hoverV>0)S.hoverV=0;}
-    if(ah||Math.abs(S.hoverV)>0.4)altHudT=0.8; else altHudT=Math.max(0,altHudT-dt);
-    // The absolute floor scales with the commanded hover, otherwise it would
-    // pin the ship at 26 and descending would do nothing over low ground.
-    // The surface the ship flies over is the terrain OR the road deck above it,
-    // whichever is higher — otherwise it sails straight through embankments
-    // and bridges, which sit well above the ground they span.
+    /* ---- flight: ported dragonfly model (hover-capable, analytic-inertia) ----
+       On the first playing frame (after start / respawn) sync the model to the
+       spawn pose. Gameplay speed modifiers (engine upgrade, beam slowdown, night,
+       speed buff) fold into acceleration; the profile's maxSpeed stays the hard
+       cap, so e.g. beaming cruises slower but the top speed is unchanged. */
+    if(prevState!=='playing'){ flight.reset(saucer.position); flight.yaw=S.yaw; camRig.reset(); }
+    const fin=flightInputFrom(input,held,dt);
+    const speedMult=(S.upSpeed||1)*(beamOn?BEAM_MOVE:1)*(buff==='speed'?1.6:1)*(World.name==='moon'?1.4:1)*(1.2-0.35*S.dayF);
+    flight.f.acceleration=ACCEL_BASE*speedMult;
+    // Free flight, but never sink through the ground: a per-frame soft floor at the
+    // terrain (crash-on-contact for flying INTO a rise is still handled below).
+    const ghPre=Math.max(heightAt(flight._base.x,flight._base.z),roadHeightAt(flight._base.x,flight._base.z));
+    flight.f.floorY=ghPre+4;
+    flight.update(dt,fin);
+    saucer.position.copy(flight.position);
+    saucer.quaternion.copy(flight.quaternion);        // dragonfly bank/heading
+    S.yaw=flight.yaw;
+    S.vel.x=flight.velocity.x; S.vel.z=flight.velocity.z;
+    const moveMag=Math.min(1,Math.hypot(fin.forward,fin.strafe));
+    const climbing=Math.abs(fin.vertical)>0.01;
+    if(climbing||Math.abs(flight.velocity.y)>0.4)altHudT=0.8; else altHudT=Math.max(0,altHudT-dt);
     const gh=Math.max(heightAt(saucer.position.x,saucer.position.z),
                       roadHeightAt(saucer.position.x,saucer.position.z));
-    const floorY=26*(S.hover/HOVER_BASE);
-    // Hold the commanded clearance over the ground DIRECTLY BELOW only (no look-
-    // ahead), and climb slowly — so a hill or bridge you fly into is NOT auto-
-    // cleared: you have to gain the height yourself with the thrusters, or crash.
-    // The follow also never climbs a MOUNTAIN (capped at MTN_H): mountain faces are
-    // solid walls you fly into, not slopes the ship rides up.
-    const followH=Math.min(gh,MTN_H);
-    const targetY=Math.max(floorY,followH+S.hover)+Math.sin(t*1.4)*0.5;
-    const dy=targetY-saucer.position.y;
-    const cap=(dy>0?10:8)*dt;                 // slow auto-climb / gentle descent, units/s
-    saucer.position.y+=clamp(dy*Math.min(1,dt*2.6),-cap,cap);
 
     /* Altitude trade-off, derived once from the ship's true height above ground
        and shared by the beam, the reactor and the camera. Low = strong beam,
        cheap flight, lethal scenery. High = weak beam, thirsty reactor, safe. */
     S.agl=saucer.position.y-gh;
+    S.hover=S.agl; S.hoverV=flight.velocity.y;   // altitude HUD reads actual height + climb rate
     S.beamStr=ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,BEAM_STR_LOW,1,BEAM_STR_HIGH);
     const drainAlt=ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,DRAIN_ALT_LOW,1,DRAIN_ALT_HIGH);
     updateShipGestureHUD();
@@ -252,16 +210,8 @@ function animate(){
       BeamSFX.stop();S.prevBeam=false;
     }
 
-    // banking swing: roll into the turn, plus pitch/roll from motion in the
-    // ship's own frame so the tilt stays sane at any heading.
-    const localVX=S.vel.x*rx+S.vel.z*rz;   // sideways speed
-    const localVZ=S.vel.x*fx+S.vel.z*fz;   // forward speed
-    // Bank slowly, as a big mass leans: the roll eases in over ~0.4s instead of
-    // snapping, so the tilt lags the turn a touch and adds to the sense of weight.
-    S.tiltZ=lerp(S.tiltZ,-localVX*0.011-S.yawV*0.22,Math.min(1,dt*2.6));
-    S.tiltX=lerp(S.tiltX, localVZ*0.011,Math.min(1,dt*2.6));
-    saucer.rotation.y=S.yaw;
-    saucer.rotation.z=S.tiltZ; saucer.rotation.x=S.tiltX;
+    // Orientation (heading + bank) comes from the flight model's quaternion, set
+    // above. Only the decorative light rings spin here.
     saucer.userData.lights.rotation.y-=dt*1.5;
     saucer.userData.lightsTop.rotation.y-=dt*1.5;
 
@@ -363,42 +313,15 @@ function animate(){
     sun.target.position.copy(saucer.position);
     sun.position.set(saucer.position.x+60,saucer.position.y+90,saucer.position.z+30);
 
-    /* ---- camera ----
-       Zoom with altitude: low = tight and close for threading between trees,
-       high = pulled back for a wide survey view. Driven off the *actual* height
-       above ground rather than the commanded S.hover, so the camera eases with
-       the ship instead of snapping the moment a key is pressed. */
-    // Anchored so zoom is exactly 1.0 at HOVER_BASE — the resting framing stays
-    // what camOffset was tuned for, and only leaving that height moves it.
-    camZoom=lerp(camZoom,ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,CAM_ZOOM_LOW,1,CAM_ZOOM_HIGH),Math.min(1,dt*2));
-    // Chase camera rides behind the nose: rotate the offset by the heading so the
-    // view swings with the ship and "forward" stays into the screen. input.zoom
-    // is the zoom-slider multiplier layered on top of the altitude zoom.
-    // Angle slider: piecewise blend through three framings as camPitch runs
-    // 0→1 — a low, near-side view that looks slightly UP at the saucer (bottom),
-    // the default behind-the-ship framing (BEHIND_T), and a top-down view (top).
-    // Eased so a drag glides.
+    /* ---- camera: ported intimate spring-damper follow rig ----
+       Zoom slider (0.5..2.5) + altitude pull-back drive the follow distance;
+       the angle slider raises the camera for a higher, more overhead framing. */
+    const CAMP=FLIGHT_PROFILE.camera;
     camPitchE=lerp(camPitchE,input.camPitch,Math.min(1,dt*3));
-    const p=camPitchE, BEHIND_T=0.35;
-    let offY,offZ,lookY;
-    if(p<BEHIND_T){                          // low/side  →  behind
-      const u=p/BEHIND_T;
-      offY=lerp(-4,camOffset.y,u);           // camera dips just below the hull…
-      offZ=lerp(45,camOffset.z,u);
-      lookY=lerp(5,camLook.y,u);             // …and looks slightly up at it (side-on)
-    }else{                                   // behind    →  top-down
-      const u=(p-BEHIND_T)/(1-BEHIND_T);
-      offY=lerp(camOffset.y,46,u);           // rise overhead
-      offZ=lerp(camOffset.z,6,u);            // and pull in almost directly above
-      lookY=lerp(camLook.y,0,u);             // aim down onto the ship
-    }
-    const z=camZoom*input.zoom;
-    const cs=Math.sin(S.yaw), cc=Math.cos(S.yaw);
-    const ox=(camOffset.x*cc+offZ*cs)*z;
-    const oz=(-camOffset.x*cs+offZ*cc)*z;
-    const desired=_v.set(saucer.position.x+ox,saucer.position.y+offY*z,saucer.position.z+oz);
-    camera.position.lerp(desired,Math.min(1,dt*2.4));
-    camera.lookAt(saucer.position.x+camLook.x,saucer.position.y+lookY,saucer.position.z+camLook.z);
+    const altPull=ramp(S.agl,HOVER_MIN,HOVER_BASE,HOVER_MAX,0.85,1,1.6);
+    camRig.zoom=clamp(CAMP.distance*input.zoom*altPull,CAMP.zoomMin,CAMP.zoomMax);
+    CAMP.height=8+camPitchE*70;               // angle slider 0→1 lifts the eye overhead
+    camRig.update(dt,flight);
 
     /* ---- clock ---- */
     S.elapsed+=dt;
@@ -469,6 +392,7 @@ function animate(){
   drawMinimap(dt);
   updateFlare(dt);
   if(window._lflash)window._lflash.style.opacity=(typeof flashAmt!=='undefined'?flashAmt*0.7:0);
+  prevState=S.state;   // flight/camera rig re-sync on the first frame back in 'playing'
   renderFrame();
 }
 

@@ -28,6 +28,7 @@ import { resetMeteors } from '../hazards/meteors.js';
 import { resetGeysers } from '../hazards/geysers.js';
 import { resetLightning } from '../hazards/lightning.js';
 import { Story, storyProceed } from '../story/story.js';
+import { Tutorial } from '../systems/tutorial.js';
 import { Music, TRACK_BY_WORLD } from '../audio/music.js';
 import { BeamSFX } from '../audio/sfx.js';
 import { banner } from './banner.js';
@@ -46,6 +47,7 @@ const oExtra=document.getElementById('oExtra');   // "Tuning" sector chip summar
    Called directly as a click handler too, where the arg is an Event → no .keep. */
 export function startGame(opts){
   const keepUpgrades=!!(opts&&opts.keep===true);
+  Tutorial.stop();                 // clear any prior tutorial state on every fresh run
   // No time limit any more — the run is open-ended.
   S.score=0;scoreV.textContent='0';
   S.taken=0;S.tally={};specV.textContent=t('hud.taken',{n:0});
@@ -123,7 +125,11 @@ export function endGame(reason){
     :(reason==='crash'||reason==='energy')?t('over.msg.crash'):msg;
   overScreen.classList.remove('hidden');
 }
-document.getElementById('startBtn').addEventListener('click',()=>startGame());
+// Play offers the guided tutorial first; either choice starts the game, and
+// "Show me" then kicks off the walkthrough in the freshly-started world.
+document.getElementById('startBtn').addEventListener('click',()=>{
+  Tutorial.prompt(()=>{ startGame(); Tutorial.start(); }, ()=>startGame());
+});
 // "run it back" continues the same ship — a crash never costs your upgrades.
 document.getElementById('againBtn').addEventListener('click',()=>startGame({keep:true}));
 document.getElementById('settingsBtn').addEventListener('click',()=>{

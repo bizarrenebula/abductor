@@ -68,6 +68,7 @@ const _v=new THREE.Vector3();
    profile-injected). They own the ship's position/heading and the playing-state
    camera; the rest of the game (beam, cloak, collision, energy, HUD) reads the
    synced S.* fields exactly as before. */
+import { Tutorial } from './systems/tutorial.js';
 import { FlightModel } from './systems/flight.js';
 import { CameraRig } from './systems/camera-rig.js';
 import { FLIGHT_PROFILE } from './systems/flight-profile.js';
@@ -354,6 +355,7 @@ function animate(){
     if(S.safeT<=0&&S.energy>0.14&&!S.cloak){S.safeT=2.2;S.safePos.copy(saucer.position);S.safeYaw=S.yaw;}
     dayNightUpdate(dt);
     applyDayNightLight();
+    Tutorial.update(dt);              // optional guided intro (no-op unless active)
 
   } else if(S.state==='crashing'){
     /* powerless: the ship falls */

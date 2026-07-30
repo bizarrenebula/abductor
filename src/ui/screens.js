@@ -46,9 +46,7 @@ const oExtra=document.getElementById('oExtra');   // "Tuning" sector chip summar
    Called directly as a click handler too, where the arg is an Event → no .keep. */
 export function startGame(opts){
   const keepUpgrades=!!(opts&&opts.keep===true);
-  // Beam lock time, beam diameter and the survey window used to be tunable in
-  // settings; they're now fixed at the defaults declared in core/state.js.
-  S.timeLeft=S.timeLimit;
+  // No time limit any more — the run is open-ended.
   S.score=0;scoreV.textContent='0';
   S.taken=0;S.tally={};specV.textContent=t('hud.taken',{n:0});
   resetBuffs();
@@ -159,28 +157,7 @@ document.getElementById('quitBtn').addEventListener('click',toMenu);
 addEventListener('keydown',e=>{ if(e.key==='Escape'){
   if(S.state==='playing')pauseGame(); else if(S.state==='paused')resumeGame(); }});
 
-/* ---------- music volume ---------- */
-const sMusicVol=document.getElementById('sMusicVol');
-Music.vol=+sMusicVol.value/100;
-sMusicVol.addEventListener('input',()=>Music.setVolume(+sMusicVol.value/100));
-
-/* ---------- music source: bundled orchestral Soundtrack vs procedural synth ---------- */
-const segMusic=document.getElementById('segMusic');
-const oMusicSrc=document.getElementById('oMusicSrc');
-export function applyMusicSrc(mode){
-  S.musicMode=(mode==='procedural')?'procedural':'soundtrack';
-  Music.setMode(S.musicMode);
-  if(segMusic)segMusic.querySelectorAll('[data-ms]').forEach(x=>x.classList.toggle('on',x.dataset.ms===S.musicMode));
-  if(oMusicSrc)oMusicSrc.textContent=t(S.musicMode==='procedural'?'music.procedural':'music.soundtrack');
-  try{localStorage.setItem('abductor.music',S.musicMode);}catch(e){}
-}
-if(segMusic)segMusic.addEventListener('click',e=>{const b=e.target.closest('[data-ms]');if(b)applyMusicSrc(b.dataset.ms);});
-let _ms0=null; try{_ms0=localStorage.getItem('abductor.music');}catch(e){}
-if(_ms0!=='soundtrack'&&_ms0!=='procedural')_ms0='soundtrack';
-// set the source before any track starts (Music.setMode no-ops until a track plays)
-Music.mode=_ms0; S.musicMode=_ms0;
-if(segMusic)segMusic.querySelectorAll('[data-ms]').forEach(x=>x.classList.toggle('on',x.dataset.ms===_ms0));
-if(oMusicSrc)oMusicSrc.textContent=t(_ms0==='procedural'?'music.procedural':'music.soundtrack');
+/* Music / soundtrack removed — only in-game SFX remain (see audio/music.js). */
 
 /* ---------- world + reactor + mode selection ---------- */
 document.getElementById('segWorld').addEventListener('click',e=>{
@@ -196,6 +173,7 @@ document.getElementById('segEnergy').addEventListener('click',e=>{
   S.energyMode=b.dataset.e;
   document.querySelectorAll('#segEnergy [data-e]').forEach(x=>x.classList.toggle('on',x===b));
   document.getElementById('oEnergy').textContent=t(S.energyMode==='drain'?'reactor.drain':'reactor.inf');
+  syncTuningChip();
 });
 document.getElementById('segMode').addEventListener('click',e=>{
   const b=e.target.closest('[data-m]');if(!b)return;
@@ -322,39 +300,28 @@ document.getElementById('confirmBtn').addEventListener('click',()=>closeSaucerPa
 
 /* The splash now hands straight to the setup screen — no landing gate. */
 
-/* ---------- graphics quality toggle (Tuning sector) ----------
-   Cinematic = bloom + colour grade + IBL reflections; Basic = direct render.
-   Default follows the device (desktop → Cinematic, mobile → Basic), overridable
-   here and remembered. renderFrame still auto-drops to Basic if a GPU rejects
-   post-fx mid-run. */
-const segGfx=document.getElementById('segGfx');
-const oGraphics=document.getElementById('oGraphics');
+/* ---------- graphics quality — Cinematic only (no in-game toggle) ----------
+   Cinematic = bloom + colour grade + IBL reflections. renderFrame still auto-
+   drops to Basic if a GPU rejects post-fx or the frame rate stays low. */
 export function applyGfx(mode){
   S.gfx=(mode==='full')?'full':'basic';
   setFX(S.gfx==='full'?'full':'basic');
-  if(segGfx)segGfx.querySelectorAll('[data-g]').forEach(x=>x.classList.toggle('on',x.dataset.g===S.gfx));
-  const gfxLabel=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
-  if(oGraphics)oGraphics.textContent=gfxLabel;
-  if(oExtra)oExtra.textContent=gfxLabel;                 // Tuning sector chip summary
-  try{localStorage.setItem('abductor.gfx',S.gfx);}catch(e){}
 }
-if(segGfx)segGfx.addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(b)applyGfx(b.dataset.g);});
-let _gfx0=null; try{_gfx0=localStorage.getItem('abductor.gfx');}catch(e){}
-if(_gfx0!=='full'&&_gfx0!=='basic')_gfx0=env.LOW_END?'basic':'full';
-applyGfx(_gfx0);
+applyGfx('full');   // always cinematic
+
+/* keep the "Tuning" sector chip in sync with the (only remaining) reactor setting */
+function syncTuningChip(){ if(oExtra)oExtra.textContent=t(S.energyMode==='drain'?'reactor.drain':'reactor.inf'); }
+syncTuningChip();
 
 /* Asset quality is decided by the device in core/env.js — no toggle here. */
 
-/* ---------- language switch (landing + settings) ---------- */
-document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLang(b.getAttribute('data-lang'))));
+/* ---------- language (fixed to whatever i18n loaded; picker removed) ---------- */
 onLang(()=>{
   // re-render dynamic menu bits that aren't plain [data-i18n] elements
   document.getElementById('oWorld').textContent=t('world.'+S.world);
   document.getElementById('oMode').textContent=t(S.storyMode?'mode.story':'mode.exploreShort');
   document.getElementById('oEnergy').textContent=t(S.energyMode==='drain'?'reactor.drain':'reactor.inf');
-  if(oGraphics)oGraphics.textContent=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
-  if(oExtra)oExtra.textContent=t(S.gfx==='full'?'gfx.cinematic':'gfx.basic');
-  if(oMusicSrc)oMusicSrc.textContent=t(S.musicMode==='procedural'?'music.procedural':'music.soundtrack');
+  syncTuningChip();
   if(specV)specV.textContent=t('hud.taken',{n:S.taken});
   renderKeybinds();renderTouchControls(); // control labels are localized
   Story._last=''; if(Story.active)Story.hud();

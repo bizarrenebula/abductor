@@ -38,6 +38,10 @@
   #hud{position:fixed;inset:0;pointer-events:none;z-index:10;
     opacity:0;transition:opacity .6s ease}
   #hud.on{opacity:1}
+  /* Minimal HUD: keep only the minimap, the collectible checklist above it, the
+     pause button and the PULL button. Everything else is hidden. */
+  #hScore,#hMission,#hClock,#hStory,#hRegion,#hTarget,#hBuff,#hUpgrade,
+  #cloakRing,#altScale,#zoomCtl,#angleCtl{display:none!important}
   .panel{position:absolute;background:var(--panel);border:1px solid var(--edge);
     border-radius:10px;padding:7px 11px;backdrop-filter:blur(8px);
     box-shadow:0 0 30px rgba(0,0,0,.5),inset 0 0 20px rgba(89,255,176,.04)}
@@ -645,10 +649,6 @@
   </div>
   <div class="sp-title">ABDUCT<span>OR</span></div>
   <div id="splashLog"></div>
-  <div class="sp-lang" id="splashLang">
-    <button data-lang="en">EN</button><button data-lang="ru">RU</button><button data-lang="bg">BG</button>
-  </div>
-  <div class="sp-hint" id="splashHint" data-i18n="splash.pick">select a language to begin</div>
 </div>
 
 <!-- LANDING SCREEN — radial "saucer" setup menu -->
@@ -717,29 +717,11 @@
         <div class="pan" id="panExtra">
           <div class="pan-h" data-i18n="field.tuning">Tuning</div>
           <div class="field">
-            <div class="row"><span class="name" data-i18n="field.graphics">Graphics</span><span class="out" id="oGraphics">Cinematic</span></div>
-            <div class="seg" id="segGfx">
-              <button data-g="full" class="on" data-i18n="gfx.cinematic">Cinematic</button>
-              <button data-g="basic" data-i18n="gfx.basic">Basic</button>
-            </div>
-          </div>
-          <div class="field">
-            <div class="row"><span class="name" data-i18n="field.reactor">Reactor</span><span class="out" id="oEnergy">Drainable</span></div>
+            <div class="row"><span class="name" data-i18n="field.reactor">Reactor</span><span class="out" id="oEnergy">Infinite</span></div>
             <div class="seg" id="segEnergy">
-              <button data-e="drain" class="on" data-i18n="reactor.drain">Drainable</button>
-              <button data-e="inf" data-i18n="reactor.inf">Infinite</button>
+              <button data-e="inf" class="on" data-i18n="reactor.inf">Infinite</button>
+              <button data-e="drain" data-i18n="reactor.drain">Drainable</button>
             </div>
-          </div>
-          <div class="field">
-            <div class="row"><span class="name" data-i18n="field.musicSrc">Music</span><span class="out" id="oMusicSrc">Soundtrack</span></div>
-            <div class="seg" id="segMusic">
-              <button data-ms="soundtrack" class="on" data-i18n="music.soundtrack">Soundtrack</button>
-              <button data-ms="procedural" data-i18n="music.procedural">Procedural</button>
-            </div>
-          </div>
-          <div class="field">
-            <div class="row"><span class="name" data-i18n="field.music">Music volume</span></div>
-            <input type="range" id="sMusicVol" min="0" max="100" step="1" value="60">
           </div>
         </div>
 

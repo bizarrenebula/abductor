@@ -19,7 +19,8 @@ let worldHemiBase=0.42;
 
 /* day/night: S.dayF is a smoothed 0..1 (0 night, 1 day); isDay is the discrete phase */
 export function dayNightUpdate(dt){
-  const cyc=S.endless?300:Math.max(30,S.timeLimit/2);   // endless: swap every 5 min; timed: halfway
+  const DAY_CYCLE=240;                                   // fixed day/night cycle length (s), independent of any time limit
+  const cyc=DAY_CYCLE;
   const phase=Math.floor(S.elapsed/cyc);
   const wantDay=(phase%2===0);                            // first half = day, then alternate
   if(wantDay!==S.isDay){
@@ -56,7 +57,7 @@ export function applyDayNightLight(){
     const nf=wc.fog;const nr=(nf>>16)&255,ng=(nf>>8)&255,nb=nf&255;
     scene.fog.color.setRGB((nr*0.42+f*6)/255,(ng*0.42+f*7)/255,(nb*0.42+f*8)/255);
   }
-  scene.fog.density=lerp(env.LOW_END?0.0140:0.0075, env.LOW_END?0.0110:0.0056, f);
+  scene.fog.density=lerp(env.LOW_END?0.0070:0.0038, env.LOW_END?0.0055:0.0028, f);
   // stars fade out by day, moon fades in by night
   if(stars)stars.material.opacity=(wc?wc.stars:0.7)*(1-f);
   if(moon)moon.material.opacity=0.9*(1-f)+0.15;

@@ -22,18 +22,10 @@ export function beep(freq,dur,vol){
    over whatever world track is playing. */
 export const Theremin={
   on:false,osc:null,vib:null,amp:null,phraseT:0,
+  // MUSIC DISABLED: the theremin lead is silenced. start() is a no-op so the
+  // wailing voice never plays; stop()/update() stay safe to call.
   start(){
-    const ac=Music.ac;if(this.on||!ac)return;this.on=true;
-    const o=ac.createOscillator();o.type='triangle';o.frequency.value=330;
-    const filt=ac.createBiquadFilter();filt.type='lowpass';filt.frequency.value=1700;filt.Q.value=5;
-    const amp=ac.createGain();amp.gain.value=0.0001;
-    // expressive vibrato — the hand-wavering wobble that defines the instrument
-    const vib=ac.createOscillator();vib.type='sine';vib.frequency.value=5.4;
-    const vibG=ac.createGain();vibG.gain.value=9;vib.connect(vibG);vibG.connect(o.frequency);
-    o.connect(filt);filt.connect(amp);
-    amp.connect(Music.musicBus);amp.connect(Music.echoIn);   // dry + echo; musicBus feeds the reverb
-    o.start();vib.start();
-    this.osc=o;this.vib=vib;this.amp=amp;this.phraseT=ac.currentTime+1.5;
+    return;
   },
   stop(){
     const ac=Music.ac;if(!this.on||!ac)return;this.on=false;
@@ -153,14 +145,9 @@ export const Music={
     }
     Theremin.update(this.ac.currentTime);   // lay the 80s-alien theremin over the top
   },
+  // MUSIC DISABLED: no procedural theme is ever scheduled/started.
   startTrack(name){
-    this.ensure();this.track=name;this.step=0;this.playing=true;
-    if(name==='drift'){this.spb=60/52/2;this.startDrone();}
-    else if(name==='void'){this.spb=60/40/2;}
-    else{this.spb=60/96/4;}
-    this.nextT=this.ac.currentTime+0.1;
-    Theremin.start();
-    clearInterval(this.timer);this.timer=setInterval(()=>this.schedule(),25);
+    return;
   },
   stopAll(){clearInterval(this.timer);this.timer=null;this.stopDrone();Theremin.stop();this.playing=false;},
   setVolume(v){this.vol=v;const t=this.ac?this.ac.currentTime:0;
@@ -182,7 +169,8 @@ export const Music={
       this.fileEl=a;this.fileGain=g;
     }catch(e){ this.fileFailed=true; }
   },
-  playFile(){ this.initFile(); if(this.fileEl){try{const p=this.fileEl.play();if(p)p.catch(()=>{});}catch(e){}} },
+  // MUSIC DISABLED: never play the bundled soundtrack file.
+  playFile(){ return; },
   stopFile(){ if(this.fileEl){try{this.fileEl.pause();}catch(e){}} },
 
   /* Switch music source live (Settings). Restarts whatever's currently playing
@@ -196,30 +184,16 @@ export const Music={
     if(cur&&cur!=='off')this.set(cur);
   },
 
+  // MUSIC DISABLED: switching world themes is a no-op. We keep the AudioContext
+  // and SFX path alive (ensure) but never start any theme/soundtrack/theremin,
+  // and we stop anything that might already be playing. Never throws.
   set(name){
     this.ensure();if(this.ac.state==='suspended')this.ac.resume();
-    if(name==='off'){
-      this.track='off';this.stopFile();Theremin.stop();
-      if(this.playing){this.musicBus.gain.setTargetAtTime(0.0001,this.ac.currentTime,0.2);setTimeout(()=>this.stopAll(),450);}
-      return;
-    }
-    // theremin + procedural both route through musicBus — keep it audible
-    this.musicBus.gain.setTargetAtTime(this.vol,this.ac.currentTime,0.3);
-    if(this.mode==='soundtrack'&&!this.fileFailed){
-      if(this.timer)this.stopAll();          // ensure the step sequencer is off
-      this.track=name;this.playing=true;
-      this.playFile();Theremin.start();
-      return;
-    }
-    // --- procedural per-world tracks ---
-    this.stopFile();
-    if(this.track===name&&this.playing&&this.timer)return;
-    const swap=()=>{this.stopAll();this.startTrack(name);
-      this.musicBus.gain.cancelScheduledValues(this.ac.currentTime);
-      this.musicBus.gain.setTargetAtTime(this.vol,this.ac.currentTime,0.4);};
-    if(this.playing){this.musicBus.gain.setTargetAtTime(0.0001,this.ac.currentTime,0.12);setTimeout(swap,320);}
-    else swap();
-    this.track=name;
+    this.track='off';
+    try{this.stopFile();}catch(e){}
+    try{Theremin.stop();}catch(e){}
+    try{this.stopAll();}catch(e){}
+    return;
   }
 };
 

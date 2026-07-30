@@ -53,7 +53,7 @@ import { BeamSFX } from './audio/sfx.js';
 
 import { waterMat } from './world/water.js';
 import { banner } from './ui/banner.js';
-import { clockV, cloakRing, cloakArc, altScale, altKnob, altVal } from './ui/dom.js';
+import { cloakRing, cloakArc, altScale, altKnob, altVal } from './ui/dom.js';
 import { drawMinimap } from './ui/minimap.js';
 import { updateFlare } from './ui/flare.js';
 import { renderFrame, allocRT, setFX } from './ui/postfx.js';
@@ -321,7 +321,7 @@ function animate(){
     camRig.zoom=clamp(CAMP.distance*input.zoom*altPull,CAMP.zoomMin,CAMP.zoomMax);
     camRig.update(dt,flight);   // pitch (mouse / left-stick) drives the look; height stays the tuned base
 
-    /* ---- clock ---- */
+    /* ---- world clock (no time limit; only drives the day/night cycle) ---- */
     S.elapsed+=dt;
     // Remember a "last living point" a couple of seconds back, so the story-mode
     // respawn drops the ship somewhere it was safe rather than on the fatal spot.
@@ -329,13 +329,6 @@ function animate(){
     if(S.safeT<=0&&S.energy>0.14&&!S.cloak){S.safeT=2.2;S.safePos.copy(saucer.position);S.safeYaw=S.yaw;}
     dayNightUpdate(dt);
     applyDayNightLight();
-    if(!S.endless){
-      S.timeLeft-=dt;
-      if(S.timeLeft<=0){S.timeLeft=0;endGame();}
-      const m=Math.floor(S.timeLeft/60),sec=Math.floor(S.timeLeft%60);
-      clockV.textContent=(m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;
-      clockV.classList.toggle('crit',S.timeLeft<20);
-    }else{clockV.textContent='∞';}
 
   } else if(S.state==='crashing'){
     /* powerless: the ship falls */
@@ -398,7 +391,7 @@ function animate(){
    BOOT
    ========================================================================= */
 const SPLASH_T0=performance.now();
-let assetsReady=false, langChosen=false, splashGone=false;
+let assetsReady=false, splashGone=false;
 function enablePlay(){
   if(assetsReady)return;assetsReady=true;
   const b=document.getElementById('startBtn');if(b)b.disabled=false;
@@ -406,10 +399,10 @@ function enablePlay(){
   diagFinish();   // settle the splash line even if some assets fell back
   maybeDismissSplash();
 }
-// The splash only leaves once the player has picked a language AND assets are
-// ready — language selection is mandatory before the settings screen.
+// The splash hands straight to the setup menu once assets are ready — there is
+// no language gate any more.
 function maybeDismissSplash(){
-  if(splashGone||!assetsReady||!langChosen)return;
+  if(splashGone||!assetsReady)return;
   splashGone=true;
   const sp=document.getElementById('splash');
   if(sp){
@@ -417,13 +410,6 @@ function maybeDismissSplash(){
     setTimeout(()=>{sp.classList.add('done');setTimeout(()=>sp.remove(),900);},wait);
   }
 }
-// Picking a language on the splash is what lets the boot proceed.
-document.querySelectorAll('#splashLang [data-lang]').forEach(b=>
-  b.addEventListener('click',()=>{
-    langChosen=true;
-    const sp=document.getElementById('splash');if(sp)sp.classList.add('picked');
-    maybeDismissSplash();
-  }));
 setTimeout(enablePlay,20000);   // never trap the player on a dead network
 
 ((env.LOW_END||env.noExternal)?Promise.resolve():loadAllAssets()).then(()=>{

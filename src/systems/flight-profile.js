@@ -32,22 +32,24 @@ export const L = 143;   // saucer ~10u / dragonfly 0.07m
 
 export const FLIGHT_PROFILE = {
   flight: {
-    // [heavy] A huge ship, not a dragonfly. maxSpeed 130→120; acceleration
-    // 416→220 and drag 3.2→1.9 (v∞=220/1.9≈116≈maxSpeed) so it builds speed over
-    // ~0.7 s and coasts to rest over ~1.5 s — real mass and glide, not twitch.
-    maxSpeed: 120,          // units/s
-    acceleration: 220,      // units/s²
-    drag: 1.9,              // 1/s   — longer coast (τ = 1/k ≈ 0.53 s) = heavier.
-    verticalSpeed: 60,      // units/s — [heavy] 75→60
+    // [heavy] A huge, ponderous ship, not a dragonfly. maxSpeed 120→90;
+    // acceleration 220→130 and drag 1.9→1.4 (v∞=130/1.4≈93≈maxSpeed) so it builds
+    // speed over ~1.5 s and coasts to rest over ~2 s — heavy mass, real momentum
+    // and a clear delay between input and response, not twitch.
+    maxSpeed: 90,           // units/s — [heavy] 120→90: lower top speed.
+    acceleration: 130,      // units/s² — [heavy] 220→130: slow build-up (input lag).
+    drag: 1.4,              // 1/s   — [heavy] 1.9→1.4: longer coast/glide
+                            //         (τ = 1/k ≈ 0.71 s) = heavier, takes ~2 s to stop.
+    verticalSpeed: 44,      // units/s — [heavy] 60→44: slower vertical.
     boostMultiplier: 2.0,   // [heavy] 2.5→2.0
 
-    turnRate: 1.3,          // rad/s — [heavy] 1.9→1.3: a big disc yaws deliberately.
-    pitchRate: 1.1,         // rad/s — [heavy] look up/down authority (now ACTIVE:
-                            //         mouse / left-stick Y drive pitch → climb/dive).
+    turnRate: 0.9,          // rad/s — [heavy] 1.3→0.9: a big disc yaws deliberately.
+    pitchRate: 0.9,         // rad/s — [heavy] 1.1→0.9: slower, weightier nose authority
+                            //         (mouse / left-stick Y drive pitch → climb/dive).
     pitchLimit: 0.6,        // rad   — ~34°: enough nose-up/down to climb or dive.
 
     bankAmount: 0.18,       // rad   — ~10° lean into a turn.
-    bankSpeed: 2.6,         // 1/s   — [heavy] 4.0→2.6: roll eases in/out slowly.
+    bankSpeed: 2.0,         // 1/s   — [heavy] 2.6→2.0: roll eases in/out slowly/weighty.
 
     // Hover character — steadier for a large hull. Amplitudes are lengths (×L).
     hoverBobAmount: 0.35,   // units — [heavy] 0.55→0.35
@@ -67,9 +69,9 @@ export const FLIGHT_PROFILE = {
     zoomMax: 52,            // units — 0.40 → 57.2 → 52
     zoomSpeed: 5,           // units — 0.04 → 5.7 → 5
 
-    positionStiffness: 5.0, // rad/s — [heavy] 6.5→5.0: floatier, weightier spring.
+    positionStiffness: 4.2, // rad/s — [heavy] 5.0→4.2: floatier, weightier spring.
     positionDamping: 0.9,   // ζ — slight overshoot keeps it alive.
-    rotationStiffness: 4.5, // 1/s — [heavy] 5.5→4.5: aim catches up slower (mass).
+    rotationStiffness: 3.8, // 1/s — [heavy] 4.5→3.8: aim catches up slower (mass).
 
     velocityLag: 0.035,     // SECONDS — unchanged. Trail = speed×0.035 auto-scales.
     velocityLagMax: 17,     // units — 0.12 → 17.2 → 17 (clamp; a safety leash).

@@ -20,7 +20,7 @@ export function toggleCloak(){
 export function applyCloakVisual(){
   const tgt=S.cloak?0.24:1;
   saucer.traverse(o=>{
-    if(o.isMesh&&o.material&&o.parent!==saucer.userData.lights){
+    if(o.isMesh&&o.material){
       if(o.material.__baseOp==null)o.material.__baseOp=(o.material.opacity!=null?o.material.opacity:1);
       o.material.transparent=true;
       o.material.opacity=lerp(o.material.opacity,o.material.__baseOp*tgt,0.15);

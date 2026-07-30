@@ -41,63 +41,22 @@ export const saucer=new THREE.Group();
   const under=new THREE.Mesh(new THREE.SphereGeometry(3.2,36,18,0,Math.PI*2,Math.PI/2,Math.PI/2),
     new THREE.MeshStandardMaterial({color:0x040507,metalness:0.5,roughness:0.7}));
   under.position.y=-0.4;saucer.add(under);
-  // a ring of small, BLURRED lights around the border — soft glowing blobs
-  // (billboards, so they read as a diffuse glow) that blink in a chase.
-  const lights=new THREE.Group();
-  const NLIGHTS=16;
-  for(let i=0;i<NLIGHTS;i++){
-    const a=i/NLIGHTS*Math.PI*2;
-    const s=new THREE.Sprite(new THREE.SpriteMaterial({map:soft,color:0x9fecff,
-      transparent:true,opacity:0.0,blending:THREE.AdditiveBlending,depthWrite:false}));
-    s.scale.set(1.9,1.9,1);
-    s.position.set(Math.cos(a)*4.9,-0.1,Math.sin(a)*4.9);
-    lights.add(s);
-  }
-  saucer.add(lights);saucer.userData.lights=lights;
-  // the same spinning ring mirrored onto the TOP — a smaller circle of lights on
-  // the upper hull, around the base of the dome, that spins and chases like the rim.
-  const lightsTop=new THREE.Group();
-  const NTOP=12;
-  for(let i=0;i<NTOP;i++){
-    const a=i/NTOP*Math.PI*2;
-    const s=new THREE.Sprite(new THREE.SpriteMaterial({map:soft,color:0x9fecff,
-      transparent:true,opacity:0.0,blending:THREE.AdditiveBlending,depthWrite:false}));
-    s.scale.set(1.5,1.5,1);
-    s.position.set(Math.cos(a)*3.6,1.0,Math.sin(a)*3.6);
-    lightsTop.add(s);
-  }
-  saucer.add(lightsTop);saucer.userData.lightsTop=lightsTop;
   // hull/dome/under/rim/ring are the fallback body; tag them so we can hide them
   saucer.userData.procBody=[hull,rim,glowRing,dome,under];
 })();
 
 /* Per-frame ship glow — kept soft and diffuse: a blurred halo over the lid
-   breathes slowly, the faint dome/ring glow drifts with it, and the small border
-   halos blink in a gentle chase around the rim. Everything low-key so the craft
-   stays dark and alien. Cloak dims it; the halos/sprites are billboards the cloak
-   opacity pass skips, so their fade is handled here. */
+   breathes slowly and the faint dome glow drifts with it. Everything low-key so
+   the craft stays dark and alien. Cloak dims it; the halo is a billboard the
+   cloak opacity pass skips, so its fade is handled here. */
 export function updateSaucer(t){
-  if(shadowMark)shadowMark.visible=(S.state==='playing');   // aim marker only in-flight
+  if(shadowMark)shadowMark.visible=(S.state==='playing');   // shadow/aim only in-flight
   const cf=S.cloak?0.28:1;
-  const dome=saucer.userData.dome, halo=saucer.userData.halo,
-        rim=saucer.userData.lights, top=saucer.userData.lightsTop;
+  const dome=saucer.userData.dome, halo=saucer.userData.halo;
   // slow overlapping sines = a soft wash breathing over the lid
   const wave=0.5+0.32*Math.sin(t*1.5)+0.18*Math.sin(t*2.5+1.1);
   if(halo){ halo.material.opacity=(0.18+0.26*wave)*cf; const s=8.0+0.9*wave; halo.scale.set(s,s,1); }
   if(dome)dome.material.emissiveIntensity=(0.28+0.3*wave)*cf;
-  // both rings run the same chasing blip around the circle
-  chaseRing(rim,t,cf);
-  chaseRing(top,t,cf);
-}
-/* a soft pulse whose phase advances with the index = a blip drifting the ring */
-function chaseRing(g,t,cf){
-  if(!g)return;
-  const N=g.children.length;
-  for(let i=0;i<N;i++){
-    const ph=i/N*Math.PI*2;
-    const b=0.28+0.68*Math.pow(0.5+0.5*Math.sin(t*2.2-ph*2),3);
-    const m=g.children[i].material; if(m)m.opacity=b*cf;
-  }
 }
 /* soft radial disc for the blurred glows (white centre → transparent edge). */
 function softTex(){
@@ -131,18 +90,43 @@ export const glowLight=new THREE.PointLight(0xcfe8ff,0,170,2);
 scene.add(glowLight);
 
 /* ---- ground shadow (aim aid) ----------------------------------------------
-   A soft, natural dark blob laid flat on the terrain DIRECTLY below the ship,
-   tracking the ship's x/z (not its altitude). No ring, no glow — it just reads
+   A soft, natural dark blob DIRECTLY below the ship, tracking its x/z (not its
+   altitude). It's a small grid mesh whose vertices are draped onto the terrain
+   every frame — so on uneven ground (slopes, canyon steps) it follows the
+   surface instead of clipping through and vanishing. No ring, no glow: it reads
    as the ship's shadow, and because it sits exactly under the hull it doubles as
-   an aim aid for the beam. Kept always-visible so it works even in daylight. */
-const shadowMark=new THREE.Group();
-const shadowDisc=new THREE.Mesh(new THREE.CircleGeometry(6,40),
+   an aim aid for the beam. Always-visible in flight, even in daylight. */
+const SH_SUB=6, SH_HALF=7;               // grid subdivisions + half-extent (units)
+function buildShadowGeo(){
+  const n=SH_SUB+1, verts=n*n;
+  const pos=new Float32Array(verts*3), uv=new Float32Array(verts*2);
+  const baseX=new Float32Array(verts), baseZ=new Float32Array(verts);
+  let vi=0;
+  for(let iz=0;iz<n;iz++)for(let ix=0;ix<n;ix++){
+    const lx=(ix/SH_SUB*2-1)*SH_HALF, lz=(iz/SH_SUB*2-1)*SH_HALF;
+    baseX[vi]=lx; baseZ[vi]=lz;
+    pos[vi*3]=lx; pos[vi*3+1]=0; pos[vi*3+2]=lz;
+    uv[vi*2]=ix/SH_SUB; uv[vi*2+1]=iz/SH_SUB;   // radial texture spans the grid → circular blob
+    vi++;
+  }
+  const idx=[];
+  for(let iz=0;iz<SH_SUB;iz++)for(let ix=0;ix<SH_SUB;ix++){
+    const a=iz*n+ix, b=a+1, c=a+n, d=c+1;
+    idx.push(a,c,b, b,c,d);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  g.setIndex(idx);
+  g.userData={baseX,baseZ};
+  return g;
+}
+const shadowMesh=new THREE.Mesh(buildShadowGeo(),
   new THREE.MeshBasicMaterial({map:shadowTex(),color:0x000000,transparent:true,
-    opacity:0.5,depthWrite:false}));
-shadowDisc.rotation.x=-Math.PI/2;
-shadowMark.add(shadowDisc);
-shadowMark.renderOrder=2;
-scene.add(shadowMark);
+    opacity:0.4,depthWrite:false,side:THREE.DoubleSide}));
+shadowMesh.renderOrder=2;
+shadowMesh.frustumCulled=false;          // vertices move every frame; skip stale-bounds culling
+scene.add(shadowMesh);
 /* soft radial dark disc (opaque centre → transparent edge) for the shadow. */
 function shadowTex(){
   const c=document.createElement('canvas');c.width=c.height=128;
@@ -154,15 +138,27 @@ function shadowTex(){
   x.fillStyle=g;x.fillRect(0,0,128,128);
   const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;return tex;
 }
-export function updateShadow(groundY){
-  shadowMark.position.set(saucer.position.x,groundY+0.25,saucer.position.z);
+const shadowMark=shadowMesh;             // updateSaucer toggles visibility via this handle
+/* `groundAt(x,z)` returns the terrain/road height at a world point (passed in so
+   this module needn't import the terrain + road samplers and risk a cycle). */
+export function updateShadow(groundAt){
+  const g=shadowMesh.geometry, p=g.attributes.position;
+  const {baseX,baseZ}=g.userData;
+  const sx=saucer.position.x, sz=saucer.position.z;
+  const gy0=groundAt(sx,sz);
   // Grow + fade a little with altitude, like a real shadow spreading and
   // softening as the caster rises — but never vanish, so it stays a usable aim
   // aid at any height.
-  const agl=Math.max(1,saucer.position.y-groundY);
+  const agl=Math.max(1,saucer.position.y-gy0);
   const k=Math.max(0.4,Math.min(1,1-(agl-20)/170));
-  shadowMark.scale.setScalar(0.82+0.45*k);
-  shadowDisc.material.opacity=(S.cloak?0.12:0.24)+0.24*k;
+  const scale=0.9+0.4*k;
+  shadowMesh.position.set(sx,0,sz);
+  for(let i=0;i<baseX.length;i++){
+    const lx=baseX[i]*scale, lz=baseZ[i]*scale;
+    p.setXYZ(i, lx, groundAt(sx+lx,sz+lz)+0.18, lz);   // drape onto the surface
+  }
+  p.needsUpdate=true;
+  shadowMesh.material.opacity=(S.cloak?0.12:0.24)+0.24*k;
 }
 
 /* floating energy bar above the saucer — shows while beaming or when low */

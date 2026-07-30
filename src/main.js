@@ -77,6 +77,9 @@ const camRig=new CameraRig(camera,FLIGHT_PROFILE.camera);
 const ACCEL_BASE=FLIGHT_PROFILE.flight.acceleration;
 const MAXSPEED_BASE=FLIGHT_PROFILE.flight.maxSpeed;
 let prevState='';
+let shipSpin=0, shipSpinVel=0;            // swipe-flick cosmetic spin about the ship's axis
+// terrain+road ground height at a world point — shared by the shadow drape below
+const groundAt=(x,z)=>Math.max(heightAt(x,z),roadHeightAt(x,z));
 
 /* =========================================================================
    MAIN LOOP
@@ -182,6 +185,17 @@ function animate(){
     flight.update(dt,fin);
     saucer.position.copy(flight.position);
     saucer.quaternion.copy(flight.quaternion);        // dragonfly bank/heading
+    // Fun perk: a left/right swipe on the ship flicks it into a spin about its own
+    // axis. The flick sets an angular velocity that decays back to rest; the extra
+    // yaw is purely cosmetic (the disc is symmetric) so it never affects flight.
+    shipSpinVel+=input.spinKick; input.spinKick=0;
+    if(shipSpinVel!==0||shipSpin!==0){
+      shipSpin+=shipSpinVel*dt;
+      shipSpinVel*=Math.exp(-1.7*dt);                 // gradually slow…
+      if(Math.abs(shipSpinVel)<0.03)shipSpinVel=0;    // …then settle to normal
+      shipSpin%=Math.PI*2;                            // keep the accumulated angle bounded
+      saucer.rotateY(shipSpin);
+    }
     S.yaw=flight.yaw;
     S.vel.x=flight.velocity.x; S.vel.z=flight.velocity.z;
     const moveMag=Math.min(1,Math.hypot(fin.forward,fin.strafe));
@@ -189,7 +203,7 @@ function animate(){
     if(climbing||Math.abs(flight.velocity.y)>0.4)altHudT=0.8; else altHudT=Math.max(0,altHudT-dt);
     const gh=Math.max(heightAt(saucer.position.x,saucer.position.z),
                       roadHeightAt(saucer.position.x,saucer.position.z));
-    updateShadow(gh);          // ground shadow / aim marker directly below the ship
+    updateShadow(groundAt);    // ground shadow / aim aid draped on the terrain below
 
     /* Altitude trade-off, derived once from the ship's true height above ground
        and shared by the beam, the reactor and the camera. Low = strong beam,
@@ -216,9 +230,7 @@ function animate(){
     }
 
     // Orientation (heading + bank) comes from the flight model's quaternion, set
-    // above. Only the decorative light rings spin here.
-    saucer.userData.lights.rotation.y-=dt*1.5;
-    saucer.userData.lightsTop.rotation.y-=dt*1.5;
+    // above (plus the swipe-spin flick).
 
     /* ---- beam + disc ---- */
     const groundY=gh;
@@ -361,8 +373,6 @@ function animate(){
     /* menu / over idle: gentle drift + slow orbit */
     saucer.position.y=40+Math.sin(t*1.2)*0.6;
     saucer.rotation.y+=dt*0.3;
-    saucer.userData.lights.rotation.y-=dt*1.2;
-    saucer.userData.lightsTop.rotation.y-=dt*1.2;
     const gh=heightAt(saucer.position.x,saucer.position.z);
     beam.visible=disc.visible=true;
     beamMat.uniforms.uPow.value=1;discMat.uniforms.uPow.value=1;

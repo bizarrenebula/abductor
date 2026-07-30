@@ -36,6 +36,7 @@ export const input={
   zoom:1,                                  // camera-zoom multiplier, driven by the slider
   camPitch:0.35,                           // angle slider (kept for compatibility; look now drives pitch)
   cloakProg:0,                             // 0..1 progress of the hold-to-cloak timer (touch OR RMB)
+  spinKick:0,                              // one-shot angular impulse from a swipe on the ship (rad/s)
 };
 
 export const CLOAK_HOLD_MS=2000;   // press-and-hold the saucer this long to toggle cloak
@@ -168,6 +169,10 @@ const TAP_MS=260, TAP_MOVE=18, DTAP_MS=320, DTAP_DIST=48;   // tap / double-tap 
 /* ---- press-and-hold the saucer to cloak ---- */
 const _ray=new THREE.Raycaster(), _ndc=new THREE.Vector2();
 let cloakPtr=null, cloakT0=0, cloakTimer=0, cloakSX=0, cloakSY=0;
+/* ---- swipe the saucer to spin it ---- */
+let shipPtr=null, shipSX=0, shipSY=0, shipT0=0, shipMoved=0;
+const SHIP_SWIPE=44;      // px of horizontal travel that counts as a spin flick
+const SPIN_MAX=12;        // rad/s cap on the flick's angular impulse
 function tappedSaucer(e){
   _ndc.set((e.clientX/innerWidth)*2-1, -(e.clientY/innerHeight)*2+1);
   _ray.setFromCamera(_ndc,camera);
@@ -181,11 +186,14 @@ renderer.domElement.addEventListener('pointerdown',e=>{
   // Press-and-hold on the saucer toggles cloak (touch). A press
   // that moves past SHIP_SLOP cancels — so it never fights a nearby joystick drag.
   if(tappedSaucer(e)){
-    // Cloak not found yet? Don't spin up the hold/loading ring — just flash the
-    // "cloak locked" message (toggleCloak refuses and shows it) and bail.
-    if(!S.upCloak&&!S.cloak){ toggleCloak(); return; }
-    cloakPtr=e.pointerId;cloakSX=e.clientX;cloakSY=e.clientY;cloakT0=performance.now();
-    cloakTimer=setTimeout(()=>{cloakTimer=0;input.cloakProg=0;cloakPtr=null;toggleCloak();},CLOAK_HOLD_MS);
+    // Track this press for the swipe-to-spin flick (works regardless of cloak).
+    shipPtr=e.pointerId;shipSX=e.clientX;shipSY=e.clientY;shipT0=performance.now();shipMoved=0;
+    // Arm hold-to-cloak only when cloak is available; a swipe cancels it (below).
+    // Cloak still locked? The tap flashes the "locked" message on release instead.
+    if(S.upCloak||S.cloak){
+      cloakPtr=e.pointerId;cloakSX=e.clientX;cloakSY=e.clientY;cloakT0=performance.now();
+      cloakTimer=setTimeout(()=>{cloakTimer=0;input.cloakProg=0;cloakPtr=null;toggleCloak();},CLOAK_HOLD_MS);
+    }
     return;
   }
   if(e.pointerType==='mouse')return;                        // desktop otherwise flies by keyboard
@@ -207,6 +215,9 @@ renderer.domElement.addEventListener('pointerdown',e=>{
 });
 
 addEventListener('pointermove',e=>{
+  if(e.pointerId===shipPtr){                               // track travel for the spin flick
+    shipMoved=Math.max(shipMoved,Math.hypot(e.clientX-shipSX,e.clientY-shipSY));
+  }
   if(e.pointerId===cloakPtr){                              // pending cloak hold
     if(Math.hypot(e.clientX-cloakSX,e.clientY-cloakSY)>SHIP_SLOP)cancelCloakHold();
     return;
@@ -224,6 +235,19 @@ addEventListener('pointermove',e=>{
 },{passive:true});
 
 function endPtr(e){
+  if(e.pointerId===shipPtr){                               // released a press that began on the ship
+    const dx=e.clientX-shipSX, dy=e.clientY-shipSY;
+    const dtS=Math.max(0.05,(performance.now()-shipT0)/1000);
+    shipPtr=null;
+    if(Math.abs(dx)>SHIP_SWIPE&&Math.abs(dx)>Math.abs(dy)*1.1){
+      // horizontal flick → spin about the ship's axis; direction follows the swipe,
+      // strength follows the flick speed. main.js decays it back to rest.
+      input.spinKick+=THREE.MathUtils.clamp(-(dx/dtS)*0.010,-SPIN_MAX,SPIN_MAX);
+    } else if(shipMoved<SHIP_SLOP&&(performance.now()-shipT0)<TAP_MS&&!S.upCloak&&!S.cloak){
+      toggleCloak();                                       // a tap while cloak is locked flashes the message
+    }
+    // fall through so any cloak hold armed on this same pointer is cleaned up
+  }
   if(e.pointerId===cloakPtr){ cancelCloakHold(); return; }
   if(!ptrHalf.has(e.pointerId))return;
   const h=ptrHalf.get(e.pointerId), H=half[h], now=performance.now();
@@ -303,7 +327,7 @@ if(angleSlider){
 export function resetInputTouch(){
   input.tFwd=input.tStrafe=input.tTurn=input.tClimb=0;
   input.lookStickX=input.lookStickY=input.mDX=input.mDY=0;
-  input.beamHold=false;input.spHeld=false;input.cloakProg=0;cancelPcCloak();
+  input.beamHold=false;input.spHeld=false;input.cloakProg=0;input.spinKick=0;shipPtr=null;cancelPcCloak();
   half.L.ids.length=0;half.R.ids.length=0;
   half.L.beamPtr=null;half.L.lastWasTap=false;half.R.beamPtr=null;half.R.lastWasTap=false;
   ptrHalf.clear();pos.clear();cancelCloakHold();

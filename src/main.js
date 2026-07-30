@@ -7,7 +7,7 @@ import { THREE } from './core/three.js';
 import { env } from './core/env.js';
 import { lerp, clamp, ramp } from './core/math.js';
 import { HOVER_BASE, HOVER_MIN, HOVER_MAX, HOVER_ACC, HOVER_DRAG, HOVER_VMAX,
-         YAW_ACC, YAW_DRAG, YAW_VMAX, MOVE_ACC, BEAM_MOVE, MTN_H, CAM_ZOOM_LOW, CAM_ZOOM_HIGH,
+         YAW_ACC, YAW_DRAG, YAW_VMAX, MOVE_ACC, BEAM_MOVE, BEAM_MAXSPEED, MTN_H, CAM_ZOOM_LOW, CAM_ZOOM_HIGH,
          BEAM_STR_LOW, BEAM_STR_HIGH, DRAIN_ALT_LOW, DRAIN_ALT_HIGH } from './core/constants.js';
 import { S, camOffset, camLook } from './core/state.js';
 import { renderer, scene, camera, sun, stars, moon } from './core/engine.js';
@@ -27,7 +27,7 @@ import { updateWindmills } from './entities/humans.js';
 import { updateVehicles } from './entities/vehicles.js';
 import { updateUpgradeItems } from './entities/upgradeItems.js';
 
-import { saucer, beamLight, shipLight, glowLight, ebarBG, ebarFill3, updateEnergyBar, updateSaucer } from './systems/saucer.js';
+import { saucer, beamLight, shipLight, glowLight, ebarBG, ebarFill3, updateEnergyBar, updateSaucer, updateShadow } from './systems/saucer.js';
 import { NightLights } from './systems/nightlights.js';
 import { updateDestruction } from './systems/destruction.js';
 import { beam, beamMat, disc, discMat, effBeamR } from './systems/beam.js';
@@ -75,6 +75,7 @@ import { flightInputFrom } from './systems/flight-input.js';
 const flight=new FlightModel(FLIGHT_PROFILE.flight,new THREE.Vector3(0,HOVER_BASE,0));
 const camRig=new CameraRig(camera,FLIGHT_PROFILE.camera);
 const ACCEL_BASE=FLIGHT_PROFILE.flight.acceleration;
+const MAXSPEED_BASE=FLIGHT_PROFILE.flight.maxSpeed;
 let prevState='';
 
 /* =========================================================================
@@ -171,6 +172,9 @@ function animate(){
     const fin=flightInputFrom(input,held,dt);
     const speedMult=(S.upSpeed||1)*(beamOn?BEAM_MOVE:1)*(buff==='speed'?1.6:1)*(World.name==='moon'?1.4:1)*(1.2-0.35*S.dayF);
     flight.f.acceleration=ACCEL_BASE*speedMult;
+    // While beaming, hard-cap top speed too — low accel alone still lets built-up
+    // momentum coast the ship off the target, so clamp maxSpeed to a crawl.
+    flight.f.maxSpeed=beamOn?MAXSPEED_BASE*BEAM_MAXSPEED:MAXSPEED_BASE;
     // Free flight, but never sink through the ground: a per-frame soft floor at the
     // terrain (crash-on-contact for flying INTO a rise is still handled below).
     const ghPre=Math.max(heightAt(flight._base.x,flight._base.z),roadHeightAt(flight._base.x,flight._base.z));
@@ -185,6 +189,7 @@ function animate(){
     if(climbing||Math.abs(flight.velocity.y)>0.4)altHudT=0.8; else altHudT=Math.max(0,altHudT-dt);
     const gh=Math.max(heightAt(saucer.position.x,saucer.position.z),
                       roadHeightAt(saucer.position.x,saucer.position.z));
+    updateShadow(gh);          // ground shadow / aim marker directly below the ship
 
     /* Altitude trade-off, derived once from the ship's true height above ground
        and shared by the beam, the reactor and the camera. Low = strong beam,

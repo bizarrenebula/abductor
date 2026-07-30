@@ -64,7 +64,9 @@ export const FLIGHT_PROFILE = {
   camera: {
     // Distances are player-relative → ×L.
     distance: 31,           // units — 0.22 → 31.5 → 31  (~3 hull-widths back: intimate)
-    height: 8,              // units — 0.055 → 7.9 → 8
+    height: 13,             // units — [craft] 8→13: sit higher so the camera looks
+                            //         down over the hull and the beam column / ground
+                            //         disc directly below the ship stay in frame.
     zoomMin: 20,            // units — 0.15 → 21.5 → 20
     zoomMax: 52,            // units — 0.40 → 57.2 → 52
     zoomSpeed: 5,           // units — 0.04 → 5.7 → 5
@@ -77,6 +79,9 @@ export const FLIGHT_PROFILE = {
     velocityLagMax: 17,     // units — 0.12 → 17.2 → 17 (clamp; a safety leash).
 
     lookAhead: 9,           // units — 0.06 → 8.6 → 9
+    lookDrop: 11,           // units — [craft] new: lower the aim point below the ship
+                            //         so the default view tilts down and the ground
+                            //         beneath the saucer (the beam) is always visible.
     leashSlack: 21,         // units — source hardcoded 0.15 → 21.5 → 21 (was inline).
 
     fov: 62,                // deg — 68 → 62 [craft]: matches the game's existing

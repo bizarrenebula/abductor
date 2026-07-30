@@ -57,7 +57,7 @@ export function applyDayNightLight(){
     const nf=wc.fog;const nr=(nf>>16)&255,ng=(nf>>8)&255,nb=nf&255;
     scene.fog.color.setRGB((nr*0.42+f*6)/255,(ng*0.42+f*7)/255,(nb*0.42+f*8)/255);
   }
-  scene.fog.density=lerp(env.LOW_END?0.0070:0.0038, env.LOW_END?0.0055:0.0028, f);
+  scene.fog.density=lerp(env.LOW_END?0.0050:0.0026, env.LOW_END?0.0040:0.0019, f);
   // stars fade out by day, moon fades in by night
   if(stars)stars.material.opacity=(wc?wc.stars:0.7)*(1-f);
   if(moon)moon.material.opacity=0.9*(1-f)+0.15;

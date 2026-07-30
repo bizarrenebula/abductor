@@ -39,8 +39,11 @@ export const HOVER_BASE = 15, HOVER_MIN = 4, HOVER_MAX = HOVER_BASE * 3;
    Bump the ACC/VMAX values for more agility; raise the DRAG retentions for more
    glide/float. */
 export const MOVE_ACC   = 98;    // horizontal thrust accel, world units/s^2 (agile: responds hard to the stick)
-export const BEAM_MOVE  = 0.65;  // thrust multiplier while the beam is open — you can still
-                                 // fly and steer, but slower (the ship is heavy while feeding)
+export const BEAM_MOVE  = 0.22;  // thrust multiplier while the beam is open — the ship
+                                 // crawls while feeding so it's easy to lock and hover
+                                 // over a target (paired with BEAM_MAXSPEED below).
+export const BEAM_MAXSPEED = 0.28; // top-speed multiplier while beaming — hard-caps drift
+                                   // so momentum can't carry the ship off the target.
 
 export const HOVER_ACC  = 68;    // world units/s^2 added to the climb rate while held (snappy altitude)
 export const HOVER_DRAG = 0.10;  // per-second retention of climb rate when released (settles quickly)

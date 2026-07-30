@@ -27,10 +27,6 @@ import { chunks, chunkKey } from '../world/chunks.js';
 import { saucer } from '../systems/saucer.js';
 import { carHonk } from '../audio/sfx.js';
 import { headlightRig } from '../systems/nightlights.js';
-import { spawnPop } from '../ui/pop.js';
-import { scoreV, specV } from '../ui/dom.js';
-import { t } from '../i18n.js';
-import { Upgrades } from '../systems/upgrades.js';
 
 /* `block` marks a vehicle tall enough to stop the ship rather than be flown
    over. Cars are low: you always clear them. A bus is not — meet one at its own
@@ -77,7 +73,7 @@ export function buildVehicle(kind){
   u.cruise=V.cruise*(0.85+Math.random()*0.3);
   u.speed=u.cruise;
   u.lift=0;u.fall=0;u.vy=0;u.stun=0;u.spin=1;u.grabY=0;u.roadY=0;u.turnLock=0;
-  u.dragT=0;u.dragMult=1;u.popT=0;u.collected=0;  // beam-drag state (see updateVehicles)
+  u.collected=0;                                  // beam-grab state (see updateVehicles)
   u.occupants=kind==='bus1'?(2+((Math.random()*3)|0)):(1+((Math.random()*2)|0));
   u.block=!!V.block;u.blockR=V.w*OBJ_SCALE+2.2;u.blockH=V.h*OBJ_SCALE*1.35;
   u.nightDriver=Math.random()<0.32;              // only some cars are out at night (headlights on)
@@ -137,12 +133,9 @@ function bailOut(g){
 
 const TURN_CHANCE=0.4;   // odds a car turns rather than going straight at a level crossroad
 
-/* ---- beam-drag tuning ---------------------------------------------------
-   Hold a car in the beam and its worth multiplies the longer you drag it.
-   dragMult = 1 + min(DRAG_CAP, dragT*DRAG_RATE) — climbs 1×→6× over ~5s. */
-const OCC_PTS=6;         // base points per occupant when finally collected
-const DRAG_CAP=5;        // ceiling on the bonus (so mult tops out at ~6×)
-const DRAG_RATE=1;       // multiplier growth per second held
+/* ---- beam-grab tuning ---------------------------------------------------
+   A grabbed vehicle grants no score: its occupants bail out (bailOut) and the
+   empty shell is hauled up, then dropped cinematically on release. */
 const DROP_G=16;         // cinematic gravity for the release drop (old was 34)
 
 /* At a level crossroad a car may turn onto the crossing corridor (either way) or
@@ -196,11 +189,12 @@ export function updateVehicles(dt,beamActive){
     }
     const inBeam=R>0&&d2<R*R;
     if(inBeam){
-      /* ---- beam-drag: haul the car toward the ship and grow its worth ---- */
-      if(u.lift===0){u.grabY=g.position.y;carHonk();}   // remember pickup height + honk in protest
+      /* ---- beam grab: the vehicle tips its occupants out onto the ground below,
+         where they scatter and bolt. The vehicle grants NO points itself — the
+         payoff is the fleeing NPCs, which the player can beam next. The empty
+         shell is still hauled up cinematically. ---- */
+      if(u.lift===0){u.grabY=g.position.y;carHonk();bailOut(g);}   // eject riders + honk on grab
       u.lift=Math.min(1,u.lift+dt*0.5);
-      u.dragT+=dt;
-      u.dragMult=1+Math.min(DRAG_CAP,u.dragT*DRAG_RATE);// 1×→~6× over ~5s, clamped
       // Rise slowly to, and then FLOAT at, the midpoint between the road and the
       // ship — held there while locked with a gentle bob, and trailing under the
       // saucer in x,z so it follows wherever the ship flies (drag it by flying).
@@ -210,23 +204,10 @@ export function updateVehicles(dt,beamActive){
       g.position.z+=(saucer.position.z-g.position.z)*Math.min(1,dt*1.4);
       g.rotation.y+=dt*1.1;                             // slow yaw spin in the column
       g.rotation.z=Math.sin(performance.now()*0.004)*0.14;   // gentle sway
-      // live multiplier feedback, throttled to ~3/s so it doesn't spam
-      u.popT-=dt;
-      if(u.popT<=0&&u.occupants>0){u.popT=0.35;spawnPop(g.position,'×'+u.dragMult.toFixed(1),t('hud.taken',{n:u.occupants}));}
-      // occupants stay aboard — the whole point is to keep them and cash in
       continue;
     }
-    if(u.lift>0&&!u.collected){                          // beam released while dragging: collect + drop
-      const pts=Math.round(u.occupants*OCC_PTS*u.dragMult);
-      if(pts>0){                                        // 0 occupants → drop cleanly, no score
-        S.score+=pts; S.taken+=u.occupants;
-        scoreV.textContent=S.score;
-        specV.textContent=t('hud.taken',{n:S.taken});
-        Upgrades.gain(pts);                             // feed the ship-upgrade ladder like a normal catch
-        spawnPop(g.position,'+'+pts,t('hud.taken',{n:u.occupants}));
-        carHonk();                                      // light confirmation
-      }
-      u.collected=1;u.dumped=1;u.occupants=0;           // emptied: can't be taken twice, bailOut never fires
+    if(u.lift>0&&!u.collected){                          // beam released while dragging: just drop
+      u.collected=1;                                    // spent: won't re-trigger the grab
       u.fall=2.4;u.vy=0;u.spin=Math.random()<0.5?-1:1;  // start the cinematic drop
       continue;
     }

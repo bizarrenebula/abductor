@@ -121,6 +121,9 @@ export class CameraRig {
     this._desiredLook
       .copy(flight.position)
       .addScaledVector(this._forward, c.lookAhead);
+    // Drop the aim point below the ship so the view rests tilted downward — the
+    // ground directly beneath the saucer (and the beam column) stays in frame.
+    this._desiredLook.y -= c.lookDrop || 0;
     this.lookTarget.lerp(
       this._desiredLook,
       1 - Math.exp(-c.rotationStiffness * dt)

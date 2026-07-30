@@ -77,6 +77,7 @@ export const saucer=new THREE.Group();
    stays dark and alien. Cloak dims it; the halos/sprites are billboards the cloak
    opacity pass skips, so their fade is handled here. */
 export function updateSaucer(t){
+  if(shadowMark)shadowMark.visible=(S.state==='playing');   // aim marker only in-flight
   const cf=S.cloak?0.28:1;
   const dome=saucer.userData.dome, halo=saucer.userData.halo,
         rim=saucer.userData.lights, top=saucer.userData.lightsTop;
@@ -128,6 +129,46 @@ scene.add(shipLight);
    night-weighted, in the main loop. */
 export const glowLight=new THREE.PointLight(0xcfe8ff,0,170,2);
 scene.add(glowLight);
+
+/* ---- ground shadow / aim marker -------------------------------------------
+   A soft dark blob laid flat on the terrain DIRECTLY below the ship, tracking
+   the ship's x/z (not its altitude). It shows the player exactly which point on
+   the ground they're hovering over — the beam lands here — so it doubles as an
+   aim reticle: a faint cyan ring rides the shadow's edge. Kept always-visible so
+   it can be aimed with even in full daylight. */
+const shadowMark=new THREE.Group();
+const shadowDisc=new THREE.Mesh(new THREE.CircleGeometry(6,40),
+  new THREE.MeshBasicMaterial({map:shadowTex(),color:0x000000,transparent:true,
+    opacity:0.5,depthWrite:false}));
+shadowDisc.rotation.x=-Math.PI/2;
+const shadowRing=new THREE.Mesh(new THREE.RingGeometry(5.3,6.0,48),
+  new THREE.MeshBasicMaterial({color:0x49b4d0,transparent:true,opacity:0.35,
+    depthWrite:false,blending:THREE.AdditiveBlending}));
+shadowRing.rotation.x=-Math.PI/2;
+shadowMark.add(shadowDisc);shadowMark.add(shadowRing);
+shadowMark.renderOrder=2;
+scene.add(shadowMark);
+/* soft radial dark disc (opaque centre → transparent edge) for the shadow. */
+function shadowTex(){
+  const c=document.createElement('canvas');c.width=c.height=128;
+  const x=c.getContext('2d');
+  const g=x.createRadialGradient(64,64,0,64,64,64);
+  g.addColorStop(0,'rgba(255,255,255,1)');
+  g.addColorStop(0.55,'rgba(255,255,255,0.6)');
+  g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle=g;x.fillRect(0,0,128,128);
+  const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;return tex;
+}
+export function updateShadow(groundY){
+  shadowMark.position.set(saucer.position.x,groundY+0.25,saucer.position.z);
+  // Shrink + soften slightly with altitude so it still reads as a shadow, but it
+  // never disappears — the aim point is useful at any height.
+  const agl=Math.max(1,saucer.position.y-groundY);
+  const k=Math.max(0.4,Math.min(1,1-(agl-20)/170));
+  shadowMark.scale.setScalar(0.72+0.5*k);
+  shadowDisc.material.opacity=(S.cloak?0.14:0.30)+0.26*k;
+  shadowRing.material.opacity=(S.cloak?0.12:0.30)*(0.6+0.4*k);
+}
 
 /* floating energy bar above the saucer — shows while beaming or when low */
 const EB_W=6.6;

@@ -130,22 +130,17 @@ scene.add(shipLight);
 export const glowLight=new THREE.PointLight(0xcfe8ff,0,170,2);
 scene.add(glowLight);
 
-/* ---- ground shadow / aim marker -------------------------------------------
-   A soft dark blob laid flat on the terrain DIRECTLY below the ship, tracking
-   the ship's x/z (not its altitude). It shows the player exactly which point on
-   the ground they're hovering over — the beam lands here — so it doubles as an
-   aim reticle: a faint cyan ring rides the shadow's edge. Kept always-visible so
-   it can be aimed with even in full daylight. */
+/* ---- ground shadow (aim aid) ----------------------------------------------
+   A soft, natural dark blob laid flat on the terrain DIRECTLY below the ship,
+   tracking the ship's x/z (not its altitude). No ring, no glow — it just reads
+   as the ship's shadow, and because it sits exactly under the hull it doubles as
+   an aim aid for the beam. Kept always-visible so it works even in daylight. */
 const shadowMark=new THREE.Group();
 const shadowDisc=new THREE.Mesh(new THREE.CircleGeometry(6,40),
   new THREE.MeshBasicMaterial({map:shadowTex(),color:0x000000,transparent:true,
     opacity:0.5,depthWrite:false}));
 shadowDisc.rotation.x=-Math.PI/2;
-const shadowRing=new THREE.Mesh(new THREE.RingGeometry(5.3,6.0,48),
-  new THREE.MeshBasicMaterial({color:0x49b4d0,transparent:true,opacity:0.35,
-    depthWrite:false,blending:THREE.AdditiveBlending}));
-shadowRing.rotation.x=-Math.PI/2;
-shadowMark.add(shadowDisc);shadowMark.add(shadowRing);
+shadowMark.add(shadowDisc);
 shadowMark.renderOrder=2;
 scene.add(shadowMark);
 /* soft radial dark disc (opaque centre → transparent edge) for the shadow. */
@@ -161,13 +156,13 @@ function shadowTex(){
 }
 export function updateShadow(groundY){
   shadowMark.position.set(saucer.position.x,groundY+0.25,saucer.position.z);
-  // Shrink + soften slightly with altitude so it still reads as a shadow, but it
-  // never disappears — the aim point is useful at any height.
+  // Grow + fade a little with altitude, like a real shadow spreading and
+  // softening as the caster rises — but never vanish, so it stays a usable aim
+  // aid at any height.
   const agl=Math.max(1,saucer.position.y-groundY);
   const k=Math.max(0.4,Math.min(1,1-(agl-20)/170));
-  shadowMark.scale.setScalar(0.72+0.5*k);
-  shadowDisc.material.opacity=(S.cloak?0.14:0.30)+0.26*k;
-  shadowRing.material.opacity=(S.cloak?0.12:0.30)*(0.6+0.4*k);
+  shadowMark.scale.setScalar(0.82+0.45*k);
+  shadowDisc.material.opacity=(S.cloak?0.12:0.24)+0.24*k;
 }
 
 /* floating energy bar above the saucer — shows while beaming or when low */

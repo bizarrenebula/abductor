@@ -4,3 +4,5 @@ _t_three.js
 _t_gltf.js
 index-test.html
 .test-vendor/
+
+node_modules/

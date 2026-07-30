@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Flight/Camera port — feel test</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#05090c;font-family:ui-monospace,Menlo,monospace}
+  #hud{position:fixed;left:12px;top:12px;color:#8fe8b8;font-size:12px;line-height:1.6;
+    text-shadow:0 1px 3px #000;pointer-events:none;white-space:pre}
+  #hint{position:fixed;left:12px;bottom:12px;color:#7a9;font-size:11px;text-shadow:0 1px 3px #000}
+</style>
+</head>
+<body>
+<div id="hud"></div>
+<div id="hint">click = mouse-look yaw · WASD move · Space/Shift up/down · ←/→ yaw · ↑/↓ pitch · E boost · wheel zoom · H horizon-lock · F fov-kick</div>
+
+<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module">
+// The ported modules read window.THREE via core/three.js — already set by the CDN
+// script above. core/three.js also imports env.js, which needs these globals in a
+// plain page; the browser provides them, so nothing to shim here.
+import { FlightModel } from './src/systems/flight.js';
+import { CameraRig } from './src/systems/camera-rig.js';
+import { FLIGHT_PROFILE, L } from './src/systems/flight-profile.js';
+
+const THREE = window.THREE;
+if (!THREE) { document.body.innerHTML = '<p style="color:#f66;padding:2em">THREE failed to load from CDN.</p>'; throw new Error('no THREE'); }
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a141a);
+scene.fog = new THREE.FogExp2(0x0a141a, 0.0016);
+
+const C = FLIGHT_PROFILE.camera;
+const camera = new THREE.PerspectiveCamera(C.fov, innerWidth / innerHeight, C.near, C.far);
+
+scene.add(new THREE.HemisphereLight(0x9fc4d8, 0x0a1014, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(1, 2, 1); scene.add(sun);
+
+// Ground grid for scale + reference obstacles ~saucer-sized and taller.
+const grid = new THREE.GridHelper(4000, 200, 0x2b4a52, 0x152a30); scene.add(grid);
+const boxMat = new THREE.MeshStandardMaterial({ color: 0x3d5a63, roughness: 0.9, flatShading: true });
+for (let i = 0; i < 120; i++) {
+  const w = 6 + Math.random() * 12, h = 8 + Math.random() * 60;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), boxMat);
+  m.position.set((Math.random() - 0.5) * 1600, h / 2, (Math.random() - 0.5) * 1600);
+  scene.add(m);
+}
+// Saucer proxy — ~10u disc so the camera framing reads at true scale.
+const saucer = new THREE.Group();
+const hull = new THREE.Mesh(new THREE.SphereGeometry(5, 32, 16),
+  new THREE.MeshStandardMaterial({ color: 0x223038, metalness: 0.8, roughness: 0.4 }));
+hull.scale.set(1, 0.28, 1); saucer.add(hull);
+const dome = new THREE.Mesh(new THREE.SphereGeometry(2.4, 24, 12, 0, 6.28, 0, 1.57),
+  new THREE.MeshStandardMaterial({ color: 0x59d9ff, emissive: 0x1a5266, emissiveIntensity: 0.5, transparent: true, opacity: 0.8 }));
+dome.position.y = 1.1; saucer.add(dome);
+scene.add(saucer);
+
+// --- Flight + rig ----------------------------------------------------------
+const flight = new FlightModel(FLIGHT_PROFILE.flight, new THREE.Vector3(0, 40, 0));
+const rig = new CameraRig(camera, C);
+
+// --- Input (test-local; mirrors the flight input shape) --------------------
+const keys = new Set();
+addEventListener('keydown', e => {
+  keys.add(e.code);
+  if (e.code === 'Space') e.preventDefault();
+  if (e.code === 'KeyH') C.horizonLock = !C.horizonLock;
+  if (e.code === 'KeyF') C.enableFovKick = !C.enableFovKick;
+});
+addEventListener('keyup', e => keys.delete(e.code));
+let mouseYaw = 0, mousePitch = 0, locked = false;
+renderer.domElement.addEventListener('click', () => { if (!locked) renderer.domElement.requestPointerLock(); });
+document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === renderer.domElement; });
+document.addEventListener('mousemove', e => { if (!locked) return; mouseYaw += e.movementX * 0.0016; mousePitch += e.movementY * 0.0016; });
+addEventListener('wheel', e => rig.addZoom(Math.sign(e.deltaY)), { passive: true });
+const k = (a, b) => (keys.has(a) ? 1 : 0) - (keys.has(b) ? 1 : 0);
+
+function sampleInput(dt) {
+  const turn = k('ArrowLeft', 'ArrowRight');          // held → rate×dt
+  const input = {
+    forward: k('KeyW', 'KeyS'),
+    strafe: k('KeyD', 'KeyA'),
+    vertical: k('Space', 'ShiftLeft') || k('Space', 'ControlLeft'),
+    yawDelta: -turn * dt + mouseYaw,                  // keys (rate) + mouse (per-frame)
+    pitchDelta: k('ArrowUp', 'ArrowDown') * dt + mousePitch,
+    boost: keys.has('KeyE'),
+  };
+  mouseYaw = 0; mousePitch = 0;
+  return input;
+}
+
+// --- Loop ------------------------------------------------------------------
+const hud = document.getElementById('hud');
+let prev = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
+  flight.update(dt, sampleInput(dt));
+  saucer.position.copy(flight.position);
+  saucer.quaternion.copy(flight.quaternion);
+  rig.update(dt, flight);
+  renderer.render(scene, camera);
+  hud.textContent =
+    `L = ${L}   (saucer ~10u)\n` +
+    `speed   ${flight.speed.toFixed(1)} u/s  (${(flight.speed / 10).toFixed(1)} body-len/s)\n` +
+    `alt     ${flight.position.y.toFixed(1)} u\n` +
+    `zoom    ${rig.zoom.toFixed(0)} u\n` +
+    `camdist ${camera.position.distanceTo(flight.position).toFixed(1)} u\n` +
+    `roll    ${(flight.roll * 57.3).toFixed(0)}°   horizonLock ${C.horizonLock}   fovKick ${C.enableFovKick}`;
+  requestAnimationFrame(frame);
+}
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

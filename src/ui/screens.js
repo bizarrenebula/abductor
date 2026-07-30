@@ -134,12 +134,7 @@ document.getElementById('startBtn').addEventListener('click',()=>{
    Story mode — screens.js owns startGame, so handing the callbacks down keeps
    the import one-way (screens -> tutorial). */
 Tutorial.replayRun=()=>{ startGame(); Tutorial.start(); };
-Tutorial.playStory=()=>{
-  S.storyMode=true;
-  document.querySelectorAll('#segMode [data-m]').forEach(x=>x.classList.toggle('on',x.dataset.m==='story'));
-  const om=document.getElementById('oMode'); if(om)om.textContent=t('mode.story');
-  startGame();                       // startGame calls Tutorial.stop() and begins the story
-};
+Tutorial.toMenu=()=>toMenu();
 // "run it back" continues the same ship — a crash never costs your upgrades.
 document.getElementById('againBtn').addEventListener('click',()=>startGame({keep:true}));
 document.getElementById('settingsBtn').addEventListener('click',()=>{

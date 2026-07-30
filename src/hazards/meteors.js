@@ -150,6 +150,7 @@ export function updateMeteors(dt){
     if(S.state==='playing'&&!S.cloak&&m.position.distanceTo(saucer.position)<5.5){
       spawnImpactFlash(m.position.x,m.position.y,m.position.z,true);
       scene.remove(m);scene.remove(u.trail);meteors.splice(i,1);
+      if(S.tutorial)return;               // training flight: no fatal hits
       S.crashReason='meteor';S.state='crashing';S.vy=-6;
       BeamSFX.stop();S.prevBeam=false;
       sfxMeteorImpact(true);

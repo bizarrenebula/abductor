@@ -235,7 +235,7 @@ function animate(){
       const hx=saucer.position.x+S.vel.x/sp*4.5, hz=saucer.position.z+S.vel.z/sp*4.5;
       hitH=Math.max(hitH,heightAt(hx,hz),roadHeightAt(hx,hz));
     }
-    if(saucer.position.y-1.2<hitH){
+    if(saucer.position.y-1.2<hitH&&!S.tutorial){    // no fatal terrain hits in training
       S.crashReason='impact';S.state='crashing';S.vy=-3;
       BeamSFX.stop();S.prevBeam=false;
     }
@@ -334,7 +334,7 @@ function animate(){
         else if(lvl===3){banner(tr('banner.energy10'));beep(220,0.4,0.1);setTimeout(()=>beep(180,0.4,0.1),260);}
       }else if(lvl<S.warnLevel){S.warnLevel=lvl;}   // re-arm after refuelling
       if(S.cloak&&S.energy<0.02)S.cloak=false;       // forced decloak when empty
-      if(S.energy<=0){
+      if(S.energy<=0&&!S.tutorial){
         S.state='crashing';S.vy=0;S.crashReason='energy';S.cloak=false;
         BeamSFX.stop();S.prevBeam=false;
         Music.set('off');

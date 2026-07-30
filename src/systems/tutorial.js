@@ -15,7 +15,8 @@ import { scene } from '../core/engine.js';
 import { saucer } from './saucer.js';
 import { TOUCH_ONLY } from '../core/env.js';
 import { heightAt } from '../world/terrain.js';
-import { animals } from '../entities/registry.js';
+import { animals, pickups } from '../entities/registry.js';
+import { buildCrystal } from '../entities/crystals.js';
 import { banner } from '../ui/banner.js';
 import { Special } from './special.js';
 import { mark as markWaypoint } from './waypoints.js';
@@ -280,8 +281,31 @@ function trackMarker(s){
   } else m.visible=false;
 }
 
+
+/* ---- tutorial crystal --------------------------------------------------
+   Crystals spawn at random across the map, so the lesson cannot rely on one
+   being nearby: reuse the nearest live crystal if there is one, otherwise place
+   a fresh one just ahead. Removed again on stop() if it was never collected. */
+let tutCrystal=null;
+function ensureCrystal(){
+  let best=null,bd=1e9;
+  for(const p of pickups){
+    const d=Math.hypot(p.position.x-saucer.position.x,p.position.z-saucer.position.z);
+    if(d<bd){bd=d;best=p;}
+  }
+  if(best&&bd<170)return best;                 // one close enough already
+  const a=S.yaw-0.7, x=saucer.position.x+Math.sin(a)*90, z=saucer.position.z+Math.cos(a)*90;
+  const g=buildCrystal();
+  const by=heightAt(x,z)-0.45;
+  g.position.set(x,by,z); g.userData.baseY=by;
+  scene.add(g); pickups.push(g);
+  tutCrystal=g;
+  return g;
+}
+
 /* ---- the tutorial steps --------------------------------------------------- */
 const _p=new THREE.Vector3();
+const BANNER_HOLD=3.5;   // seconds the closing banner sits before the choice modal
 const steps=[
   // 1 — LOOK. Nothing but the view: sweep the camera all four ways first, so the
   // player learns the left half before anything is asked of the right.
@@ -334,7 +358,23 @@ const steps=[
     begin(s){ s.base=S.taken; s.target=null; },
     test(s){ trackMarker(s); return S.taken>s.base; },
     end(){ if(marker)marker.visible=false; } },
-  // 6 — MASS PULL: the charged special that drags every nearby creature in.
+  // 6 — CRYSTALS. Beamed up like a creature; what they pay depends on the reactor.
+  { key:'crystal', task:'Energy crystals', hud:{},
+    say(s){
+      const drain=S.energyMode==='drain';
+      if(s.got) return 'Got it.';
+      return (drain
+        ? 'Crystals refuel your reactor. Beam the glowing crystal up.'
+        : 'Your reactor is infinite, so crystals pay out in harvest points. Beam it up.');
+    },
+    begin(s){ s.base=S.crystals; s.got=false; s.obj=ensureCrystal(); },
+    test(s){
+      if(s.obj&&s.obj.parent)
+        markWaypoint(s.obj.position,'#9fe8ff',16);
+      else s.obj=null;
+      if(S.crystals>s.base)s.got=true;
+      return s.got; } },
+  // 7 — MASS PULL: the charged special that drags every nearby creature in.
   { key:'pull', task:'Mass pull', hud:{point:'pull'},
     say(s){
       if(Special.active) return 'Holding — everything nearby is being dragged in!';
@@ -344,21 +384,28 @@ const steps=[
     },
     begin(s){ s.used=false; Special.charge=1; },   // hand them a full charge to try it
     test(s){ if(Special.active)s.used=true; return s.used; } },
-  // 7 — the MAP is revealed, once flying is second nature, and explained.
+  // 8 — the MAP is revealed, once flying is second nature, and explained.
   { key:'map', task:'Your radar', hud:{map:true,point:'map'}, dwell:9,
     say(s){ return 'Bottom-left: a heading-up radar. You are the arrow at its '+
                    'centre, and it pings nearby crystals and ship parts. ('+Math.ceil(s.t)+'s)'; },
     begin(s){ s.t=this.dwell; },
     test(s,dt){ s.t-=dt; return s.t<=0; } },
-  // 8 — ship upgrades + the full HUD.
+  // 9 — ship upgrades + the full HUD.
   { key:'upgrades', task:'Ship upgrades', hud:{map:true,equip:true,point:'equip'}, dwell:11,
     say(s){ return 'Your ship starts bare. That checklist tracks the three modules '+
                    'scattered out there — thrusters, plasma beam, cloak. Fly over one to '+
                    'install it. Everything you beam up widens your beam. ('+Math.ceil(s.t)+'s)'; },
     begin(s){ s.t=this.dwell; },
     test(s,dt){ s.t-=dt; return s.t<=0; } },
+  // 10 — HULL. Saved for last: it is the hand-off line, the moment training ends
+  //      and the world turns lethal.
+  { key:'hull', task:'Watch the hull', hud:{map:true,equip:true}, dwell:11,
+    say(s){ return 'Flying into ground, trees, buildings or traffic destroys the ship — '+
+                   'and so do meteors, geysers and lightning. All of it is switched OFF for '+
+                   'training. From here on it is real. ('+Math.ceil(s.t)+'s)'; },
+    begin(s){ s.t=this.dwell; },
+    test(s,dt){ s.t-=dt; return s.t<=0; } },
 ];
-const ROAM_SECS=180;   // free flight after the lessons, before the "what next?" modal
 
 /* ---- controller ----------------------------------------------------------- */
 export const Tutorial={
@@ -369,7 +416,7 @@ export const Tutorial={
   /* Set by screens.js (which owns startGame) so the closing modal can restart
      the tutorial or drop the player into Story mode without an import cycle. */
   replayRun:null,
-  playStory:null,
+  toMenu:null,
 
   /* Offer the tutorial from the Play button. onYes / onSkip start the game. */
   prompt(onYes,onSkip){
@@ -433,26 +480,27 @@ export const Tutorial={
     }
   },
 
-  /* All lessons passed: clear the coaching UI, leave the HUD fully visible and
-     let the player just fly for a while. */
+  /* All lessons passed: clear the coaching UI, show the closing banner and put
+     the choice up right behind it. */
   _roamPhase(){
     this.hint.classList.remove('on');
     showJoyDemo(null);
     S.tutorialLesson=false;        // free flight — show every objective again
     hud({map:true,equip:true});     // full HUD, no highlight rings
-    this._roam=ROAM_SECS;
     banner('TRAINING COMPLETE — THE VALLEY IS YOURS');
+    this._roam=BANNER_HOLD;        // just long enough to read the banner
   },
 
-  /* The closing choice. */
+  /* The closing choice, shown right after the final message. */
   _ask(){
     this._roam=0;
     showModal('Training complete','Where to now, pilot?',
-      'You have the controls, the beam and the HUD. Keep roaming this world, run '+
-      'the training again, or take on the story.',
+      'You have the controls, the beam, the pull and the HUD. Crashes are live from '+
+      'here on. Keep exploring this world, run the training again, or head back to '+
+      'the main menu.',
       [ {label:'Keep exploring',primary:true,onClick:()=>{ this.active=false; S.tutorial=false; S.tutorialLesson=false; }},
-        {label:'Replay tutorial',onClick:()=>{ if(this.replayRun)this.replayRun(); else this.start(); }},
-        {label:'Story mode',onClick:()=>{ if(this.playStory)this.playStory(); else{ this.active=false; S.tutorial=false; } }} ]);
+        {label:'Restart tutorial',onClick:()=>{ if(this.replayRun)this.replayRun(); else this.start(); }},
+        {label:'Main menu',onClick:()=>{ this.stop(); if(this.toMenu)this.toMenu(); }} ]);
   },
 
   /* Tear everything down (called by startGame on any fresh run). */
@@ -462,6 +510,11 @@ export const Tutorial={
     if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); dom.joy.classList.remove('on'); }
     if(beacon)beacon.visible=false;
     if(marker)marker.visible=false;
+    if(tutCrystal){                       // uncollected lesson crystal — take it back
+      scene.remove(tutCrystal);
+      const i=pickups.indexOf(tutCrystal); if(i>=0)pickups.splice(i,1);
+      tutCrystal=null;
+    }
     hudRestore();
   },
 };

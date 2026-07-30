@@ -71,6 +71,8 @@ export function updateCollision(){
   const o=scan(buildings)||scan(props);
   if(!o)return;
   damageStruct(o);            // the object takes damage too (topple / explode)
+  // Training flight: you still knock the scenery over, but the hull survives.
+  if(S.tutorial)return;
   S.crashReason='impact';
   S.state='crashing';
   S.vy=-3;

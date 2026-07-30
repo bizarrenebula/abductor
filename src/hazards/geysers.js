@@ -133,7 +133,7 @@ export function updateGeysers(dt){
       if(S.state==='playing'&&!S.cloak&&gy.t<1.0){
         const d=Math.hypot(saucer.position.x-gy.x,saucer.position.z-gy.z);
         if(d<gy.r*0.72){
-          S.crashReason='geyser';S.state='crashing';S.vy=-4;
+          if(!S.tutorial){S.crashReason='geyser';S.state='crashing';S.vy=-4;}
           BeamSFX.stop();S.prevBeam=false;
           sfxGeyserErupt();
         }

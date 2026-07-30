@@ -17,6 +17,7 @@ import { checkMissions } from '../systems/missions.js';
 import { Upgrades } from '../systems/upgrades.js';
 import { beep } from '../audio/music.js';
 import { spawnPop } from '../ui/pop.js';
+import { scoreV } from '../ui/dom.js';
 import { Story } from '../story/story.js';
 
 /* Soft additive halo so crystals glow and draw the eye from a distance. */
@@ -67,6 +68,7 @@ export function buildCrystal(){
   addGlow(g,tint);
   return g;
 }
+const CRYSTAL_PTS=12;   // harvest value when the reactor is infinite (nothing to refuel)
 export function updateCrystals(dt,beamActive){
   const t=performance.now()*0.001,R=effBeamR();
   for(let i=pickups.length-1;i>=0;i--){
@@ -80,10 +82,19 @@ export function updateCrystals(dt,beamActive){
     p.position.y=u.baseY+u.lift*(saucer.position.y-2-u.baseY);
     const sc=(1-u.lift*0.55)*(u.s0||1);p.scale.setScalar(Math.max(0.05,sc));
     if(u.lift>=1){
-      S.energy=Math.min(1,S.energy+0.35);
+      // What a crystal is worth depends on the reactor setting: on a DRAINABLE
+      // reactor it is fuel, on an INFINITE one there is nothing to refill, so it
+      // pays out in harvest points instead.
+      if(S.energyMode==='drain'){
+        S.energy=Math.min(1,S.energy+0.35);
+        spawnPop(p.position,'+⚡','CRYSTAL');
+      }else{
+        S.score+=CRYSTAL_PTS;
+        if(scoreV)scoreV.textContent=S.score;
+        spawnPop(p.position,'+'+CRYSTAL_PTS,'CRYSTAL');
+      }
       S.crystals++;
       Story.crystalHook();
-      spawnPop(p.position,'+⚡','CRYSTAL');
       beep(523,0.12,0.08);setTimeout(()=>beep(784,0.16,0.08),70);
       scene.remove(p);pickups.splice(i,1);
       for(const [k,c] of chunks){const j=c.pickups.indexOf(p);if(j>=0){c.pickups.splice(j,1);break;}}

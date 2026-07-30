@@ -120,7 +120,6 @@ const STRINGS = {
     'ctrl.touch':'<b>right stick</b> move + turn &nbsp;·&nbsp; <b>left stick</b> strafe + altitude &nbsp;·&nbsp; <b>double-tap right</b> to beam &nbsp;·&nbsp; <b>hold the ship</b> to cloak',
     'ctrl.desktop':'<b>↑ ↓</b> move &nbsp;·&nbsp; <b>← →</b> turn &nbsp;·&nbsp; <b>A</b>/<b>D</b> strafe &nbsp;·&nbsp; <b>W</b>/<b>S</b> altitude &nbsp;·&nbsp; <b>space</b> beam &nbsp;·&nbsp; <b>Q</b> pull &nbsp;·&nbsp; <b>C</b> cloak',
     // --- splash / diag ---
-    'splash.mobile':'<div><b>mobile mode</b></div><div>procedural graphics · optimized for speed</div>',
     'diag.builtin':'built-in',
     // --- worlds / regions ---
     'world.earth':'Earth','world.moon':'Moon','world.mars':'Mars',
@@ -296,7 +295,6 @@ const STRINGS = {
     'hud.pull':'ТЯГА','hud.dblBeam':'двойной тап — луч','hud.zoom':'Зум','hud.angle':'Угол',
     'ctrl.touch':'<b>правый стик</b> — движение + поворот &nbsp;·&nbsp; <b>левый стик</b> — стрейф + высота &nbsp;·&nbsp; <b>двойной тап справа</b> — луч &nbsp;·&nbsp; <b>удержи корабль</b> — маскировка',
     'ctrl.desktop':'<b>↑ ↓</b> — движение &nbsp;·&nbsp; <b>← →</b> — поворот &nbsp;·&nbsp; <b>A</b>/<b>D</b> — стрейф &nbsp;·&nbsp; <b>W</b>/<b>S</b> — высота &nbsp;·&nbsp; <b>пробел</b> — луч &nbsp;·&nbsp; <b>Q</b> — тяга &nbsp;·&nbsp; <b>C</b> — маскировка',
-    'splash.mobile':'<div><b>мобильный режим</b></div><div>процедурная графика · оптимизировано для скорости</div>',
     'diag.builtin':'встроенный',
     'world.earth':'Земля','world.moon':'Луна','world.mars':'Марс',
     'region.grassland':'Луга','region.desert':'Пустыня','region.highlands':'Нагорье',
@@ -462,7 +460,6 @@ const STRINGS = {
     'hud.pull':'ТЯГА','hud.dblBeam':'двойно докосване — лъч','hud.zoom':'Мащаб','hud.angle':'Ъгъл',
     'ctrl.touch':'<b>десен стик</b> — движение + завъртане &nbsp;·&nbsp; <b>ляв стик</b> — странично + височина &nbsp;·&nbsp; <b>двойно докосване вдясно</b> — лъч &nbsp;·&nbsp; <b>задръж кораба</b> — маскировка',
     'ctrl.desktop':'<b>↑ ↓</b> — движение &nbsp;·&nbsp; <b>← →</b> — завъртане &nbsp;·&nbsp; <b>A</b>/<b>D</b> — странично &nbsp;·&nbsp; <b>W</b>/<b>S</b> — височина &nbsp;·&nbsp; <b>интервал</b> — лъч &nbsp;·&nbsp; <b>Q</b> — тяга &nbsp;·&nbsp; <b>C</b> — маскировка',
-    'splash.mobile':'<div><b>мобилен режим</b></div><div>процедурна графика · оптимизирано за скорост</div>',
     'diag.builtin':'вграден',
     'world.earth':'Земя','world.moon':'Луна','world.mars':'Марс',
     'region.grassland':'Ливади','region.desert':'Пустиня','region.highlands':'Планини',

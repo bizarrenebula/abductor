@@ -111,7 +111,9 @@ let diagDone=0;
 function diagLine(){return document.getElementById('splashLine');}
 (function diagInit(){
   const d=document.getElementById('splashLog');if(!d)return;
-  if(env.LOW_END){d.innerHTML=t('splash.mobile');return;}
+  // Mobile runs on procedural geometry with nothing to download, so the splash
+  // stays clean — just the saucer and the title, no mode blurb.
+  if(env.LOW_END){d.innerHTML='';return;}
   d.innerHTML='<div id="splashLine">'+t('loadNote.loading')+'</div>';
 })();
 export function diagSet(name,ok){

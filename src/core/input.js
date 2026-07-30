@@ -126,7 +126,6 @@ function joy(h){ if(joyEl[h]===null)joyEl[h]=document.getElementById(h==='L'?'jo
 function showJoy(h,ox,oy){ const el=joy(h); if(!el)return; el.style.left=ox+'px';el.style.top=oy+'px';el.classList.add('on'); moveKnob(h,0,0); }
 function moveKnob(h,dx,dy){ const el=joy(h); if(!el)return; const k=el.querySelector('.joy-knob'); if(k)k.style.transform='translate('+dx+'px,'+dy+'px)'; }
 function hideJoy(h){ const el=joy(h); if(el)el.classList.remove('on'); }
-function setBeaming(h,on){ const el=joy(h); if(el)el.classList.toggle('beaming',on); }   // hides the "double-tap" hint while beaming
 
 // Every physical axis routes through its assigned function (touchMap) with an
 // optional invert. Horizontal reads +right; vertical reads +up. By default the
@@ -209,7 +208,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{
     // so you can beam and fly with the same thumb. Releasing stops the beam.
     // Mirroring it to both halves lets either thumb beam from any point on screen.
     if(H.lastWasTap&&now-H.lastTapT<DTAP_MS&&Math.hypot(e.clientX-H.lastTapX,e.clientY-H.lastTapY)<DTAP_DIST){
-      H.beamPtr=e.pointerId;input.beamHold=true;setBeaming(h,true);H.lastWasTap=false;
+      H.beamPtr=e.pointerId;input.beamHold=true;H.lastWasTap=false;
     }
   }
 });
@@ -255,7 +254,7 @@ function endPtr(e){
   ptrHalf.delete(e.pointerId); pos.delete(e.pointerId);
   const i=H.ids.indexOf(e.pointerId); if(i>=0)H.ids.splice(i,1);
   if(e.pointerId===H.beamPtr){                             // this finger was holding the beam
-    H.beamPtr=null;setBeaming(h,false);
+    H.beamPtr=null;
     input.beamHold=(half.L.beamPtr!=null||half.R.beamPtr!=null);   // keep on if the other thumb still holds
   }
   if(wasAnchor){                                           // remember whether this press was a quick tap
@@ -331,7 +330,7 @@ export function resetInputTouch(){
   half.L.ids.length=0;half.R.ids.length=0;
   half.L.beamPtr=null;half.L.lastWasTap=false;half.R.beamPtr=null;half.R.lastWasTap=false;
   ptrHalf.clear();pos.clear();cancelCloakHold();
-  hideJoy('L');hideJoy('R');setBeaming('L',false);setBeaming('R',false);
+  hideJoy('L');hideJoy('R');
   if(zoomSlider){ zoomSlider.value='1'; input.zoom=1; }
   // camera angle is a viewing preference — leave it where the player set it.
 }

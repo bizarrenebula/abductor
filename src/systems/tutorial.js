@@ -17,6 +17,7 @@ import { TOUCH_ONLY } from '../core/env.js';
 import { heightAt } from '../world/terrain.js';
 import { animals } from '../entities/registry.js';
 import { banner } from '../ui/banner.js';
+import { Special } from './special.js';
 
 const TOUCH = TOUCH_ONLY;   // pick touch vs keyboard wording for the hints
 
@@ -90,6 +91,8 @@ function build(){
     70%{box-shadow:0 0 0 16px rgba(143,232,184,0)} 100%{box-shadow:0 0 0 0 rgba(143,232,184,0)}}
   body.tut-point-map #minimap{border-radius:50%;animation:tutReveal 1.6s ease-out 3}
   body.tut-point-equip #hEquip{border-radius:10px;animation:tutReveal 1.6s ease-out 3}
+  /* the PULL button keeps pulsing until the player actually uses it */
+  body.tut-point-pull #spBtn{animation:tutReveal 1.6s ease-out infinite}
   #tutJoy .tut-base{position:absolute;inset:0;border-radius:50%;
     border:1.5px solid rgba(143,232,184,.34);background:rgba(143,232,184,.055);
     box-shadow:inset 0 0 22px rgba(143,232,184,.08),0 0 18px rgba(0,0,0,.35)}
@@ -213,9 +216,11 @@ function hud({map=false,equip=false,point=null}={}){
   b.toggle('tut-no-equip',!equip);
   b.toggle('tut-point-map',point==='map');
   b.toggle('tut-point-equip',point==='equip');
+  b.toggle('tut-point-pull',point==='pull');
 }
 function hudRestore(){
-  document.body.classList.remove('tut-no-map','tut-no-equip','tut-point-map','tut-point-equip');
+  document.body.classList.remove('tut-no-map','tut-no-equip',
+    'tut-point-map','tut-point-equip','tut-point-pull');
 }
 
 /* ---- world beacon (the navigation target) --------------------------------- */
@@ -324,13 +329,23 @@ const steps=[
     begin(s){ s.base=S.taken; s.target=null; },
     test(s){ trackMarker(s); return S.taken>s.base; },
     end(){ if(marker)marker.visible=false; } },
-  // 6 — the MAP is revealed last, once flying is second nature, and explained.
+  // 6 — MASS PULL: the charged special that drags every nearby creature in.
+  { key:'pull', task:'Mass pull', hud:{point:'pull'},
+    say(s){
+      if(Special.active) return 'Holding — everything nearby is being dragged in!';
+      if(Special.charge<1) return 'Recharging… it refills as you fly and abduct.';
+      return TOUCH?'Press and HOLD the glowing PULL button — it drags every creature nearby to you.'
+                  :'Press and hold Q — it drags every creature nearby to you.';
+    },
+    begin(s){ s.used=false; Special.charge=1; },   // hand them a full charge to try it
+    test(s){ if(Special.active)s.used=true; return s.used; } },
+  // 7 — the MAP is revealed, once flying is second nature, and explained.
   { key:'map', task:'Your radar', hud:{map:true,point:'map'}, dwell:9,
     say(s){ return 'Bottom-left: a heading-up radar. You are the arrow at its '+
                    'centre, and it pings nearby crystals and ship parts. ('+Math.ceil(s.t)+'s)'; },
     begin(s){ s.t=this.dwell; },
     test(s,dt){ s.t-=dt; return s.t<=0; } },
-  // 7 — ship upgrades + the full HUD.
+  // 8 — ship upgrades + the full HUD.
   { key:'upgrades', task:'Ship upgrades', hud:{map:true,equip:true,point:'equip'}, dwell:11,
     say(s){ return 'Your ship starts bare. That checklist tracks the three modules '+
                    'scattered out there — thrusters, plasma beam, cloak. Fly over one to '+

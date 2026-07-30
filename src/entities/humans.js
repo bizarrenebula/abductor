@@ -22,6 +22,21 @@ function litWindow(w,h,x,y,z,ry){
 /* ---------- buildings: shelters for fleeing humans ----------
    Chunky, simple, silhouette-first rural structures — barn, house, water tower,
    windmill (slowly turning), and a desert camp — per the art brief. */
+
+/* Village palette — saturated wall/roof pairs so houses read as a colourful
+   settlement from the air instead of a row of brown boxes. One pair is picked
+   per building at build time. */
+const HOUSE_COLS=[
+  {wall:0xd94f3d,roof:0x5c1f18},   // barn red
+  {wall:0xe8c15a,roof:0x6b4a1c},   // ochre
+  {wall:0x4fa3d9,roof:0x1d3f63},   // sky blue
+  {wall:0x63b85a,roof:0x25502a},   // meadow green
+  {wall:0xe6e0d2,roof:0x8a3b2c},   // whitewash + terracotta
+  {wall:0xb05fc0,roof:0x3d1f4a},   // plum
+  {wall:0xe89a4a,roof:0x6b3318},   // pumpkin
+];
+const pickHouse=()=>HOUSE_COLS[(Math.random()*HOUSE_COLS.length)|0];
+
 export function buildBuilding(kind){
   if(kind==='barn'&&LOADED.barn){
     const g=spawnModel('barn');
@@ -30,17 +45,18 @@ export function buildBuilding(kind){
     return g;
   }
   const g=new THREE.Group();
+  const hc=pickHouse();
   if(kind==='barn'){
-    g.add(part(new THREE.BoxGeometry(4.2,2.4,3.2),mat(0x3a2420,0.9),0,1.2,0));
-    const roof=part(new THREE.CylinderGeometry(0,2.6,1.7,4),mat(0x241610,0.9),0,3.2,0);
+    g.add(part(new THREE.BoxGeometry(4.2,2.4,3.2),mat(hc.wall,0.9),0,1.2,0));
+    const roof=part(new THREE.CylinderGeometry(0,2.6,1.7,4),mat(hc.roof,0.9),0,3.2,0);
     roof.rotation.y=Math.PI/4;roof.scale.set(1.25,1,0.95);g.add(roof);
     g.add(litWindow(0.72,0.72,-1.05,1.45,1.61));g.add(litWindow(0.72,0.72,1.05,1.45,1.61));
     g.add(litWindow(0.72,0.72,2.11,1.45,0,Math.PI/2));
     g.add(part(new THREE.BoxGeometry(1.1,1.6,0.1),mat(0x14100c,0.9),0,0.8,1.62));
     g.scale.multiplyScalar(OBJ_SCALE);
   }else if(kind==='house'){
-    g.add(part(new THREE.BoxGeometry(3.4,2.0,2.8),mat(0x463a30,0.9),0,1.0,0));          // walls
-    const roof=part(new THREE.CylinderGeometry(0,2.3,1.35,4),mat(0x2a1c16,0.9),0,2.68,0);
+    g.add(part(new THREE.BoxGeometry(3.4,2.0,2.8),mat(hc.wall,0.9),0,1.0,0));          // walls
+    const roof=part(new THREE.CylinderGeometry(0,2.3,1.35,4),mat(hc.roof,0.9),0,2.68,0);
     roof.rotation.y=Math.PI/4;roof.scale.set(1.3,1,1.05);g.add(roof);                    // pitched roof
     g.add(litWindow(0.6,0.6,-0.72,1.05,1.42));g.add(litWindow(0.6,0.6,0.72,1.05,1.42));
     g.add(part(new THREE.BoxGeometry(0.42,1.0,0.42),mat(0x1a120c,0.9),1.0,3.0,-0.5));    // chimney
@@ -50,8 +66,8 @@ export function buildBuilding(kind){
     for(let i=0;i<4;i++){const a=Math.PI/4+i*Math.PI/2, lx=Math.cos(a)*1.05, lz=Math.sin(a)*1.05;
       const leg=part(new THREE.CylinderGeometry(0.09,0.12,4.4,5),legMat,lx,2.2,lz);
       leg.rotation.set(-lz*0.09,0,lx*0.09);g.add(leg);}
-    g.add(part(new THREE.CylinderGeometry(1.5,1.5,1.9,10),mat(0x53463b,0.9),0,5.1,0));   // tank
-    g.add(part(new THREE.ConeGeometry(1.62,0.85,10),mat(0x2a1c16,0.9),0,6.4,0));         // conic roof
+    g.add(part(new THREE.CylinderGeometry(1.5,1.5,1.9,10),mat(hc.wall,0.9),0,5.1,0));   // tank
+    g.add(part(new THREE.ConeGeometry(1.62,0.85,10),mat(hc.roof,0.9),0,6.4,0));         // conic roof
     g.scale.multiplyScalar(OBJ_SCALE);
   }else if(kind==='windmill'){
     const wm=mat(0x39332c,0.9);
@@ -69,7 +85,7 @@ export function buildBuilding(kind){
     g.scale.multiplyScalar(OBJ_SCALE);
   }else{
     // camp: tent + dying fire
-    const tent=part(new THREE.CylinderGeometry(0,1.7,2.0,4),mat(0x44403a,0.95),0,1.0,0);
+    const tent=part(new THREE.CylinderGeometry(0,1.7,2.0,4),mat(hc.wall,0.95),0,1.0,0);
     tent.rotation.y=Math.PI/4;g.add(tent);
     g.add(part(new THREE.SphereGeometry(0.2,8,6),new THREE.MeshStandardMaterial({color:0x662200,emissive:0xff6820,emissiveIntensity:0.9,roughness:0.6}),1.8,0.15,0.6));
     g.add(part(new THREE.CylinderGeometry(0.07,0.07,0.9,5),mat(0x2c1e12,0.95),2.1,0.1,0.3));g.scale.multiplyScalar(OBJ_SCALE);
@@ -98,7 +114,7 @@ export function buildHuman(kind){
     return g;
   }
   const g=new THREE.Group();
-  const cloth=mat(villager?0x4a3a50:0x6e4a20,0.9),skin=mat(0xc9a184,0.8);
+  const cloth=mat(villager?0x8f5fd0:0xd98a2b,0.9),skin=mat(0xe8bb95,0.8);
   g.add(part(new THREE.CylinderGeometry(0.15,0.18,0.75,8),mat(0x26242c,0.9),0,0.38,0));
   g.add(part(new THREE.CylinderGeometry(0.2,0.24,0.7,8),cloth,0,1.0,0));
   g.add(part(new THREE.SphereGeometry(0.22,10,8),skin,0,1.58,0));

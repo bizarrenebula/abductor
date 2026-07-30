@@ -14,28 +14,28 @@ function canvasTex(draw,size){size=size||256;const c=document.createElement('can
   draw(c.getContext('2d'),size);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;
   t.anisotropy=MAX_ANISO;return t;}
 
-export const grassTex=canvasTex((x,s)=>{x.fillStyle='#5c6b52';x.fillRect(0,0,s,s);
+export const grassTex=canvasTex((x,s)=>{x.fillStyle='#3f7d33';x.fillRect(0,0,s,s);
   for(let i=0;i<5200;i++){const l=55+Math.random()*85;
-    x.strokeStyle='rgba('+(l*0.75|0)+','+(l|0)+','+(l*0.7|0)+',0.45)';
+    x.strokeStyle='rgba('+(l*0.42|0)+','+(l*1.08|0)+','+(l*0.38|0)+',0.45)';
     const px=Math.random()*s,py=Math.random()*s,len=2+Math.random()*6;
     x.beginPath();x.moveTo(px,py);x.lineTo(px+(Math.random()-0.5)*3,py-len);x.stroke();}});
-export const sandTex=canvasTex((x,s)=>{x.fillStyle='#8a7c62';x.fillRect(0,0,s,s);
+export const sandTex=canvasTex((x,s)=>{x.fillStyle='#c8a45e';x.fillRect(0,0,s,s);
   for(let y=0;y<s;y++){const w=Math.sin(y*0.11)*10;
     for(let k=0;k<3;k++){const px=(Math.random()*s+w+s)%s;
       const l=110+Math.sin(y*0.11)*30+Math.random()*30;
-      x.fillStyle='rgba('+(l|0)+','+(l*0.88|0)+','+(l*0.66|0)+',0.25)';
+      x.fillStyle='rgba('+(l|0)+','+(l*0.82|0)+','+(l*0.48|0)+',0.25)';
       x.fillRect(px,y,3+Math.random()*5,1);}}
   for(let i=0;i<1600;i++){const l=60+Math.random()*140;
-    x.fillStyle='rgba('+(l|0)+','+(l*0.9|0)+','+(l*0.7|0)+',0.3)';
+    x.fillStyle='rgba('+(l|0)+','+(l*0.84|0)+','+(l*0.5|0)+',0.3)';
     x.fillRect(Math.random()*s,Math.random()*s,1.5,1.5);}});
-export const rockTex=canvasTex((x,s)=>{x.fillStyle='#6d6d70';x.fillRect(0,0,s,s);
+export const rockTex=canvasTex((x,s)=>{x.fillStyle='#6a7180';x.fillRect(0,0,s,s);
   for(let i=0;i<900;i++){const l=45+Math.random()*120,r=2+Math.random()*14;
     x.fillStyle='rgba('+(l|0)+','+(l|0)+','+(l*1.05|0)+',0.22)';
     x.beginPath();x.arc(Math.random()*s,Math.random()*s,r,0,7);x.fill();}
   for(let i=0;i<50;i++){x.strokeStyle='rgba(30,30,34,0.35)';x.lineWidth=1;
     x.beginPath();let px=Math.random()*s,py=Math.random()*s;x.moveTo(px,py);
     for(let k=0;k<5;k++){px+=(Math.random()-0.5)*30;py+=Math.random()*14;x.lineTo(px,py);}x.stroke();}});
-export const snowTex=canvasTex((x,s)=>{x.fillStyle='#b4c0c8';x.fillRect(0,0,s,s);
+export const snowTex=canvasTex((x,s)=>{x.fillStyle='#d2e2f0';x.fillRect(0,0,s,s);
   for(let i=0;i<900;i++){const l=170+Math.random()*85,r=1+Math.random()*6;
     x.fillStyle='rgba('+(l|0)+','+(l|0)+','+Math.min(255,l*1.06|0)+',0.25)';
     x.beginPath();x.arc(Math.random()*s,Math.random()*s,r,0,7);x.fill();}

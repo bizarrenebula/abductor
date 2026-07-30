@@ -48,16 +48,16 @@ export function buildAnimal(species){
   const eyes=(x,y,z,r)=>{g.add(part(new THREE.SphereGeometry(r,6,6),eyeM,-x,y,z));
     g.add(part(new THREE.SphereGeometry(r,6,6),eyeM,x,y,z));};
   if(species==='Duck'){
-    const bodyM=mat(0x5b4a33,0.7);
+    const bodyM=mat(0x7a5a2a,0.7);
     const b=part(new THREE.SphereGeometry(1,16,12),bodyM,0,0.7,0);b.scale.set(1.35,0.85,1.05);g.add(b);
     const tail=part(new THREE.ConeGeometry(0.35,0.7,10),bodyM,0,0.85,-1.15);tail.rotation.x=-1.4;g.add(tail);
     g.add(part(new THREE.CylinderGeometry(0.26,0.34,0.5,10),mat(0xe6e6e0,0.6),0,1.12,0.7));
-    g.add(part(new THREE.SphereGeometry(0.5,16,12),mat(0x1c5a3c,0.35),0,1.5,0.85));
+    g.add(part(new THREE.SphereGeometry(0.5,16,12),mat(0x1f8a52,0.35),0,1.5,0.85));
     eyes(0.2,1.6,1.2,0.07);
-    const bill=part(new THREE.ConeGeometry(0.2,0.55,10),mat(0xe8a13a,0.5),0,1.5,1.35);bill.rotation.x=Math.PI/2;g.add(bill);
+    const bill=part(new THREE.ConeGeometry(0.2,0.55,10),mat(0xffb733,0.5),0,1.5,1.35);bill.rotation.x=Math.PI/2;g.add(bill);
   }else if(species==='Sheep'){
     // sheep: woolly pale body, dark slim legs and head
-    const wool=mat(0xd8d4c6,0.98), dark=mat(0x26221e,0.9);
+    const wool=mat(0xf4f1e6,0.98), dark=mat(0x17140f,0.9);
     const b=part(new THREE.SphereGeometry(1,16,12),wool,0,1.15,0);b.scale.set(1.4,1.0,0.95);g.add(b);
     g.add(part(new THREE.SphereGeometry(0.5,10,8),wool,-0.45,1.7,0.2));
     g.add(part(new THREE.SphereGeometry(0.45,10,8),wool,0.4,1.65,-0.4));
@@ -72,7 +72,7 @@ export function buildAnimal(species){
     const fe=mat([0x2c3a4a,0x3a2a2a,0x46464e,0x244034][(Math.random()*4)|0],0.7);
     const body=part(new THREE.SphereGeometry(0.5,12,10),fe,0,0,0);body.scale.set(0.8,0.72,1.35);g.add(body);
     const head=part(new THREE.SphereGeometry(0.3,10,8),fe,0,0.24,0.6);g.add(head);
-    const beak=part(new THREE.ConeGeometry(0.1,0.36,7),mat(0xe0a030,0.5),0,0.2,0.98);beak.rotation.x=Math.PI/2;g.add(beak);
+    const beak=part(new THREE.ConeGeometry(0.1,0.36,7),mat(0xffb733,0.5),0,0.2,0.98);beak.rotation.x=Math.PI/2;g.add(beak);
     const wl=part(new THREE.BoxGeometry(1.15,0.06,0.5),fe,-0.72,0.06,0);wl.rotation.z=0.18;g.add(wl);
     const wr=part(new THREE.BoxGeometry(1.15,0.06,0.5),fe,0.72,0.06,0);wr.rotation.z=-0.18;g.add(wr);
     g.add(part(new THREE.BoxGeometry(0.4,0.05,0.65),fe,0,0,-0.75));   // tail
@@ -80,7 +80,7 @@ export function buildAnimal(species){
     eyes(0.14,0.3,0.78,0.05);
   }else{
     // mountain goat: compact, sturdy — chunky legs, bolder horns, clear beard
-    const hide=mat(0xbdb6a8,0.95), horn=mat(0x4a4238,0.6);
+    const hide=mat(0xc8702e,0.95), horn=mat(0xf0e4c8,0.6);
     const b=part(new THREE.SphereGeometry(1,16,12),hide,0,1.05,0);b.scale.set(1.35,0.95,0.88);g.add(b);
     const head=part(new THREE.SphereGeometry(0.5,14,12),hide,0,1.5,1.15);head.scale.set(0.95,0.95,1.05);g.add(head);
     const snout=part(new THREE.SphereGeometry(0.26,10,8),hide,0,1.4,1.55);snout.scale.set(0.85,0.8,1.05);g.add(snout);

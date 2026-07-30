@@ -42,8 +42,8 @@ export const waterMat=new THREE.ShaderMaterial({
       // fresnel: transparent/dark looking straight down, reflective at grazing angles
       float fres=pow(1.0-clamp(dot(nrm,v),0.0,1.0),4.0);
       // depth colour: deep teal-black in the troughs, brighter on the crests
-      vec3 deep=vec3(0.004,0.035,0.055);
-      vec3 shallow=vec3(0.05,0.24,0.28);
+      vec3 deep=vec3(0.008,0.07,0.16);
+      vec3 shallow=vec3(0.05,0.45,0.55);
       vec3 col=mix(deep,shallow,clamp(vWave*0.5+0.5,0.0,1.0));
       // sky/horizon reflection tint grows with fresnel
       vec3 skyRefl=mix(vec3(0.05,0.12,0.16),vec3(0.5,0.62,0.72),uMoonF);

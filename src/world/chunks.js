@@ -44,17 +44,22 @@ groundMat.onBeforeCompile=sh=>{
       +'vec3 tg=texture2D(tGrass,vDuv*'+T('grass')+').rgb;vec3 ts=texture2D(tSand,vDuv*'+T('sand')+').rgb;vec3 tr=texture2D(tRock,vDuv*'+T('rock')+').rgb;vec3 tn=texture2D(tSnow,vDuv*'+T('snow')+').rgb;\n'
       +'float w1=clamp(1.0-abs(vBiome-1.0),0.0,1.0);float w2=clamp(1.0-abs(vBiome-2.0),0.0,1.0);float w3=clamp(vBiome-2.0,0.0,1.0);float w0=clamp(1.0-vBiome,0.0,1.0);\n'
       +'vec3 tc=(tg*w0+ts*w1+tr*w2+tn*w3)/max(w0+w1+w2+w3,0.001);\n'
-      +'diffuseColor.rgb*=mix(vec3(1.0),tc*2.05,0.9);\n}');
+      +'diffuseColor.rgb*=mix(vec3(1.0),tc*1.45,0.9);\n}');
 };
 
+/* NOTE: the ground shader multiplies the splat texture into the vertex colour.
+   That factor is deliberately BELOW 2 — the biome tints are saturated now, and a
+   bigger multiplier clips bright ground (sand, snow) to white, which destroys the
+   very hue the palette is trying to show. */
+
 /* Road surface. A separate raised mesh, so it never blends with the ground.
-   The terrain shader multiplies its texture by ~2.05; without a matching lift
-   the deck reads as a black slash across a bright landscape, so the material
-   colour is used as a >1 multiplier on the map. */
+   The terrain shader multiplies its texture by ~1.45; the deck is lifted to
+   match so it neither reads as a black slash nor as a blown-out white ribbon
+   across the saturated ground. */
 const roadMat=new THREE.MeshStandardMaterial({map:roadTex,roughness:0.93,metalness:0.02,side:THREE.DoubleSide});
-roadMat.color.setScalar(1.85);
+roadMat.color.setScalar(1.32);
 const pierMat=new THREE.MeshStandardMaterial({color:0x53565c,roughness:0.95});
-pierMat.color.multiplyScalar(1.5);
+pierMat.color.multiplyScalar(1.15);
 /* Crossroad node — the paved patch that fills the overlap where two
    carriageways cross, so the intersection reads as one clean junction instead of
    two ribbons z-fighting with their lane stripes doubled up. It uses the SAME
@@ -63,7 +68,7 @@ pierMat.color.multiplyScalar(1.5);
    chamfers cut the corners, so it seats seamlessly rather than sitting proud as
    an oversized square. */
 const junctionMat=new THREE.MeshStandardMaterial({map:junctionTex,roughness:0.93,metalness:0.02});
-junctionMat.color.setScalar(1.85);
+junctionMat.color.setScalar(1.32);
 const JUNC_R=ROAD_HW*1.12;               // octagon radius: flats ~ at the road edge
 // octagon deck, laid flat, a flat side facing each axis (rotate 22.5°)
 const junctionGeo=new THREE.CircleGeometry(JUNC_R,8);

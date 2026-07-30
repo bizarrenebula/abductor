@@ -47,14 +47,17 @@ export function sampleEarth(x,z){
   // color
   let r,g,b;
   const tint=fbm(nHill,x*0.05+9,z*0.05-9,2)*0.04;
-  if(biome==='water'){ r=0.02;g=0.05;b=0.08; }
-  else if(h<WATER_Y+1.4){ r=0.26;g=0.23;b=0.17; }              // muddy shore
-  else if(biome==='desert'){ r=0.50+tint;g=0.40+tint*0.6;b=0.24; }
+  // Vivid, saturated palette: each biome should be recognisable at a glance, so
+  // the channels are pushed APART (low red/blue on grass, warm gold on sand)
+  // rather than simply brightened, which would wash the night look out.
+  if(biome==='water'){ r=0.01;g=0.09;b=0.17; }                 // deep blue lakebed
+  else if(h<WATER_Y+1.4){ r=0.56;g=0.46;b=0.26; }              // warm wet sand shore
+  else if(biome==='desert'){ r=0.72+tint;g=0.52+tint*0.6;b=0.20; }   // golden sand
   else if(biome==='mountain'){
-    if(h>40){ r=0.74;g=0.80;b=0.90; }                          // dim snow cap
-    else{ const rock=0.19+tint; r=rock;g=rock+0.01;b=rock+0.04; }
-  } else if(biome==='forest'){ r=0.06+tint;g=0.20+tint*1.3;b=0.08+tint; }       // deep green
-  else { r=0.10+tint;g=0.31+tint*1.6;b=0.11+tint; }            // plains grass
+    if(h>40){ r=0.88;g=0.93;b=1.00; }                          // bright snow cap
+    else{ const rock=0.22+tint; r=rock;g=rock+0.02;b=rock+0.09; }    // cool slate
+  } else if(biome==='forest'){ r=0.03+tint;g=0.32+tint*1.3;b=0.09+tint; }       // deep rich green
+  else { r=0.07+tint;g=0.50+tint*1.6;b=0.12+tint; }            // vivid plains grass
   return {h,biome,r,g,b};
 }
 export function sampleAlien(x,z){

@@ -46,7 +46,7 @@ export function applyDayNightLight(){
   sun.intensity=baseSun*(0.35+1.35*f);
   sun.color.setRGB(lerp(0.62,1.0,f),lerp(0.75,0.95,f),lerp(1.0,0.82,f));  // cool moonlight → warm sun
   // gentle exposure lift only — avoids the "brightness maxed" look
-  renderer.toneMappingExposure=(env.usePost?1.08:1.18)*(0.9+0.34*f);
+  renderer.toneMappingExposure=(env.usePost?1.08:1.18)*(0.84+0.24*f);   // headroom so saturated ground doesn't clip
   // FOG = the sky's horizon colour (wc.fog matches sky[2]) so distant terrain
   // dissolves seamlessly into the sky — no hard chunk edge, a soft fog-of-war
   // reveal as you move. Only a slight lift by day. Density eases with the light.

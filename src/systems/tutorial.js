@@ -15,6 +15,7 @@ import { scene } from '../core/engine.js';
 import { saucer } from './saucer.js';
 import { TOUCH_ONLY } from '../core/env.js';
 import { heightAt } from '../world/terrain.js';
+import { animals } from '../entities/registry.js';
 
 const TOUCH = TOUCH_ONLY;   // pick touch vs keyboard wording for the hints
 
@@ -108,6 +109,41 @@ function placeBeacon(x,z){
   b.position.set(x,heightAt(x,z),z); b.visible=true;
 }
 
+/* ---- creature marker (a "beam this one" pointer for the final step) -------- */
+let marker=null;
+function makeMarker(){
+  if(marker)return marker;
+  const g=new THREE.Group();
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(2.4,0.32,10,32),
+    new THREE.MeshBasicMaterial({color:0xffe28a,transparent:true,opacity:0.9,
+      blending:THREE.AdditiveBlending,depthWrite:false}));
+  ring.rotation.x=Math.PI/2; g.add(ring);
+  const tick=new THREE.Mesh(new THREE.ConeGeometry(1.3,2.4,4),
+    new THREE.MeshBasicMaterial({color:0xfff2c0,transparent:true,opacity:0.9,
+      blending:THREE.AdditiveBlending,depthWrite:false}));
+  tick.rotation.x=Math.PI; tick.position.y=3.2; g.add(tick);   // ▼ pointing down at the creature
+  g.visible=false; scene.add(g); marker=g; return g;
+}
+/* Keep the marker floating over the nearest catchable creature. */
+function trackMarker(s){
+  const m=makeMarker();
+  let tgt=s.target;
+  const ok=a=>a&&a.parent&&a.visible!==false;
+  if(!ok(tgt)){                                   // (re)acquire the nearest creature
+    let best=null,bd=1e9;
+    for(const a of animals){ if(a.visible===false||!a.parent)continue;
+      const d=Math.hypot(a.position.x-saucer.position.x,a.position.z-saucer.position.z);
+      if(d<bd){bd=d;best=a;} }
+    tgt=s.target=best;
+  }
+  if(tgt){ m.visible=true;
+    const bob=Math.sin(performance.now()*0.005)*0.5;
+    m.position.set(tgt.position.x,tgt.position.y+5+bob,tgt.position.z);
+    const p=0.85+0.15*Math.sin(performance.now()*0.008);
+    m.scale.setScalar(p);
+  } else m.visible=false;
+}
+
 /* ---- the tutorial steps --------------------------------------------------- */
 const _p=new THREE.Vector3();
 const steps=[
@@ -131,10 +167,15 @@ const steps=[
     test(s){ return Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z)<24; },
     end(){ if(beacon)beacon.visible=false; } },
   { key:'beam', task:'Beam up a creature',
-    say:()=>TOUCH?'Hover over an animal, then double-tap & HOLD to open the beam.'
-                 :'Hover over an animal, then hold SPACE to open the beam.',
-    begin(s){ s.base=S.taken; },
-    test(s){ return S.taken>s.base; } },
+    say(s){
+      if(S.beamLock>0.03) return 'Locked on — hold it steady!';
+      if(S.beamPower>0.12) return 'Beam open — centre it on the creature.';
+      return TOUCH?'Fly over the ▼ creature, then double-tap & HOLD to beam.'
+                  :'Fly over the ▼ creature, then hold SPACE to beam.';
+    },
+    begin(s){ s.base=S.taken; s.target=null; },
+    test(s){ trackMarker(s); return S.taken>s.base; },
+    end(){ if(marker)marker.visible=false; } },
 ];
 
 /* ---- controller ----------------------------------------------------------- */
@@ -205,6 +246,7 @@ export const Tutorial={
     this.active=false; this._i=0; this._s=null;
     if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); }
     if(beacon)beacon.visible=false;
+    if(marker)marker.visible=false;
   },
 };
 export default Tutorial;

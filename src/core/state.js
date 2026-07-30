@@ -10,6 +10,7 @@ export const S={
   score:0,
   lockTime:2, beamR:8,
   beamPower:0,
+  beamLock:0,               // 0..1 strongest in-progress abduction lock (drives the beam FX)
   taken:0, tally:{},
   world:'earth', energyMode:'inf', energy:1, vy:0,
   crystals:0, missionIdx:0, prevBeam:false, crashReason:null,

@@ -82,6 +82,9 @@ export function updateAbduction(dt,weatherMult,beamOn){
     if(inBeam && u.progress>=S.lockTime){ triggerAbduct(a); continue; }
     if(u.progress>bestP){bestP=u.progress;best=a;}
   }
+  // Strongest in-progress lock drives the in-world beam FX (brighten + gold + the
+  // ground ring sweep), so the player sees the catch building without a HUD bar.
+  S.beamLock=best?Math.min(1,best.userData.progress/S.lockTime):0;
   if(best){
     hTarget.classList.add('show');
     barFill.style.width=Math.min(100,best.userData.progress/S.lockTime*100)+'%';

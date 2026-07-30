@@ -30,7 +30,7 @@ import { updateUpgradeItems } from './entities/upgradeItems.js';
 import { saucer, beamLight, shipLight, glowLight, ebarBG, ebarFill3, updateEnergyBar, updateSaucer, updateShadow } from './systems/saucer.js';
 import { NightLights } from './systems/nightlights.js';
 import { updateDestruction } from './systems/destruction.js';
-import { beam, beamMat, disc, discMat, effBeamR } from './systems/beam.js';
+import { beam, beamMat, disc, discMat, effBeamR, updateBeamFX, sparks } from './systems/beam.js';
 import { updateAbduction } from './systems/abduction.js';
 import { buff, updateBuff } from './systems/buffs.js';
 import { applyCloakVisual } from './systems/cloak.js';
@@ -256,6 +256,12 @@ function animate(){
     beam.scale.set(eR*(0.55+0.45*bp),h,eR*(0.55+0.45*bp));
     disc.position.set(saucer.position.x,groundY+0.15,saucer.position.z);
     disc.scale.setScalar(eR*(0.55+0.45*bp));
+    // Lock-driven beam FX: brighten + golden tint + ground-ring sweep + rising
+    // sparks, eased so it fades in/out smoothly (S.beamLock is last frame's value,
+    // set by updateAbduction below — a 1-frame lag is imperceptible).
+    const uLock=lerp(beamMat.uniforms.uLock.value,beamOn?S.beamLock:0,Math.min(1,dt*6));
+    beamMat.uniforms.uLock.value=uLock;discMat.uniforms.uLock.value=uLock;
+    updateBeamFX(dt,saucer.position.x,saucer.position.z,groundY,saucer.position.y-1,eR*(0.55+0.45*bp),bvis,uLock);
     beamLight.position.set(saucer.position.x,saucer.position.y-4,saucer.position.z);
     beamLight.intensity=(1.5+0.3*Math.sin(t*13.7)+0.2*Math.sin(t*29.3))*bp;
     const _night=1-S.dayF;
@@ -362,7 +368,7 @@ function animate(){
     S.vy-=42*dt;
     saucer.position.y+=S.vy*dt;
     saucer.rotation.z+=dt*1.4;saucer.rotation.x+=dt*0.8;
-    beam.visible=disc.visible=false;beamLight.intensity=0;
+    beam.visible=disc.visible=false;beamLight.intensity=0;sparks.visible=false;
     shipLight.position.set(saucer.position.x,saucer.position.y+5.5,saucer.position.z);
     shipLight.distance=30;
     shipLight.intensity=Math.max(0.15,shipLight.intensity-dt*0.8);  // dying reactor
@@ -389,6 +395,8 @@ function animate(){
     beam.position.set(saucer.position.x,(saucer.position.y-1+gh)/2,saucer.position.z);
     beam.scale.set(8,saucer.position.y-gh-1,8);
     disc.position.set(saucer.position.x,gh+0.15,saucer.position.z);disc.scale.setScalar(8);
+    beamMat.uniforms.uLock.value=0;discMat.uniforms.uLock.value=0;
+    updateBeamFX(dt,saucer.position.x,saucer.position.z,gh,saucer.position.y-1,8,1,0);
     beamLight.position.set(saucer.position.x,saucer.position.y-4,saucer.position.z);beamLight.intensity=1.4;
     shipLight.position.set(saucer.position.x,saucer.position.y+5.5,saucer.position.z);shipLight.intensity=2.3;shipLight.distance=30;
     glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);

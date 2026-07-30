@@ -1,10 +1,13 @@
 /* =========================================================================
    TUTORIAL — an optional, short guided intro played in the real open world.
-   Offered on Play; if taken, it walks the player through four tasks (move,
-   change altitude, navigate to a beacon, beam up a creature) with on-screen
-   hints, then offers Continue or Replay. Entirely self-contained: it builds its
-   own DOM (a start prompt, a HUD hint card, a done panel) and a world beacon,
-   so nothing else in the UI needs to know about it.
+   Offered on Play; if taken it walks the player through ten steps — look, move,
+   altitude, navigate, beam, crystals, mass pull, radar, upgrades, and finally the
+   crash warning that hands them over to real play — then offers Keep exploring /
+   Restart tutorial / Main menu. Crashes are disabled for the whole run (see the
+   S.tutorial guards in collision, main, meteors, geysers and lightning).
+   Entirely self-contained: it builds its own DOM (start prompt, HUD hint card,
+   joystick guide, choice modal) plus a world beacon, creature marker and a
+   guaranteed lesson crystal, so nothing else in the UI needs to know about it.
 
    Wiring: screens.js calls Tutorial.prompt() from the Play button; main.js
    calls Tutorial.update(dt) each playing frame; startGame() calls Tutorial.stop().
@@ -412,7 +415,8 @@ export const Tutorial={
   active:false,
   _i:0,
   _s:null,
-  _roam:0,          // seconds of free flight left before the "what next?" modal
+  _roam:0,          // seconds the closing banner holds before the choice modal
+  _awaiting:false,  // choice modal is up: stop running steps
   /* Set by screens.js (which owns startGame) so the closing modal can restart
      the tutorial or drop the player into Story mode without an import cycle. */
   replayRun:null,
@@ -430,7 +434,7 @@ export const Tutorial={
   /* Begin the walkthrough (the game must already be running). */
   start(){
     build();
-    this.active=true; S.tutorial=true;   // suppresses lethal hazards (lightning)
+    this.active=true; this._awaiting=false; S.tutorial=true;   // suppresses lethal hazards (lightning)
     S.tutorialLesson=true;               // and hides unrelated objective arrows
     this._roam=0;
     this._i=0; this._begin();
@@ -461,15 +465,19 @@ export const Tutorial={
 
   update(dt){
     if(!this.active)return;
+    // The closing modal is up and waiting on the player: the lessons are over, so
+    // there is no step left to run. Without this the loop would walk off the end
+    // of `steps` every frame once _ask() cleared the banner hold.
+    if(this._awaiting)return;
     if(S.state!=='playing'){ return; }                 // paused / crashed: leave the card as-is
-    // Lessons done — the player roams with the full HUD for a few minutes before
-    // being asked what to do next.
+    // Lessons done — hold on the closing banner, then put the choice up.
     if(this._roam>0){
       this._roam-=dt;
       if(this._roam<=0)this._ask();
       return;
     }
     const st=this._cur();
+    if(!st){ this._ask(); return; }                    // belt and braces: never run past the last step
     // refresh the dynamic line (e.g. the beacon distance, a dwell countdown)
     build().doo.textContent=st.say(this._s);
     if(st.test(this._s,dt)){
@@ -493,19 +501,19 @@ export const Tutorial={
 
   /* The closing choice, shown right after the final message. */
   _ask(){
-    this._roam=0;
+    this._roam=0; this._awaiting=true;
     showModal('Training complete','Where to now, pilot?',
       'You have the controls, the beam, the pull and the HUD. Crashes are live from '+
       'here on. Keep exploring this world, run the training again, or head back to '+
       'the main menu.',
-      [ {label:'Keep exploring',primary:true,onClick:()=>{ this.active=false; S.tutorial=false; S.tutorialLesson=false; }},
-        {label:'Restart tutorial',onClick:()=>{ if(this.replayRun)this.replayRun(); else this.start(); }},
-        {label:'Main menu',onClick:()=>{ this.stop(); if(this.toMenu)this.toMenu(); }} ]);
+      [ {label:'Keep exploring',primary:true,onClick:()=>{ this._awaiting=false; this.active=false; S.tutorial=false; S.tutorialLesson=false; }},
+        {label:'Restart tutorial',onClick:()=>{ this._awaiting=false; if(this.replayRun)this.replayRun(); else this.start(); }},
+        {label:'Main menu',onClick:()=>{ this._awaiting=false; this.stop(); if(this.toMenu)this.toMenu(); }} ]);
   },
 
   /* Tear everything down (called by startGame on any fresh run). */
   stop(){
-    this.active=false; S.tutorial=false; S.tutorialLesson=false; this._i=0; this._s=null; this._roam=0;
+    this.active=false; this._awaiting=false; S.tutorial=false; S.tutorialLesson=false; this._i=0; this._s=null; this._roam=0;
     joySide=null; clearTimeout(joyDimT);
     if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); dom.joy.classList.remove('on'); }
     if(beacon)beacon.visible=false;

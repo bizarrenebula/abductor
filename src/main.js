@@ -4,7 +4,7 @@
    and boot sequence. Loaded as a native ES module from index.html after THREE.
    ========================================================================= */
 import { THREE } from './core/three.js';
-import { env } from './core/env.js';
+import { env, TOUCH_ONLY } from './core/env.js';
 import { lerp, clamp, ramp } from './core/math.js';
 import { HOVER_BASE, HOVER_MIN, HOVER_MAX, HOVER_ACC, HOVER_DRAG, HOVER_VMAX,
          YAW_ACC, YAW_DRAG, YAW_VMAX, MOVE_ACC, BEAM_MOVE, BEAM_MAXSPEED, MTN_H, CAM_ZOOM_LOW, CAM_ZOOM_HIGH,
@@ -182,6 +182,14 @@ function animate(){
     // terrain (crash-on-contact for flying INTO a rise is still handled below).
     const ghPre=Math.max(heightAt(flight._base.x,flight._base.z),roadHeightAt(flight._base.x,flight._base.z));
     flight.f.floorY=ghPre+4;
+    // Mobile auto-level: on touch devices, climb/dive is done by pitching with the
+    // left stick's vertical. The moment that input is released, ease the nose back
+    // to horizontal — quickly but smoothly — so the ship settles into level flight
+    // instead of holding a climb/dive angle. (PC keeps its mouse-look pitch.)
+    if(TOUCH_ONLY && Math.abs(input.lookStickY)<0.02 && Math.abs(flight.pitch)>0.004){
+      flight.pitch-=flight.pitch*Math.min(1,dt*7);      // τ≈0.14s → level in ~0.4s
+      if(Math.abs(flight.pitch)<0.004)flight.pitch=0;
+    }
     flight.update(dt,fin);
     saucer.position.copy(flight.position);
     saucer.quaternion.copy(flight.quaternion);        // dragonfly bank/heading

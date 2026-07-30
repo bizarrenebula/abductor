@@ -461,30 +461,32 @@
   .saucer-rim::before{content:'';position:absolute;inset:7%;border-radius:50%;
     border:1px solid rgba(143,232,184,.08);
     box-shadow:inset 0 0 34px rgba(0,0,0,.45),0 1px 0 rgba(143,232,184,.04)}
-  /* soft radial dividers at the four sector boundaries (conic 45/135/225/315°) */
+  /* soft radial dividers at the three sector boundaries (conic 60/180/300°) */
   .saucer-rim::after{content:'';position:absolute;inset:0;border-radius:50%;
     background:conic-gradient(from 0deg,
-      transparent 42deg,rgba(150,190,170,.16) 45deg,transparent 48deg,
-      transparent 132deg,rgba(150,190,170,.16) 135deg,transparent 138deg,
-      transparent 222deg,rgba(150,190,170,.16) 225deg,transparent 228deg,
-      transparent 312deg,rgba(150,190,170,.16) 315deg,transparent 318deg);
+      transparent 57deg,rgba(150,190,170,.16) 60deg,transparent 63deg,
+      transparent 177deg,rgba(150,190,170,.16) 180deg,transparent 183deg,
+      transparent 297deg,rgba(150,190,170,.16) 300deg,transparent 303deg);
     -webkit-mask:radial-gradient(circle,transparent 30%,#000 33%);
             mask:radial-gradient(circle,transparent 30%,#000 33%)}
-  /* highlighted 90° wedge under the finger (start angle set via --a) */
+  /* highlighted 120° wedge under the finger (start angle set via --a) */
   #saucerHi{position:absolute;inset:0;border-radius:50%;opacity:0;transition:opacity .18s;
     background:conic-gradient(from var(--a,0deg),
-      rgba(143,232,184,.34),rgba(143,232,184,.05) 90deg,transparent 90deg);
+      rgba(143,232,184,.34),rgba(143,232,184,.05) 120deg,transparent 120deg);
     -webkit-mask:radial-gradient(circle,transparent 30%,#000 33%);
             mask:radial-gradient(circle,transparent 30%,#000 33%)}
   #saucerHi.on{opacity:1}
 
   .sector{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:32%;pointer-events:none;text-align:center;z-index:2;transition:.18s}
-  .sector[data-sector=world]{top:13%;left:50%}
-  .sector[data-sector=mode]{left:85%;top:50%}
-  .sector[data-sector=howto]{top:87%;left:50%}
-  .sector[data-sector=extra]{left:15%;top:50%}
-  .sector .s-name{display:block;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft)}
+  /* three equal 120° wedges: Mode at top, How-to lower-right, Tuning lower-left.
+     The labels for the two lower wedges sit near the bottom rim so they clear the
+     central PLAY core (the hit-testing wedge still spans the full 120°). */
+  .sector[data-sector=world]{top:13%;left:50%}   /* hidden (see markup) */
+  .sector[data-sector=mode]{top:16%;left:50%}
+  .sector[data-sector=howto]{left:71%;top:82%}
+  .sector[data-sector=extra]{left:29%;top:82%}
+  .sector .s-name{display:block;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
   .sector .s-val{display:block;font-size:12px;font-weight:700;color:var(--ink);margin-top:2px;white-space:nowrap}
   .sector.hot{transform:translate(-50%,-50%) scale(1.08)}
   .sector.hot .s-name{color:var(--beam)}

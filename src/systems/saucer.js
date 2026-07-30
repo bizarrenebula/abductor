@@ -94,45 +94,23 @@ scene.add(glowLight);
 
 /* ---- ground shadow (aim aid) ----------------------------------------------
    A soft, natural dark blob DIRECTLY below the ship, tracking its x/z (not its
-   altitude). It's a small grid mesh whose vertices are draped onto the terrain
-   every frame — so on uneven ground (slopes, canyon steps) it follows the
-   surface instead of clipping through and vanishing. No ring, no glow: it reads
-   as the ship's shadow, and because it sits exactly under the hull it doubles as
-   an aim aid for the beam. Always-visible in flight, even in daylight. */
-const SH_SUB=8, SH_HALF=7;               // grid subdivisions + half-extent (units)
-function buildShadowGeo(){
-  const n=SH_SUB+1, verts=n*n;
-  const pos=new Float32Array(verts*3), uv=new Float32Array(verts*2);
-  const baseX=new Float32Array(verts), baseZ=new Float32Array(verts);
-  let vi=0;
-  for(let iz=0;iz<n;iz++)for(let ix=0;ix<n;ix++){
-    const lx=(ix/SH_SUB*2-1)*SH_HALF, lz=(iz/SH_SUB*2-1)*SH_HALF;
-    baseX[vi]=lx; baseZ[vi]=lz;
-    pos[vi*3]=lx; pos[vi*3+1]=0; pos[vi*3+2]=lz;
-    uv[vi*2]=ix/SH_SUB; uv[vi*2+1]=iz/SH_SUB;   // radial texture spans the grid → circular blob
-    vi++;
-  }
-  const idx=[];
-  for(let iz=0;iz<SH_SUB;iz++)for(let ix=0;ix<SH_SUB;ix++){
-    const a=iz*n+ix, b=a+1, c=a+n, d=c+1;
-    idx.push(a,c,b, b,c,d);
-  }
-  const g=new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
-  g.setIndex(idx);
-  g.userData={baseX,baseZ};
-  return g;
-}
-const shadowMesh=new THREE.Mesh(buildShadowGeo(),
+   altitude). It's a single flat disc that is TILTED to lie flush with the local
+   ground slope (sampled as a terrain normal) and lifted just above the surface.
+   A rigid tilted disc reads as a clean soft shadow on slopes and steps — unlike
+   a per-vertex-draped mesh, which deformed and looked jagged/buggy on uneven
+   ground. No ring, no glow; sitting exactly under the hull it doubles as the
+   beam aim aid. Always-visible in flight, even in daylight. */
+const SH_HALF=7;                         // disc radius (units)
+const shadowMesh=new THREE.Mesh(
+  new THREE.CircleGeometry(SH_HALF,44).rotateX(-Math.PI/2),   // flat, face-normal +Y
   new THREE.MeshBasicMaterial({map:shadowTex(),color:0x000000,transparent:true,
     opacity:0.4,depthWrite:false,side:THREE.DoubleSide,
-    // Bias the fragment depth toward the camera so the shadow always wins the
-    // depth test against the ground it lies on — it never gets absorbed by the
-    // surface, while real occluders in front (hills, the hull) still cover it.
+    // Bias the fragment depth toward the camera so the shadow wins the depth test
+    // against the ground it lies on and never gets absorbed by the surface, while
+    // real occluders in front (hills, the hull) still cover it.
     polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4}));
 shadowMesh.renderOrder=2;
-shadowMesh.frustumCulled=false;          // vertices move every frame; skip stale-bounds culling
+shadowMesh.frustumCulled=false;
 scene.add(shadowMesh);
 /* soft radial dark disc (opaque centre → transparent edge) for the shadow. */
 function shadowTex(){
@@ -146,32 +124,25 @@ function shadowTex(){
   const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;return tex;
 }
 const shadowMark=shadowMesh;             // updateSaucer toggles visibility via this handle
+const _shN=new THREE.Vector3(), _shUp=new THREE.Vector3(0,1,0), _shQ=new THREE.Quaternion();
 /* `groundAt(x,z)` returns the terrain/road height at a world point (passed in so
    this module needn't import the terrain + road samplers and risk a cycle). */
 export function updateShadow(groundAt){
-  const g=shadowMesh.geometry, p=g.attributes.position;
-  const {baseX,baseZ}=g.userData;
   const sx=saucer.position.x, sz=saucer.position.z;
-  const gy0=groundAt(sx,sz);
+  const gy=groundAt(sx,sz);
   // Grow + fade a little with altitude, like a real shadow spreading and
   // softening as the caster rises — but never vanish, so it stays a usable aim
   // aid at any height.
-  const agl=Math.max(1,saucer.position.y-gy0);
+  const agl=Math.max(1,saucer.position.y-gy);
   const k=Math.max(0.4,Math.min(1,1-(agl-20)/170));
-  const scale=0.9+0.4*k;
-  shadowMesh.position.set(sx,0,sz);
-  const m=0.95;   // neighbourhood half-step (~half the grid spacing) for the max sample
-  for(let i=0;i<baseX.length;i++){
-    const lx=baseX[i]*scale, lz=baseZ[i]*scale;
-    const wx=sx+lx, wz=sz+lz;
-    // Sit each vertex ABOVE the highest terrain in its cell, not just the point
-    // under it — so the flat triangles between vertices can't poke through the
-    // draped plane on faceted / stepped ground. Small lift on top of that.
-    const h=Math.max(groundAt(wx,wz),groundAt(wx+m,wz),groundAt(wx-m,wz),
-                     groundAt(wx,wz+m),groundAt(wx,wz-m));
-    p.setXYZ(i, lx, h+0.3, lz);
-  }
-  p.needsUpdate=true;
+  // Local ground slope → terrain normal (central differences), so the disc lies
+  // flush with the surface instead of hovering flat over a slope.
+  const e=2.4;
+  _shN.set(groundAt(sx-e,sz)-groundAt(sx+e,sz), 2*e, groundAt(sx,sz-e)-groundAt(sx,sz+e)).normalize();
+  _shQ.setFromUnitVectors(_shUp,_shN);
+  shadowMesh.quaternion.copy(_shQ);
+  shadowMesh.position.set(sx, gy+0.25, sz);
+  shadowMesh.scale.setScalar(0.9+0.4*k);
   shadowMesh.material.opacity=(S.cloak?0.12:0.24)+0.24*k;
 }
 

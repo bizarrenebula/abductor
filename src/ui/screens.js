@@ -204,17 +204,19 @@ const SECTORS={ world:{wedge:315,pan:'panWorld'}, mode:{wedge:45,pan:'panMode'},
 function sectorAt(x,y){
   const r=saucerMenu.getBoundingClientRect();
   const a=Math.atan2(y-(r.top+r.height/2),x-(r.left+r.width/2))*180/Math.PI;
-  if(a>=-135&&a<-45)return 'world';
+  if(a>=-135&&a<-45)return null;    // top quadrant: world selector removed from the menu (logic kept)
   if(a>=-45&&a<45)return 'mode';
   if(a>=45&&a<135)return 'howto';
   return 'extra';
 }
 function highlight(sec){
-  if(sec)saucerHi.style.setProperty('--a',SECTORS[sec].wedge+'deg');
-  saucerHi.classList.toggle('on',!!sec);
-  saucerMenu.querySelectorAll('.sector').forEach(el=>el.classList.toggle('hot',el.dataset.sector===sec));
+  const ok=sec&&SECTORS[sec];
+  if(ok)saucerHi.style.setProperty('--a',SECTORS[sec].wedge+'deg');
+  saucerHi.classList.toggle('on',!!ok);
+  saucerMenu.querySelectorAll('.sector').forEach(el=>el.classList.toggle('hot',ok&&el.dataset.sector===sec));
 }
 function openSector(sec){
+  if(!sec||!SECTORS[sec])return;    // e.g. the (now hidden) world sector — do nothing
   saucerPanel.querySelectorAll('.pan').forEach(p=>p.classList.toggle('on',p.id===SECTORS[sec].pan));
   saucerPanel.classList.remove('hidden');
   saucerMenu.classList.add('editing');   // hides the core PLAY until confirmed

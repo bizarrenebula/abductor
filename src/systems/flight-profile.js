@@ -37,10 +37,13 @@ export const FLIGHT_PROFILE = {
     // speed over ~1.5 s and coasts to rest over ~2 s — heavy mass, real momentum
     // and a clear delay between input and response, not twitch.
     maxSpeed: 55,           // units/s — [heavy] 120→90→55: cruises slowly, no dash.
-    acceleration: 68,       // units/s² — [heavy] 220→130→68: gentle build-up, never
-                            //         lurches (v∞ = 68/1.4 ≈ 49 ≈ maxSpeed).
-    drag: 1.4,              // 1/s   — [heavy] 1.9→1.4: longer coast/glide
-                            //         (τ = 1/k ≈ 0.71 s) = heavier, takes ~2 s to stop.
+    acceleration: 50,       // units/s² — [heavy] 220→130→68→50: very gentle build-up,
+                            //         eases up to speed over ~2 s (v∞ = 50/0.9 ≈ 55).
+    drag: 0.9,              // 1/s   — [momentum] 1.4→0.9: a big, heavy hull. Longer
+                            //         glide (τ = 1/k ≈ 1.1 s): after you release the
+                            //         stick it coasts ~3 s before stopping, and its
+                            //         momentum carries the old heading through turns
+                            //         and climbs (velocity lags input = real mass).
     verticalSpeed: 38,      // units/s — [heavy] 60→44→38: slower vertical.
     boostMultiplier: 1.6,   // [heavy] 2.5→2.0→1.6: boost nudges, doesn't dash.
 

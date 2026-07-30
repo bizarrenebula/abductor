@@ -19,7 +19,10 @@ export const saucer=new THREE.Group();
     new THREE.MeshStandardMaterial({color:0x080a0d,metalness:0.85,roughness:0.5,
       emissive:0x061419,emissiveIntensity:0.1})        // BLACK alien metal; soft (matte) IBL sheen gives it form
   );
-  hull.scale.set(1,0.28,1);hull.castShadow=true;saucer.add(hull);
+  // No sun-cast shadow: the ship's only shadow is the draped blob directly below
+  // it (see updateShadow), which doubles as the beam aim aid. A second, sun-angled
+  // cast shadow would compete with it, so the hull doesn't cast into the shadow map.
+  hull.scale.set(1,0.28,1);hull.castShadow=false;saucer.add(hull);
   const rim=new THREE.Mesh(new THREE.TorusGeometry(5,0.5,16,64),
     new THREE.MeshStandardMaterial({color:0x05070a,metalness:0.8,roughness:0.5}));
   rim.rotation.x=Math.PI/2;saucer.add(rim);

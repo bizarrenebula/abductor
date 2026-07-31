@@ -176,24 +176,20 @@
     box-shadow:0 0 10px rgba(143,232,184,.6)}
   /* equipment checklist — shown while crucial modules (beam/thrusters/cloak)
      are still missing; hidden by upgrades.js once all three are aboard. */
-  /* compact, text-only — sits directly above the minimap and shares its width */
-  #hEquip{top:auto;bottom:184px;left:16px;transform:none;text-align:left;
-    width:110px;max-width:none;padding:0;background:none;border:none;
-    box-shadow:none;backdrop-filter:none}
-  #hEquip .eqTitle{font-size:8px;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--beam-dim);text-align:left;margin-bottom:5px;
-    text-shadow:0 0 5px #041009,0 1px 3px #000}
-  .eqRow{display:flex;align-items:center;gap:6px;margin:3px 0}
-  .eqChk{flex:0 0 auto;width:11px;height:11px;border-radius:3px;position:relative;
-    border:1.5px solid var(--beam-dim)}
-  .eqRow.got .eqChk{background:var(--beam);border-color:var(--beam);box-shadow:0 0 8px rgba(143,232,184,.6)}
-  .eqRow.got .eqChk::after{content:'✓';position:absolute;left:1px;top:-3.5px;
-    font-size:10px;line-height:1;color:#04160f;font-weight:900}
-  .eqName{font-size:11px;font-weight:700;color:var(--ink);
-    text-shadow:0 0 5px #041009,0 1px 3px #000}
-  .eqUse{display:none}
-  .eqRow.got .eqName{color:var(--beam)}
-  .eqRow.got{opacity:.5}
+  /* One line across the very bottom of the screen: the three modules side by
+     side, no checkboxes and no heading. Each name is GREY while the module is
+     still out there and flips to matrix green once installed, so the row reads
+     as progress at a glance without taking any vertical space. */
+  #hEquip{top:auto;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;transform:none;
+    width:100%;max-width:none;padding:0;background:none;border:none;
+    box-shadow:none;backdrop-filter:none;
+    display:flex;justify-content:center;align-items:center;gap:18px;flex-wrap:nowrap}
+  .eqRow{display:flex;align-items:center;white-space:nowrap}
+  .eqName{font-size:11px;font-weight:700;letter-spacing:.06em;
+    color:#7d8a85;                                  /* not found yet: grey */
+    text-shadow:0 0 5px #041009,0 1px 3px #000;transition:color .3s,text-shadow .3s}
+  .eqRow.got .eqName{color:#3dff8a;                 /* installed: matrix green */
+    text-shadow:0 0 9px rgba(61,255,138,.75),0 1px 3px #000}
   /* "great pull" trigger — a fixed target above the centre of the right half
      (75% across, above mid-height), revealed (.show) only while fully charged */
   #spBtn{position:fixed;right:20px;top:118px;transform:scale(.6);
@@ -278,9 +274,8 @@
     #hStory .lbl{display:none}
     #hStory .mtx{font-size:9px;letter-spacing:.12em;margin-top:0}
     #minimap{width:88px;height:88px;left:16px;bottom:80px}
-    #hEquip{bottom:176px;left:16px;width:88px}
-    #hEquip .eqTitle{font-size:7px;letter-spacing:.1em}
-    #hEquip .eqName{font-size:10px}
+    #hEquip{bottom:calc(10px + env(safe-area-inset-bottom));left:0;right:0;width:100%;gap:12px}
+    #hEquip .eqName{font-size:9.5px;letter-spacing:.04em}
     #hUpgrade{top:104px;right:12px;min-width:0}
     #hUpgrade .lbl{display:none}
     #hUpgrade .upgName{font-size:11px}
@@ -600,10 +595,9 @@
   </div>
   <!-- crucial-equipment checklist: hidden by upgrades.js once all three found -->
   <div class="panel" id="hEquip">
-    <div class="eqTitle" data-i18n="equip.title">Find these</div>
-    <div class="eqRow" id="eqRow_thrusters"><span class="eqChk"></span><span class="eqName" data-i18n="upg.name.thrusters">Nuclear thrusters</span><span class="eqUse" data-i18n="equip.use.thrusters">ascend / descend</span></div>
-    <div class="eqRow" id="eqRow_beam"><span class="eqChk"></span><span class="eqName" data-i18n="upg.name.beam">Plasma beam</span><span class="eqUse" data-i18n="equip.use.beam">abduct</span></div>
-    <div class="eqRow" id="eqRow_cloak"><span class="eqChk"></span><span class="eqName" data-i18n="upg.name.cloak">Cloak</span><span class="eqUse" data-i18n="equip.use.cloak">hide</span></div>
+    <div class="eqRow" id="eqRow_thrusters"><span class="eqName" data-i18n="upg.name.thrusters">Nuclear thrusters</span></div>
+    <div class="eqRow" id="eqRow_beam"><span class="eqName" data-i18n="upg.name.beam">Plasma beam</span></div>
+    <div class="eqRow" id="eqRow_cloak"><span class="eqName" data-i18n="upg.name.cloak">Cloak</span></div>
   </div>
   <button id="pauseBtn" class="hbtn" aria-label="Menu">❚❚</button>
   <button id="spBtn" aria-label="Special pull" data-i18n="hud.pull">PULL</button>

@@ -180,16 +180,20 @@
      side, no checkboxes and no heading. Each name is GREY while the module is
      still out there and flips to matrix green once installed, so the row reads
      as progress at a glance without taking any vertical space. */
-  #hEquip{top:auto;bottom:calc(14px + env(safe-area-inset-bottom));left:0;right:0;transform:none;
-    width:100%;max-width:none;padding:0;background:none;border:none;
+  #hEquip{top:auto;bottom:calc(10px + env(safe-area-inset-bottom));left:0;right:0;transform:none;
+    width:100%;max-width:none;padding:0 8px;background:none;border:none;
     box-shadow:none;backdrop-filter:none;
-    display:flex;justify-content:center;align-items:center;gap:18px;flex-wrap:nowrap}
-  .eqRow{display:flex;align-items:center;white-space:nowrap}
-  .eqName{font-size:11px;font-weight:700;letter-spacing:.06em;
+    display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:nowrap}
+  /* Cells size to their own text and are pushed apart, so the row spans the whole
+     strip edge to edge without clipping the longest name (equal thirds would cut
+     "Nuclear thrusters" short). */
+  .eqRow{flex:0 1 auto;display:flex;align-items:center}
+  .eqName{font-size:clamp(11px,3.3vw,20px);font-weight:700;letter-spacing:.02em;
+    white-space:nowrap;
     color:#7d8a85;                                  /* not found yet: grey */
-    text-shadow:0 0 5px #041009,0 1px 3px #000;transition:color .3s,text-shadow .3s}
+    text-shadow:0 0 6px #041009,0 1px 3px #000;transition:color .3s,text-shadow .3s}
   .eqRow.got .eqName{color:#3dff8a;                 /* installed: matrix green */
-    text-shadow:0 0 9px rgba(61,255,138,.75),0 1px 3px #000}
+    text-shadow:0 0 11px rgba(61,255,138,.8),0 1px 3px #000}
   /* "great pull" trigger — a fixed target above the centre of the right half
      (75% across, above mid-height), revealed (.show) only while fully charged */
   #spBtn{position:fixed;right:20px;top:118px;transform:scale(.6);
@@ -274,8 +278,7 @@
     #hStory .lbl{display:none}
     #hStory .mtx{font-size:9px;letter-spacing:.12em;margin-top:0}
     #minimap{width:88px;height:88px;left:16px;bottom:80px}
-    #hEquip{bottom:calc(10px + env(safe-area-inset-bottom));left:0;right:0;width:100%;gap:12px}
-    #hEquip .eqName{font-size:9.5px;letter-spacing:.04em}
+    #hEquip{bottom:calc(8px + env(safe-area-inset-bottom))}
     #hUpgrade{top:104px;right:12px;min-width:0}
     #hUpgrade .lbl{display:none}
     #hUpgrade .upgName{font-size:11px}

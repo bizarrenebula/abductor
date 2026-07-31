@@ -3,7 +3,7 @@
    worlds. sample() branches on the active world (World.name).
    ========================================================================= */
 import { THREE } from '../core/three.js';
-import { WATER_Y } from '../core/constants.js';
+import { WATER_Y, MTN_H } from '../core/constants.js';
 import { smoothstep, lerp } from '../core/math.js';
 import { nElev, nHill, nMtn, nRiver, nTemp, nMoist, fbm } from './noise.js';
 import { World } from './world-config.js';
@@ -78,3 +78,36 @@ export function sampleAlien(x,z){
 }
 export function sample(x,z){return World.name==='earth'?sampleEarth(x,z):sampleAlien(x,z);}
 export const heightAt=(x,z)=>sample(x,z).h;
+
+/* Steepness at a point: the biggest height change over `d` units, as rise/run.
+   ~0 on a meadow, >0.6 on a cliff face or a canyon lip. */
+export function slopeAt(x,z,d=3){
+  const h=heightAt(x,z);
+  let m=0;
+  for(const o of [[d,0],[-d,0],[0,d],[0,-d]])
+    m=Math.max(m,Math.abs(heightAt(x+o[0],z+o[1])-h));
+  return m/d;
+}
+
+/* Can a ground-standing creature or collectible live here?
+
+   Keeps things off the places where they look broken or unreachable: in open
+   water (unless it is meant to be there, like a shore duck), balanced on a cliff
+   edge where half the model hangs over a drop, and on mountain tops. One shared
+   test so animals, crystals and ship modules all agree on what "good ground" is.
+
+   opts.water  — true for water dwellers: shallows are fine, open water is not
+   opts.slope  — max steepness (default 0.5; a gentle hillside still passes)
+   opts.maxH   — height ceiling (defaults to just below the mountain line) */
+export function goodGround(x,z,opts){
+  const o=opts||{};
+  const sm=sample(x,z);
+  if(sm.biome==='water'){
+    if(!o.water)return false;
+    if(sm.h<WATER_Y-1.5)return false;          // shore only, never mid-lake
+  }else if(o.water===true&&o.waterOnly)return false;
+  if(sm.h>(o.maxH!=null?o.maxH:MTN_H-4))return false;   // not on the peaks
+  if(sm.biome==='mountain'&&!o.mountain)return false;
+  if(slopeAt(x,z)>(o.slope!=null?o.slope:0.5))return false;   // no cliff edges
+  return true;
+}

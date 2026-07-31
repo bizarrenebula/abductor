@@ -10,7 +10,7 @@ import { CHUNK, SEG, WATER_Y, MTN_H, GROUND_TILING, VEH_PER_CHUNK, STATION_CHANC
 import { scene } from '../core/engine.js';
 import { disposeDeep } from '../core/dispose.js';
 import { World } from './world-config.js';
-import { sample } from './terrain.js';
+import { sample, goodGround, slopeAt } from './terrain.js';
 import { TEX, grassTex, sandTex, rockTex, snowTex } from './textures.js';
 import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, junctionsIn } from './roads.js';
 import { animals, pickups, props, buildings, vehicles, shelters } from '../entities/registry.js';
@@ -127,7 +127,7 @@ export function buildChunk(cx,cz){
       const w=sm.biome;
       let species;
       if(w==='water'){
-        if(sm.h<WATER_Y-1.5)continue;                        // shore ducks only, no open water
+        if(!goodGround(wx,wz,{water:true,slope:0.6}))continue;   // shallows, not mid-lake or a steep bank
         species='Duck';
       }else if(w==='desert'||w==='mountain'||w==='canyon'||sm.h>MTN_H-4){
         // No grazers on sand / mountains / canyons — only the odd bird passing over.
@@ -136,6 +136,8 @@ export function buildChunk(cx,cz){
       }else{
         // plains / forest: grazers kept off the road, plus a few birds.
         if(roadDist(wx,wz)<ROAD_HW+3)continue;
+        // never balanced on a cliff edge / canyon lip
+        if(slopeAt(wx,wz)>0.5)continue;
         if(Math.random()>0.55)continue;
         const r=Math.random();
         species=r<0.12?'Bird':r<0.64?'Sheep':'Goat';
@@ -166,7 +168,8 @@ export function buildChunk(cx,cz){
     for(let k=0;k<nCr;k++){
       const wx=ccx2+(Math.random()-0.5)*10, wz=ccz2+(Math.random()-0.5)*10;
       const sm=sample(wx,wz);
-      if(World.name==='earth'&&sm.biome==='water')continue;
+      // no crystals in the water, on a cliff edge or up a mountain
+      if(World.name==='earth'&&!goodGround(wx,wz))continue;
       if(!clearSpot(wx,wz,1.4))continue;     // not inside a tree/rock/animal
       const item=buildCrystal();
       const by=sm.h-0.45;                    // semi-buried

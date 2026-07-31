@@ -10,7 +10,7 @@
 import { THREE } from '../core/three.js';
 import { WATER_Y, COLLECT_SCALE } from '../core/constants.js';
 import { scene, camera } from '../core/engine.js';
-import { heightAt } from '../world/terrain.js';
+import { heightAt, goodGround } from '../world/terrain.js';
 import { S } from '../core/state.js';
 import { saucer } from '../systems/saucer.js';
 import { Upgrades, UP_ITEMS, ITEM_KEYS } from '../systems/upgrades.js';
@@ -71,11 +71,14 @@ export function spawnUpgradeItems(){
   for(const key of ITEM_KEYS){
     if(Upgrades.items[key])continue;
     const spec=UP_ITEMS[key], dMin=spec.dMin||380, dMax=spec.dMax||1150;
-    let x,z,tries=0;
+    let x,z,tries=0,ok=false;
     do{
       const ang=Math.random()*Math.PI*2, d=dMin+Math.random()*(dMax-dMin);
       x=Math.cos(ang)*d; z=Math.sin(ang)*d; tries++;
-    }while(tries<40 && placed.some(p=>Math.hypot(p.x-x,p.z-z)<SEP_MIN));
+      // A module has to be reachable and land flat: never in a lake, on a cliff
+      // edge or up a peak, and spaced from the other modules.
+      ok=goodGround(x,z)&&!placed.some(p=>Math.hypot(p.x-x,p.z-z)<SEP_MIN);
+    }while(tries<80&&!ok);
     placed.push({x,z});
     const g=buildItem(key);
     g.position.set(x,Math.max(heightAt(x,z),WATER_Y),z);

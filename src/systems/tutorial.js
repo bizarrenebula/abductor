@@ -17,7 +17,7 @@ import { S } from '../core/state.js';
 import { scene } from '../core/engine.js';
 import { saucer } from './saucer.js';
 import { TOUCH_ONLY } from '../core/env.js';
-import { heightAt } from '../world/terrain.js';
+import { heightAt, goodGround } from '../world/terrain.js';
 import { animals, pickups } from '../entities/registry.js';
 import { buildCrystal } from '../entities/crystals.js';
 import { banner } from '../ui/banner.js';
@@ -315,8 +315,14 @@ function ensureCrystal(){
     const d=Math.hypot(p.position.x-saucer.position.x,p.position.z-saucer.position.z);
     if(d<bd){bd=d;best=p;}
   }
-  if(best&&bd<170)return best;                 // one close enough already
-  const a=S.yaw-0.7, x=saucer.position.x+Math.sin(a)*90, z=saucer.position.z+Math.cos(a)*90;
+  if(best&&bd>40&&bd<230)return best;          // one already at a useful distance
+  // Otherwise place one far enough to be a short flight, on ground it can sit on.
+  const D=165;
+  let x=saucer.position.x+Math.sin(S.yaw-0.7)*D, z=saucer.position.z+Math.cos(S.yaw-0.7)*D;
+  for(let k=0;k<14;k++){
+    const a=S.yaw-0.7+k*0.45, tx=saucer.position.x+Math.sin(a)*D, tz=saucer.position.z+Math.cos(a)*D;
+    if(goodGround(tx,tz)){ x=tx; z=tz; break; }
+  }
   const g=buildCrystal();
   const by=heightAt(x,z)-0.45;
   g.position.set(x,by,z); g.userData.baseY=by;
@@ -363,8 +369,17 @@ const steps=[
   { key:'nav', task:'Navigate the world', joy:{side:'right',anim:'move'}, hud:{},
     say(s){ const d=Math.round(Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z));
             return 'Fly to the glowing beacon — '+d+' m away.'; },
-    begin(s){ const a=S.yaw+0.9, dx=Math.sin(a)*150, dz=Math.cos(a)*150;
-              placeBeacon(saucer.position.x+dx,saucer.position.z+dz); },
+    begin(s){
+      // Far enough that the player has to actually fly there, and on decent
+      // ground rather than mid-lake or up a cliff. Sweep the heading for a
+      // usable spot, falling back to straight ahead.
+      const D=260;
+      let bx=saucer.position.x+Math.sin(S.yaw+0.9)*D, bz=saucer.position.z+Math.cos(S.yaw+0.9)*D;
+      for(let k=0;k<14;k++){
+        const a=S.yaw+0.9+k*0.45, x=saucer.position.x+Math.sin(a)*D, z=saucer.position.z+Math.cos(a)*D;
+        if(goodGround(x,z)){ bx=x; bz=z; break; }
+      }
+      placeBeacon(bx,bz); },
     test(s){
       // an on-screen arrow points the way for as long as the beacon is the goal
       updateBeacon(performance.now()*0.001);

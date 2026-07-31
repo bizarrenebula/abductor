@@ -13,7 +13,8 @@ import { World } from './world-config.js';
 import { sample, goodGround, slopeAt } from './terrain.js';
 import { TEX, grassTex, sandTex, rockTex, snowTex } from './textures.js';
 import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, junctionsIn } from './roads.js';
-import { animals, pickups, props, buildings, vehicles, shelters } from '../entities/registry.js';
+import { animals, pickups, props, buildings, vehicles, shelters, structures } from '../entities/registry.js';
+import { spawnSettlementParts, clearSettlementCache } from './settlements.js';
 import { buildAnimal } from '../entities/animals.js';
 import { buildAlien } from '../entities/aliens.js';
 import { buildCrystal } from '../entities/crystals.js';
@@ -118,6 +119,18 @@ export function buildChunk(cx,cz){
   const flatEnough=(x,z,r)=>{const h0=sample(x,z).h; for(const d of [[r,0],[-r,0],[0,r],[0,-r]])if(Math.abs(sample(x+d[0],z+d[1]).h-h0)>3.5)return false; return true;};
   // SPAWN_DENSITY thins every population uniformly (never below one attempt).
   const dens=n=>Math.max(1,Math.round(n*SPAWN_DENSITY));
+
+  /* Villages and cities go down FIRST, claiming their footprints, so every
+     scenery pass below naturally routes around them (rather than a lone barn's
+     approach of deleting the trees it landed on). They stream per chunk but are
+     positioned globally — see world/settlements.js. */
+  const st=[];
+  if(World.name==='earth'){
+    for(const o of spawnSettlementParts(ox,oz,CHUNK,(obj,x,z,r)=>{ mark(x,z,r); })){
+      scene.add(o); st.push(o); structures.push(o);
+    }
+  }
+
   const tries=dens(LOW_END?4:7);
   for(let t=0;t<tries;t++){
     const wx=ox+Math.random()*CHUNK, wz=oz+Math.random()*CHUNK;
@@ -361,7 +374,7 @@ export function buildChunk(cx,cz){
       scene.add(pad);rd.push(pad);
     }
   }
-  chunks.set(chunkKey(cx,cz),{mesh,animals:spawned,pickups:pk,props:pr,builds:bl,shel:sh,vehs:vh,roads:rd});
+  chunks.set(chunkKey(cx,cz),{mesh,animals:spawned,pickups:pk,props:pr,builds:bl,shel:sh,vehs:vh,roads:rd,structs:st});
 }
 
 export function updateChunks(px,pz){
@@ -396,6 +409,7 @@ export function updateChunks(px,pz){
       c.props.forEach(o=>{scene.remove(o);disposeDeep(o);const idx=props.indexOf(o);if(idx>=0)props.splice(idx,1);});
       c.builds.forEach(o=>{scene.remove(o);disposeDeep(o);const idx=buildings.indexOf(o);if(idx>=0)buildings.splice(idx,1);});
       (c.vehs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);const idx=vehicles.indexOf(o);if(idx>=0)vehicles.splice(idx,1);});
+      (c.structs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);const idx=structures.indexOf(o);if(idx>=0)structures.splice(idx,1);});
       (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});disposeDeep(o);});
       c.shel.forEach(s=>{const idx=shelters.indexOf(s);if(idx>=0)shelters.splice(idx,1);});
       chunks.delete(k);
@@ -409,7 +423,8 @@ export function clearWorld(){
     c.props.forEach(o=>{scene.remove(o);disposeDeep(o);});
     c.builds.forEach(o=>{scene.remove(o);disposeDeep(o);});
     (c.vehs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);});
+    (c.structs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);});
     (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});disposeDeep(o);});}
-  clearRoadCache();
-  chunks.clear();animals.length=0;pickups.length=0;props.length=0;buildings.length=0;vehicles.length=0;shelters.length=0;
+  clearRoadCache();clearSettlementCache();
+  chunks.clear();animals.length=0;pickups.length=0;props.length=0;buildings.length=0;vehicles.length=0;shelters.length=0;structures.length=0;
 }

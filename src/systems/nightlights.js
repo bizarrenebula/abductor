@@ -84,6 +84,14 @@ export function headlightRig(w,len,noseZ){
 /* Fade every light with the day/night factor (1 day, 0 night): lamps ramp on as
    it darkens and are full at deep night. A gentle amber flicker keeps them alive. */
 let _flk=0;
+/* Settlement windows. Shared and module-level on purpose: one material for
+   every pane in every town, so a whole city lights up in a single assignment —
+   and, being shared, it is deliberately left off the disposal whitelist (see
+   core/dispose.js) so unloading a chunk never frees it. */
+const WIN_WARM=new THREE.MeshBasicMaterial({color:0xffc070,transparent:true,
+  opacity:0,depthWrite:false,side:THREE.DoubleSide});
+export function windowMat(){ return WIN_WARM; }
+
 export const NightLights={
   set(dayF, t){
     const k=Math.max(0,Math.min(1,(0.55-dayF)/0.55));    // 0 by day, 1 at night
@@ -92,5 +100,6 @@ export const NightLights={
     POOL_WHITE.opacity=0.85*k;
     BULB_AMBER.opacity=1.0*k*_flk;
     BULB_WHITE.opacity=1.0*k;
+    WIN_WARM.opacity=0.92*k;                              // towns come on after dusk
   },
 };

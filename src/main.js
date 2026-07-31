@@ -52,6 +52,7 @@ import { Music, beep } from './audio/music.js';
 import { BeamSFX } from './audio/sfx.js';
 import { Ambience } from './audio/ambience.js';
 import { buildings, vehicles, animals } from './entities/registry.js';
+import { nearestTown } from './world/settlements.js';
 
 import { waterMat } from './world/water.js';
 import { banner } from './ui/banner.js';
@@ -198,6 +199,11 @@ function updateAmbCtx(dt){
     if(d2<150*150)houses++;
     if(d2<dHouse*dHouse)dHouse=Math.sqrt(d2);
   }
+  // A village or city is a much stronger "people live here" cue than a lone
+  // barn, and it comes from the settlement field rather than the batched meshes.
+  const town=nearestTown(x,z);
+  if(town.d<dHouse)dHouse=town.d;
+  if(town.d<150)houses+=town.city?9:4;
   ambCtx.cars=cars; ambCtx.houses=houses; ambCtx.dHouse=dHouse;
   collectEmitters(x,z);
 }

@@ -32,8 +32,12 @@ export function makeNoise(seed){
 }
 
 export let nElev,nHill,nMtn,nRiver,nTemp,nMoist,nCanyon,nWx;
+/* The run's seed, exported so systems that need a stable per-cell decision
+   (settlements) can hash against it instead of sampling a noise field. */
+export let worldSeed=0;
 export function reseed(){
   const s=(Math.random()*1e6)|0;
+  worldSeed=s;
   nElev=makeNoise(s+1); nHill=makeNoise(s+2); nMtn=makeNoise(s+3);
   nRiver=makeNoise(s+4); nTemp=makeNoise(s+5); nMoist=makeNoise(s+6);
   nCanyon=makeNoise(s+7);

@@ -30,6 +30,7 @@ import { resetLightning } from '../hazards/lightning.js';
 import { Story, storyProceed } from '../story/story.js';
 import { Tutorial } from '../systems/tutorial.js';
 import { Intro } from '../systems/intro.js';
+import { Ambience } from '../audio/ambience.js';
 import { Music, TRACK_BY_WORLD } from '../audio/music.js';
 import { BeamSFX } from '../audio/sfx.js';
 import { banner } from './banner.js';
@@ -89,6 +90,7 @@ export function startGame(opts){
   overScreen.classList.add('hidden');
   document.getElementById('pauseScreen').classList.add('hidden');
   Music.set(TRACK_BY_WORLD[S.world]||'drift');
+  Ambience.start();                  // built on this click, so the AudioContext has its gesture
   const enterPlay=()=>{
     S.state='playing';
     hud.classList.add('on');
@@ -209,6 +211,19 @@ document.getElementById('segEnergy').addEventListener('click',e=>{
   document.getElementById('oEnergy').textContent=t(S.energyMode==='drain'?'reactor.drain':'reactor.inf');
   syncTuningChip();
 });
+/* Ambience on/off. It is an always-on bed, so it gets a switch — and the choice
+   persists, which Ambience itself owns (localStorage). */
+function syncAmbSeg(){
+  const on=Ambience.enabled;
+  document.querySelectorAll('#segAmb [data-a]').forEach(x=>x.classList.toggle('on',(x.dataset.a==='1')===on));
+  document.getElementById('oAmb').textContent=t(on?'amb.on':'amb.off');
+}
+document.getElementById('segAmb').addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  Ambience.setEnabled(b.dataset.a==='1');
+  syncAmbSeg();
+});
+syncAmbSeg();
 document.getElementById('segMode').addEventListener('click',e=>{
   const b=e.target.closest('[data-m]');if(!b)return;
   S.storyMode=(b.dataset.m==='story');

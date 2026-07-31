@@ -15,7 +15,7 @@ import { keys, input, held } from './core/input.js';
 
 import { reseed } from './world/noise.js';
 import { sample, heightAt } from './world/terrain.js';
-import { roadHeightAt } from './world/roads.js';
+import { roadHeightAt, roadDist } from './world/roads.js';
 import { World, dayNightUpdate, applyDayNightLight } from './world/world-config.js';
 import { updateChunks, chunks } from './world/chunks.js';
 import { WEATHER, weather, updateDust, pickWeather, applyWeather, updateWeatherParticles, setBeamMultHUD } from './world/weather.js';
@@ -50,6 +50,8 @@ import { Story } from './story/story.js';
 
 import { Music, beep } from './audio/music.js';
 import { BeamSFX } from './audio/sfx.js';
+import { Ambience } from './audio/ambience.js';
+import { buildings, vehicles, animals } from './entities/registry.js';
 
 import { waterMat } from './world/water.js';
 import { banner } from './ui/banner.js';
@@ -133,6 +135,71 @@ function updateShipGestureHUD(){
       altScale.classList.toggle('dive',S.hoverV<-0.6);
     }
   }
+}
+
+/* ---- ambience context ----------------------------------------------------
+   What the soundscape needs to know about the world under the ship. The terrain
+   sample, the road distance and the two proximity counts are far too expensive
+   to redo every frame and change far too slowly to need to be — so they refresh
+   on a timer and the audio layers ramp between values smoothly regardless. */
+const ambCtx={agl:HOVER_BASE,dayF:1,biome:'plains',weather:'clear',world:'earth',
+              roadD:999,cars:0,houses:0,dHouse:999,speed:0,groundY:0,emit:[]};
+/* Nearby sound sources, nearest first: {k: kind, d: distance, pan: -1..1}.
+   The ambience picks real emitters out of this list and attenuates each by its
+   own distance, so a flock you fly over bleats and then falls behind while
+   whatever is ahead fades up. Reused in place — no per-scan allocation. */
+const EMIT_R=210;
+const emitPool=[];
+for(let i=0;i<14;i++)emitPool.push({k:'',d:0,pan:0});
+function collectEmitters(x,z){
+  const list=ambCtx.emit; list.length=0;
+  // Pan is the source's bearing projected onto the ship's right vector, so a
+  // sheep off the starboard wing is heard on the right and swings across as the
+  // ship turns. (0,0,-1) rotated by yaw is forward, so right is (cos, -sin).
+  const cy=Math.cos(S.yaw), sy=Math.sin(S.yaw);
+  let n=0;
+  const add=(k,px,pz)=>{
+    if(n>=emitPool.length)return;
+    const dx=px-x, dz=pz-z;
+    const d2=dx*dx+dz*dz;
+    if(d2>EMIT_R*EMIT_R)return;
+    const d=Math.sqrt(d2)||0.001;
+    const e=emitPool[n++];
+    e.k=k; e.d=d; e.pan=Math.max(-1,Math.min(1,(dx*cy-dz*sy)/d));
+    list.push(e);
+  };
+  for(const a of animals){
+    const nm=a.userData&&a.userData.name;
+    if(!nm)continue;
+    add(nm==='Hiker'||nm==='Villager'?'human':nm, a.position.x, a.position.z);
+  }
+  for(const v of vehicles)add('car', v.position.x, v.position.z);
+  list.sort((p,q)=>p.d-q.d);
+}
+let ambT=0;
+function updateAmbCtx(dt){
+  ambCtx.dayF=S.dayF; ambCtx.weather=weather.cur;
+  ambCtx.world=World.name; ambCtx.speed=flight.speed;
+  // S.agl is only maintained while playing; elsewhere (the intro film, a crash)
+  // derive it from the last sampled ground height.
+  ambCtx.agl=S.state==='playing'?S.agl:Math.max(0,saucer.position.y-ambCtx.groundY);
+  ambT-=dt;
+  if(ambT>0)return;
+  ambT=0.45;
+  const x=saucer.position.x, z=saucer.position.z;
+  ambCtx.groundY=groundAt(x,z);
+  ambCtx.biome=sample(x,z).biome;
+  ambCtx.roadD=roadDist(x,z);
+  let cars=0,houses=0,dHouse=999;
+  for(const v of vehicles){ const dx=v.position.x-x, dz=v.position.z-z;
+    if(dx*dx+dz*dz<170*170)cars++; }
+  for(const b of buildings){ const dx=b.position.x-x, dz=b.position.z-z;
+    const d2=dx*dx+dz*dz;
+    if(d2<150*150)houses++;
+    if(d2<dHouse*dHouse)dHouse=Math.sqrt(d2);
+  }
+  ambCtx.cars=cars; ambCtx.houses=houses; ambCtx.dHouse=dHouse;
+  collectEmitters(x,z);
 }
 
 function animate(){
@@ -364,6 +431,8 @@ function animate(){
     if(S.safeT<=0&&S.energy>0.14&&!S.cloak){S.safeT=2.2;S.safePos.copy(saucer.position);S.safeYaw=S.yaw;}
     dayNightUpdate(dt);
     applyDayNightLight();
+    Ambience.setLevel(1);             // the valley, in full
+    updateAmbCtx(dt); Ambience.update(dt,ambCtx);
     Tutorial.update(dt);              // optional guided intro (no-op unless active)
     // Draw the direction arrows for everything the systems above marked this
     // frame (story objectives, ship parts, tutorial goals).
@@ -379,6 +448,10 @@ function animate(){
     updateChunks(saucer.position.x,saucer.position.z);
     dayNightUpdate(dt);
     applyDayNightLight();
+    // Held well back so the arrival cue owns the film; it swells to full as the
+    // ship settles and the world takes over.
+    Ambience.setLevel(0.30);
+    updateAmbCtx(dt); Ambience.update(dt,ambCtx);
     beam.visible=disc.visible=false;
     ebarBG.material.opacity=0;ebarFill3.material.opacity=0;
     updateShadow(groundAt);          // the ship's shadow grows on the ground as it descends
@@ -391,6 +464,8 @@ function animate(){
 
   } else if(S.state==='crashing'){
     clearWaypoints();                 // no guidance arrows while going down
+    Ambience.setLevel(0.6);           // the world is still there, rushing up
+    updateAmbCtx(dt); Ambience.update(dt,ambCtx);
     /* powerless: the ship falls */
     S.vy-=42*dt;
     saucer.position.y+=S.vy*dt;
@@ -414,6 +489,8 @@ function animate(){
     }
   } else if(S.state==='menu'||S.state==='over'){
     clearWaypoints();
+    Ambience.setLevel(0);             // silence behind the menus
+    Ambience.update(dt,ambCtx);
     /* menu / over idle: gentle drift + slow orbit */
     saucer.position.y=40+Math.sin(t*1.2)*0.6;
     saucer.rotation.y+=dt*0.3;
@@ -435,6 +512,10 @@ function animate(){
     camera.lookAt(saucer.position.x,saucer.position.y-2,saucer.position.z);
     if(chunks.size===0)updateChunks(0,0);
     updateAnimals(dt);
+  } else {
+    // paused / story interstitial: the valley carries on faintly behind the card
+    Ambience.setLevel(0.25);
+    Ambience.update(dt,ambCtx);
   }
 
   Clouds.update(dt);

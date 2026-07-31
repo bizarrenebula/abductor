@@ -35,9 +35,13 @@ const HOUSE_COLS=[
   {wall:0xb05fc0,roof:0x3d1f4a},   // plum
   {wall:0xe89a4a,roof:0x6b3318},   // pumpkin
 ];
+export const HOUSE_COL_COUNT=HOUSE_COLS.length;
 const pickHouse=()=>HOUSE_COLS[(Math.random()*HOUSE_COLS.length)|0];
 
-export function buildBuilding(kind){
+/* `colIdx` pins the wall/roof pair instead of rolling for it, so a caller that
+   needs the same building to come back the same way after a chunk reload (see
+   world/settlements.js) can key it off its own hash. */
+export function buildBuilding(kind,colIdx){
   if(kind==='barn'&&LOADED.barn){
     const g=spawnModel('barn');
     g.scale.setScalar((ASSETS.barn.scale||1)*OBJ_SCALE);
@@ -45,7 +49,7 @@ export function buildBuilding(kind){
     return g;
   }
   const g=new THREE.Group();
-  const hc=pickHouse();
+  const hc=colIdx==null?pickHouse():HOUSE_COLS[((colIdx%HOUSE_COLS.length)+HOUSE_COLS.length)%HOUSE_COLS.length];
   if(kind==='barn'){
     g.add(part(new THREE.BoxGeometry(4.2,2.4,3.2),mat(hc.wall,0.9),0,1.2,0));
     const roof=part(new THREE.CylinderGeometry(0,2.6,1.7,4),mat(hc.roof,0.9),0,3.2,0);

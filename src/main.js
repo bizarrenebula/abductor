@@ -203,7 +203,7 @@ function updateAmbCtx(dt){
   // barn, and it comes from the settlement field rather than the batched meshes.
   const town=nearestTown(x,z);
   if(town.d<dHouse)dHouse=town.d;
-  if(town.d<150)houses+=town.city?9:4;
+  if(town.d<150)houses+=5;
   ambCtx.cars=cars; ambCtx.houses=houses; ambCtx.dHouse=dHouse;
   collectEmitters(x,z);
 }

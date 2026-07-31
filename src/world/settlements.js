@@ -25,13 +25,24 @@ import { sample, slopeAt } from './terrain.js';
 import { WATER_Y } from '../core/constants.js';
 import { disposable } from '../core/dispose.js';
 import { windowMat, streetLamp } from '../systems/nightlights.js';
-import { roadDist } from './roads.js';
+import { roadDist, roadHeightAt, roadSample, wob, ROAD_S, ROAD_HW } from './roads.js';
 
 const CELL      = 1500;   // one settlement slot per 1500x1500 square...
 const OCCUPY    = 0.45;   // ...and only this fraction of slots are built on
 const CITY_ODDS = 0.22;   // of those, roughly one in five is a city
-const R_VILLAGE = 62;
-const R_CITY    = 155;
+/* The real built footprints. Kept modest on purpose: every rule below has to
+   hold across the WHOLE disc, and a 190-unit circle of flat grass with a road
+   through it and no water, rock or sand anywhere in it is vanishingly rare —
+   at r=95 a 121-cell census found two towns and no starter city at all. */
+const R_VILLAGE = 34;
+const R_CITY    = 55;
+/* How far outside its own cell a settlement's centre may sit. Normally zero —
+   settlementAt keeps a centre inside its cell — but the starter city is pinned
+   to the spawn point, and the spawn point is a cell CORNER, so it routinely
+   lands in a neighbouring cell. Every cell scan below is widened by this much;
+   without it a starter city at negative coordinates was invisible to
+   settlementsNear and simply never got built. */
+const CELL_PAD  = 1;
 
 /* Uniform, stable hash of (cell x, cell z, index). Deterministic per run and
    per place; `k` indexes the different decisions a settlement needs. */
@@ -41,29 +52,123 @@ function hash(a,b,k){
   return ((h^(h>>>16))>>>0)/4294967296;
 }
 
-/* Is this a place a town could stand? Dry, gentle and off the carriageway. */
+/* Can a single building stand here? Grass only — no sand, no rock, no water —
+   on gentle ground, clear of the carriageway. */
 function buildable(x,z,slope){
   const sm=sample(x,z);
-  if(sm.biome==='water'||sm.biome==='mountain'||sm.biome==='canyon')return false;
-  if(sm.h<WATER_Y+2.0||sm.h>26)return false;
+  if(sm.biome!=='plains'&&sm.biome!=='forest')return false;   // grass; excludes desert
+  if(sm.h<WATER_Y+2.0||sm.h>24)return false;
   if(slopeAt(x,z,4)>(slope||0.34))return false;
   return true;
 }
 
-/* The settlement occupying a cell, or null. Pure function of the cell. */
+/* Put a point on the nearest east-west corridor. A corridor at k has the line
+   z = k + wob(x), so this is exact. Towns are CENTRED on a road rather than
+   merely near one, which is what makes the road enter one side and leave the
+   other with the streets running through the middle — and it is what the
+   traffic system then drives along, since vehicles spawn on roads. */
+function snapToRoad(x,z){
+  // wob() is only the FIRST half of a corridor's routing — offsetAt() then shifts
+  // it sideways to dodge terrain, by up to MAXDEV. Snapping to the nominal line
+  // therefore missed the actual tarmac and almost every candidate failed the
+  // on-a-road test. roadSample returns the real routed point, so use that.
+  const k=Math.round((z-wob(x))/ROAD_S)*ROAD_S;
+  const sp=roadSample('x',k,x);
+  return {x:sp.x,z:sp.z};
+}
+
+/* Is the whole footprint sound? Checked across the disc, not just at the middle:
+   flat grass throughout, no water or rock or sand anywhere in it, and no bridge
+   deck flying over it. */
+function siteOK(x,z,r){
+  /* Terrain first, roads second. The terrain tests are pure noise evaluations;
+     the road tests walk a routed path and populate a cache. Most candidates die
+     on the terrain, so asking the cheap question first keeps the road machinery
+     out of the vast majority of rejections. */
+  for(const ring of [[0,1],[r*0.4,8],[r*0.7,10],[r*0.95,12]]){
+    const rad=ring[0], n=ring[1];
+    for(let i=0;i<n;i++){
+      const a=n===1?0:i/n*Math.PI*2;
+      const px=x+Math.cos(a)*rad, pz=z+Math.sin(a)*rad;
+      const sm=sample(px,pz);
+      if(sm.biome!=='plains'&&sm.biome!=='forest')return false;   // grass only
+      if(sm.h<WATER_Y+2.5||sm.h>26)return false;                  // dry, low ground
+      if(slopeAt(px,pz,5)>0.30)return false;                      // flat
+    }
+  }
+  if(roadDist(x,z)>ROAD_HW+3)return false;                        // must sit on its road
+  // No bridge deck flying over the town: sample along the street and at the rim.
+  for(const o of [[0,0],[r*0.5,0],[-r*0.5,0],[r*0.95,0],[-r*0.95,0],
+                  [0,r*0.5],[0,-r*0.5],[0,r*0.95],[0,-r*0.95]]){
+    const px=x+o[0], pz=z+o[1];
+    const rh=roadHeightAt(px,pz);
+    // >4.5 means a real deck overhead, not the embankment every road builds as
+    // it smooths over rolling ground — an overpass clears its crossing by 6.5.
+    if(rh>-Infinity&&rh-sample(px,pz).h>4.5)return false;
+  }
+  return true;
+}
+
+/* The run always starts within sight of a city. The home cell is not left to
+   the hash: it gets a city planted just over the horizon from the spawn point,
+   close enough to see on arrival and reach in a few seconds, far enough that
+   the ship does not land in the middle of it.
+
+   Chunk streaming reaches +-280 units (env.VIEW_R 3 x CHUNK 80), so a starter
+   city much beyond that would not be loaded when the player lands and looks
+   around — and the whole point is to see it on arrival. */
+const STARTER_RINGS=[200,235,275,320,375,440,510,600,700,820,940];
+function starterCity(){
+  /* Graded. The hard rules — grass only, dry, no rock or sand, on a road, no
+     bridge overhead — are never relaxed. What gives way is SIZE: if the ground
+     near the spawn cannot hold a full city, a compact one is far better than
+     none, and the player still gets a skyline to fly over on arrival. Without
+     this fallback only 9 seeds in 25 got a starter city at all. */
+  // radius, and how far out that pass is willing to look
+  for(const pass of [[R_CITY,580],[R_CITY*0.78,580],[R_VILLAGE,620],[R_VILLAGE,980]]){
+    const r=pass[0], far=pass[1];
+    for(const dist of STARTER_RINGS){
+      if(dist>far)break;
+      for(let i=0;i<24;i++){
+        const a=i/24*Math.PI*2;
+        const c=snapToRoad(Math.cos(a)*dist,Math.sin(a)*dist);
+        // snapping moves it onto the road, so re-check it did not land on top of
+        // the spawn point (or so far off that it is out of streaming range)
+        const d=Math.hypot(c.x,c.z);
+        if(d<r+60||d>far)continue;
+        if(siteOK(c.x,c.z,r))
+          return {x:c.x,z:c.z,r,city:true,cx:0,cz:0,rot:0.6};
+      }
+    }
+  }
+  return null;                       // nowhere sound nearby: no starter city
+}
+
+/* The settlement occupying a cell, or null. Pure function of the cell.
+
+   Candidates are tried in a fixed order and the first sound one wins — the
+   constraints (flat grass, dry, no rock or sand, no bridge overhead, centred on
+   a road) reject most of a cell, so a single hashed guess almost never lands
+   anywhere legal. */
+const CANDIDATES=26;
 const _cache=new Map();
 export function settlementAt(cx,cz){
   const key=cx+'|'+cz;
   if(_cache.has(key))return _cache.get(key);
   let s=null;
-  if(hash(cx,cz,0)<OCCUPY){
+  if(cx===0&&cz===0){
+    s=starterCity();
+  }else if(hash(cx,cz,0)<OCCUPY){
     const city=hash(cx,cz,1)<CITY_ODDS;
     const r=city?R_CITY:R_VILLAGE;
-    const x=cx*CELL+r+hash(cx,cz,2)*(CELL-2*r);
-    const z=cz*CELL+r+hash(cx,cz,3)*(CELL-2*r);
-    // The centre has to be sound; if it isn't, this cell simply has no town.
-    if(buildable(x,z,0.30))
-      s={x,z,r,city,cx,cz,rot:hash(cx,cz,4)*Math.PI};
+    for(let i=0;i<CANDIDATES;i++){
+      const gx=cx*CELL+r+hash(cx,cz,20+i)*(CELL-2*r);
+      const gz=cz*CELL+r+hash(cx,cz,60+i)*(CELL-2*r);
+      const c=snapToRoad(gx,gz);
+      if(!siteOK(c.x,c.z,r))continue;
+      s={x:c.x,z:c.z,r,city,cx,cz,rot:hash(cx,cz,4)*Math.PI};
+      break;
+    }
   }
   _cache.set(key,s);
   return s;
@@ -76,8 +181,8 @@ export function clearSettlementCache(){ _cache.clear(); }
    origins rather than doorsteps, and a town's centre is the better cue anyway. */
 export function nearestTown(x,z){
   let best=1e9, city=false;
-  const c0x=Math.floor((x-CELL)/CELL), c0z=Math.floor((z-CELL)/CELL);
-  for(let cx=c0x;cx<=c0x+2;cx++)for(let cz=c0z;cz<=c0z+2;cz++){
+  const c0x=Math.floor((x-CELL)/CELL)-CELL_PAD, c0z=Math.floor((z-CELL)/CELL)-CELL_PAD;
+  for(let cx=c0x;cx<=c0x+2+2*CELL_PAD;cx++)for(let cz=c0z;cz<=c0z+2+2*CELL_PAD;cz++){
     const s=settlementAt(cx,cz);
     if(!s)continue;
     const d=Math.max(0,Math.hypot(x-s.x,z-s.z)-s.r);
@@ -86,11 +191,42 @@ export function nearestTown(x,z){
   return {d:best,city};
 }
 
+/* Is this point inside a town? Used by the chunk spawners to keep everything
+   else — trees, animals, crystals, farm buildings, billboards, stations — out
+   of a settlement. Roads and their traffic are deliberately NOT filtered: the
+   street through the middle and the vehicles on it are the point. */
+export function inSettlement(x,z,pad){
+  const p=pad||0;
+  const c0x=Math.floor((x-CELL)/CELL)-CELL_PAD, c0z=Math.floor((z-CELL)/CELL)-CELL_PAD;
+  for(let cx=c0x;cx<=c0x+2+2*CELL_PAD;cx++)for(let cz=c0z;cz<=c0z+2+2*CELL_PAD;cz++){
+    const s=settlementAt(cx,cz);
+    if(!s)continue;
+    const rr=s.r+p;
+    if((x-s.x)**2+(z-s.z)**2<rr*rr)return true;
+  }
+  return false;
+}
+
+/* Every town whose CENTRE lies within `range` of a point — what the minimap
+   wants, since it draws off-range towns as edge markers rather than dropping
+   them. Reuses one array; the caller must not hold on to it. */
+const _tw=[];
+export function townsWithin(x,z,range){
+  _tw.length=0;
+  const c0x=Math.floor((x-range)/CELL)-CELL_PAD, c1x=Math.floor((x+range)/CELL)+CELL_PAD;
+  const c0z=Math.floor((z-range)/CELL)-CELL_PAD, c1z=Math.floor((z+range)/CELL)+CELL_PAD;
+  for(let cx=c0x;cx<=c1x;cx++)for(let cz=c0z;cz<=c1z;cz++){
+    const s=settlementAt(cx,cz);
+    if(s&&(s.x-x)**2+(s.z-z)**2<=range*range)_tw.push(s);
+  }
+  return _tw;
+}
+
 /* Every settlement whose footprint could reach into the box (ox,oz)-(ox+w,oz+w). */
 export function settlementsNear(ox,oz,w){
   const out=[];
-  const c0x=Math.floor((ox-R_CITY)/CELL), c1x=Math.floor((ox+w+R_CITY)/CELL);
-  const c0z=Math.floor((oz-R_CITY)/CELL), c1z=Math.floor((oz+w+R_CITY)/CELL);
+  const c0x=Math.floor((ox-R_CITY)/CELL)-CELL_PAD, c1x=Math.floor((ox+w+R_CITY)/CELL)+CELL_PAD;
+  const c0z=Math.floor((oz-R_CITY)/CELL)-CELL_PAD, c1z=Math.floor((oz+w+R_CITY)/CELL)+CELL_PAD;
   for(let cx=c0x;cx<=c1x;cx++)for(let cz=c0z;cz<=c1z;cz++){
     const s=settlementAt(cx,cz);
     if(!s)continue;
@@ -241,9 +377,9 @@ export function spawnSettlementParts(ox,oz,size,place){
   const made=[];
   let any=false;
   for(const s of settlementsNear(ox,oz,size)){
-    const n=s.city?(72+((hash(s.cx,s.cz,5)*38)|0)):(11+((hash(s.cx,s.cz,5)*7)|0));
+    const n=s.city?(44+((hash(s.cx,s.cz,5)*28)|0)):(9+((hash(s.cx,s.cz,5)*6)|0));
     const cos=Math.cos(s.rot), sin=Math.sin(s.rot);
-    const lane=s.city?15:17;                 // grid pitch: streets, not fields
+    const lane=s.city?13:15;                 // grid pitch: streets, not fields
     const span=Math.ceil(Math.sqrt(n));
     for(let i=0;i<n;i++){
       // A rotated grid with per-plot jitter: streets, but not graph paper.

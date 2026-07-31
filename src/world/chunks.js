@@ -14,7 +14,7 @@ import { sample, goodGround, slopeAt } from './terrain.js';
 import { TEX, grassTex, sandTex, rockTex, snowTex } from './textures.js';
 import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, junctionsIn } from './roads.js';
 import { animals, pickups, props, buildings, vehicles, shelters, structures } from '../entities/registry.js';
-import { spawnSettlementParts, clearSettlementCache } from './settlements.js';
+import { spawnSettlementParts, clearSettlementCache, inSettlement } from './settlements.js';
 import { buildAnimal } from '../entities/animals.js';
 import { buildAlien } from '../entities/aliens.js';
 import { buildCrystal } from '../entities/crystals.js';
@@ -113,7 +113,13 @@ export function buildChunk(cx,cz){
   // Occupancy: solid objects claim a footprint radius; a new object is only
   // placed where it doesn't overlap an already-placed one, so nothing fuses.
   const placed=[];
-  const clearSpot=(x,z,r)=>{ for(const p of placed){const dx=p.x-x,dz=p.z-z; if(dx*dx+dz*dz<(p.r+r)*(p.r+r))return false;} return true; };
+  /* A town owns its ground: nothing else — no tree, animal, crystal, barn,
+     billboard or station — is placed inside one. Roads and their traffic are
+     the deliberate exception, so the street through the middle stays live. */
+  const clearSpot=(x,z,r)=>{
+    if(inSettlement(x,z,r+4))return false;
+    for(const p of placed){const dx=p.x-x,dz=p.z-z; if(dx*dx+dz*dz<(p.r+r)*(p.r+r))return false;}
+    return true; };
   const mark=(x,z,r)=>placed.push({x,z,r});
   // A building needs roughly level ground under its footprint.
   const flatEnough=(x,z,r)=>{const h0=sample(x,z).h; for(const d of [[r,0],[-r,0],[0,r],[0,-r]])if(Math.abs(sample(x+d[0],z+d[1]).h-h0)>3.5)return false; return true;};
@@ -293,6 +299,7 @@ export function buildChunk(cx,cz){
           const sm2=sample(lx,lz);
           if(sm2.biome==='water')continue;                               // no lamp posts in a lake
           if(sp.y-sm2.h>3)continue;                                      // road is a bridge here — no floating pole
+          if(inSettlement(lx,lz,6))continue;                             // the town lights its own streets
           const lamp=streetLamp();
           lamp.position.set(lx,sm2.h,lz);                                // base sits on the ground at the edge
           lamp.rotation.y=Math.atan2(-sp.fx*side,-sp.fz*side);           // arm/pool reach over the road

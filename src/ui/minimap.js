@@ -1,12 +1,13 @@
 /* =========================================================================
-   MINIMAP — radial radar around the ship: crystals, plus story objectives
-   (debris / samples / structures) color-coded per world and stage.
+   MINIMAP — radial radar around the ship: towns, crystals, plus story
+   objectives (debris / samples / structures) color-coded per world and stage.
    ========================================================================= */
 import { S } from '../core/state.js';
 import { pickups } from '../entities/registry.js';
 import { upgradeItems } from '../entities/upgradeItems.js';
 import { saucer } from '../systems/saucer.js';
 import { Story } from '../story/story.js';
+import { townsWithin } from '../world/settlements.js';
 
 const CRYSTAL_COL='#8fe8b8';
 
@@ -45,6 +46,32 @@ export function drawMinimap(dt){
     mmCtx.beginPath();mmCtx.arc(cx+dx,cy+dy,rad*(pulse?(0.8+0.4*Math.sin(performance.now()*0.006)):1),0,7);mmCtx.fill();
     mmCtx.globalAlpha=1;
   };
+  /* Towns, drawn UNDER everything else so they read as terrain rather than as
+     objectives. A settlement in range gets its actual footprint as a disc, so
+     you can see how big it is and where its edge lies; one beyond the map gets a
+     small marker pinned to the rim, so the direction to the nearest city is
+     always legible even from well outside it. */
+  for(const s of townsWithin(sx,sz,MM_RANGE*2.2)){
+    const ox=(s.x-sx)/MM_RANGE*R, oz=(s.z-sz)/MM_RANGE*R;
+    const dx=ox*ca-oz*sa, dy=ox*sa+oz*ca;
+    const d=Math.hypot(dx,dy);
+    const col=s.city?'#c8b48a':'#93a684';
+    if(d<R+s.r/MM_RANGE*R){
+      const rr=Math.max(2,s.r/MM_RANGE*R);
+      mmCtx.globalAlpha=s.city?0.30:0.22;
+      mmCtx.fillStyle=col;
+      mmCtx.beginPath();mmCtx.arc(cx+dx,cy+dy,rr,0,7);mmCtx.fill();
+      mmCtx.globalAlpha=s.city?0.75:0.5;
+      mmCtx.strokeStyle=col;mmCtx.lineWidth=1;
+      mmCtx.beginPath();mmCtx.arc(cx+dx,cy+dy,rr,0,7);mmCtx.stroke();
+    }else{
+      const k=(R-4)/d;
+      mmCtx.globalAlpha=0.55;mmCtx.fillStyle=col;
+      mmCtx.beginPath();mmCtx.arc(cx+dx*k,cy+dy*k,s.city?2.6:1.8,0,7);mmCtx.fill();
+    }
+    mmCtx.globalAlpha=1;
+  }
+
   // crystal locations — always shown (fuel + collectible)
   for(const pk of pickups)plot(pk.position.x,pk.position.z,CRYSTAL_COL,1.7,false);
 

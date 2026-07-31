@@ -8,7 +8,7 @@
    grounded). Marked on the radar too.
    ========================================================================= */
 import { THREE } from '../core/three.js';
-import { WATER_Y } from '../core/constants.js';
+import { WATER_Y, COLLECT_SCALE } from '../core/constants.js';
 import { scene, camera } from '../core/engine.js';
 import { heightAt } from '../world/terrain.js';
 import { S } from '../core/state.js';
@@ -53,6 +53,7 @@ function buildItem(key){
     const r=new THREE.Mesh(new THREE.TorusGeometry(1.55,0.16,10,28),solid);r.rotation.x=Math.PI/2;icon.add(r);
     icon.userData.spinX=true;
   }
+  icon.scale.setScalar(COLLECT_SCALE);   // objects of interest read larger
   g.add(icon);
   // The part simply GLOWS until you are close enough to take it (shared marker,
   // also used by the story objectives), and an on-screen arrow points the way.

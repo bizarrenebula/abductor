@@ -4,7 +4,7 @@
    side quests when Story mode is on.
    ========================================================================= */
 import { THREE } from '../core/three.js';
-import { WATER_Y } from '../core/constants.js';
+import { WATER_Y, COLLECT_SCALE } from '../core/constants.js';
 import { part } from '../core/mesh.js';
 import { S } from '../core/state.js';
 import { scene } from '../core/engine.js';
@@ -55,6 +55,7 @@ export const Story={
     else if(d.build==='moonRock')g=this.buildMoonRock();
     else if(d.build==='marsCrystal')g=this.buildMarsCrystal(d.kind);
     else return null;
+    g.scale.multiplyScalar(COLLECT_SCALE);   // mission objectives read larger too
     g.position.set(d.x,d.y,d.z);g.userData.baseY=d.baseY;
     scene.add(g);(d.list==='targets'?this.targets:this.samples).push(g);
     return g;
@@ -137,17 +138,33 @@ export const Story={
     }
     return out;
   },
-  // a tall glowing guide pillar toward a destination
+  // A destination marker. Was a 160-unit pillar spearing up through the view;
+  // it is a PULSE now — light breathing out of the spot, matching every other
+  // object of interest. The screen arrow carries the direction.
   buildGuide(col){
     const g=new THREE.Group();
-    const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,160,8,1,true),
-      new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.16,depthWrite:false,
-        blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));
-    beam.position.y=80;g.add(beam);
-    const base=new THREE.Mesh(new THREE.RingGeometry(1.2,1.7,20),
-      new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.5,side:THREE.DoubleSide,depthWrite:false}));
-    base.rotation.x=-Math.PI/2;base.position.y=0.2;g.add(base);
-    g.userData.col=col;return g;
+    g.add(objectiveGlow(col,2.0));
+    const rings=[];
+    for(let i=0;i<3;i++){
+      const r=new THREE.Mesh(new THREE.RingGeometry(1,1.32,40),
+        new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.5,
+          blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+      r.rotation.x=-Math.PI/2;r.position.y=0.28;g.add(r);rings.push(r);
+    }
+    g.userData.col=col;g.userData.rings=rings;return g;
+  },
+  /* Breathe every destination marker: shared glow + outward-washing pings. */
+  _pulseGuides(t){
+    for(const g of this.guides){
+      if(!g.visible)continue;
+      updateGlow(g.children[0],t,1);
+      const rings=g.userData.rings||[];
+      for(let i=0;i<rings.length;i++){
+        const k=((t*0.5+i/rings.length)%1);
+        rings[i].scale.setScalar(1.4+k*11);
+        rings[i].material.opacity=0.5*(1-k)*(1-k);
+      }
+    }
   },
 
   /* =================== EARTH — the crashed mothership =================== */
@@ -484,6 +501,7 @@ export const Story={
     else if(this.world==='moon')this.updateMoon(dt,beamActive,t);
     else if(this.world==='mars')this.updateMars(dt,beamActive,t);
     this._guide(t);
+    this._pulseGuides(t);
     this.hud();
   },
   /* Every live objective GLOWS and gets an on-screen arrow pointing the way, so

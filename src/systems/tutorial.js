@@ -22,7 +22,7 @@ import { animals, pickups } from '../entities/registry.js';
 import { buildCrystal } from '../entities/crystals.js';
 import { banner } from '../ui/banner.js';
 import { Special } from './special.js';
-import { mark as markWaypoint } from './waypoints.js';
+import { mark as markWaypoint, objectiveGlow, updateGlow } from './waypoints.js';
 
 const TOUCH = TOUCH_ONLY;   // pick touch vs keyboard wording for the hints
 
@@ -230,18 +230,37 @@ function hudRestore(){
 
 /* ---- world beacon (the navigation target) --------------------------------- */
 let beacon=null;
+/* The beacon used to be a 190-unit column that speared straight through the
+   screen and blocked the view. It is a PULSE now: light breathing out of the
+   spot on the ground, the same language every other object of interest uses.
+   The screen arrow already carries the direction, so this only has to say
+   "here". */
 function makeBeacon(){
   if(beacon)return beacon;
   const g=new THREE.Group();
-  const col=new THREE.Mesh(new THREE.CylinderGeometry(2.4,3.4,190,16,1,true),
-    new THREE.MeshBasicMaterial({color:0x6cf0c4,transparent:true,opacity:0.5,
-      blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
-  col.position.y=95; g.add(col);
-  const core=new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.7,190,10),
-    new THREE.MeshBasicMaterial({color:0xd6fff0,transparent:true,opacity:0.85,
-      blending:THREE.AdditiveBlending,depthWrite:false}));
-  core.position.y=95; g.add(core);
+  g.add(objectiveGlow(0x6cf0c4,2.4));                  // shared breathing halo + ground ring
+  // expanding rings that wash outward from the spot, like a slow sonar ping
+  const rings=[];
+  for(let i=0;i<3;i++){
+    const r=new THREE.Mesh(new THREE.RingGeometry(1,1.34,44),
+      new THREE.MeshBasicMaterial({color:0x9dffe0,transparent:true,opacity:0.6,
+        blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+    r.rotation.x=-Math.PI/2; r.position.y=0.3; g.add(r); rings.push(r);
+  }
+  g.userData.rings=rings;
   g.visible=false; scene.add(g); beacon=g; return g;
+}
+/* Breathe the beacon: the shared glow plus outward-washing pings. */
+function updateBeacon(t){
+  if(!beacon||!beacon.visible)return;
+  updateGlow(beacon.children[0],t,1);
+  const rings=beacon.userData.rings;
+  for(let i=0;i<rings.length;i++){
+    const k=((t*0.55+i/rings.length)%1);               // 0 at the centre, 1 fully washed out
+    const s=1.5+k*13;
+    rings[i].scale.setScalar(s);
+    rings[i].material.opacity=0.55*(1-k)*(1-k);        // fade as it spreads
+  }
 }
 function placeBeacon(x,z){
   const b=makeBeacon();
@@ -348,6 +367,7 @@ const steps=[
               placeBeacon(saucer.position.x+dx,saucer.position.z+dz); },
     test(s){
       // an on-screen arrow points the way for as long as the beacon is the goal
+      updateBeacon(performance.now()*0.001);
       markWaypoint(beacon.position,'#6cf0c4',24);
       return Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z)<24; },
     end(){ if(beacon)beacon.visible=false; } },

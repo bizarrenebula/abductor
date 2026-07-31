@@ -14,6 +14,13 @@
    ========================================================================= */
 export const OBJ_SCALE = 1.35;
 
+/* Objects of interest are built this much larger than life so they pull the eye
+   from the air: everything the player is meant to notice or collect — creatures,
+   people, crystals, ship modules, story objectives — plus trees, which are the
+   landmark scenery. Deliberately NOT applied to vehicles or buildings, so the
+   things that matter stand out against a normally-proportioned world. */
+export const COLLECT_SCALE = 1.5;
+
 export const WATER_Y = -3;
 export const CHUNK = 80, SEG = 28;   // terrain tessellation per chunk (desktop). Finer than
                                      // the old 14 so slopes and lake shorelines read smoother

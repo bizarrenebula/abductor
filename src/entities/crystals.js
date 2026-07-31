@@ -3,7 +3,7 @@
    beam, refuelling the reactor and pinging story/mission hooks.
    ========================================================================= */
 import { THREE } from '../core/three.js';
-import { OBJ_SCALE, ASSETS } from '../core/constants.js';
+import { OBJ_SCALE, COLLECT_SCALE, ASSETS } from '../core/constants.js';
 import { part } from '../core/mesh.js';
 import { S } from '../core/state.js';
 import { scene } from '../core/engine.js';
@@ -38,7 +38,7 @@ function addGlow(g,tint){
    than a house and more than twice a human. This brings them to ~1.8u — a chunky
    gem outcrop you could step over. Applied to both build paths so the GLB set
    stays consistent if it is ever switched back on. */
-const CRYSTAL_S=0.34;
+const CRYSTAL_S=0.34*COLLECT_SCALE;
 export function buildCrystal(){
   const tint=World.name==='moon'?0x9fe8ff:World.name==='mars'?0xff7a50:0x8fe8b8;
   // --- custom model path ---

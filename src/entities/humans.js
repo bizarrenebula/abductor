@@ -3,7 +3,7 @@
    nearest shelter, and hide; plus the barns and camps they run toward.
    ========================================================================= */
 import { THREE } from '../core/three.js';
-import { OBJ_SCALE, ASSETS } from '../core/constants.js';
+import { OBJ_SCALE, COLLECT_SCALE, ASSETS } from '../core/constants.js';
 import { mat, part, glowMat, measureSolid } from '../core/mesh.js';
 import { S } from '../core/state.js';
 import { heightAt } from '../world/terrain.js';
@@ -105,11 +105,11 @@ export function buildHuman(kind){
   const villager=kind==='villager';
   if(!villager&&LOADED.hiker){
     const g=spawnModel('hiker');
-    g.scale.setScalar((ASSETS.hiker.scale||1)*0.9*OBJ_SCALE);
+    g.scale.setScalar((ASSETS.hiker.scale||1)*0.9*OBJ_SCALE*COLLECT_SCALE);
     const u=g.userData;
     u.humanKind=kind;u.name='Hiker';u.pts=8;
     u.speed=6.8+Math.random()*1.4;u.fleeT=0;u.hidden=0;
-    u.biome='plains';u.baseS=(ASSETS.hiker.scale||1)*0.9*OBJ_SCALE;
+    u.biome='plains';u.baseS=(ASSETS.hiker.scale||1)*0.9*OBJ_SCALE*COLLECT_SCALE;
     u.hopTimer=99;u.hop=null;u.progress=0;u.abducting=0;u.face=Math.random()*6.28;
     return g;
   }
@@ -119,7 +119,7 @@ export function buildHuman(kind){
   g.add(part(new THREE.CylinderGeometry(0.2,0.24,0.7,8),cloth,0,1.0,0));
   g.add(part(new THREE.SphereGeometry(0.22,10,8),skin,0,1.58,0));
   if(!villager)g.add(part(new THREE.BoxGeometry(0.36,0.5,0.22),mat(0x8a3a20,0.85),0,1.05,-0.3));
-  g.scale.setScalar(0.9*OBJ_SCALE);
+  g.scale.setScalar(0.9*OBJ_SCALE*COLLECT_SCALE);
   const u=g.userData;
   u.humanKind=kind;u.name=villager?'Villager':'Hiker';u.pts=villager?10:8;
   u.speed=6.8+Math.random()*1.4;u.fleeT=0;u.hidden=0;

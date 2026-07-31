@@ -4,7 +4,7 @@
    ========================================================================= */
 import { THREE } from '../core/three.js';
 import { env } from '../core/env.js';
-import { OBJ_SCALE, ASSETS } from '../core/constants.js';
+import { COLLECT_SCALE, OBJ_SCALE, ASSETS } from '../core/constants.js';
 import { mat, part, measureSolid } from '../core/mesh.js';
 import { scene } from '../core/engine.js';
 
@@ -166,7 +166,7 @@ export function buildProp(biome){
       // collide with the trunk). Procedural everywhere, so the gnarled look is
       // consistent (we intentionally skip the realistic tree.glb here).
       u.solid=true;u.slim=true;u.sway=Math.random()*6.28;   // gentle wind sway (see updateProps)
-      const tt=twistedTree();tt.scale.setScalar(1.5+Math.random()*0.7);g.add(tt);
+      const tt=twistedTree();tt.scale.setScalar((1.5+Math.random()*0.7)*COLLECT_SCALE);g.add(tt);
     }
   }else if(World.name==='moon'){
     if(Math.random()<0.35){

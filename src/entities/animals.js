@@ -4,7 +4,7 @@
    humans and wormlings to their own updaters.
    ========================================================================= */
 import { THREE } from '../core/three.js';
-import { OBJ_SCALE, WATER_Y, MTN_H } from '../core/constants.js';
+import { OBJ_SCALE, COLLECT_SCALE, WATER_Y, MTN_H } from '../core/constants.js';
 import { lerp, wrapAngle, turnToward } from '../core/math.js';
 import { mat, part } from '../core/mesh.js';
 import { S } from '../core/state.js';
@@ -36,7 +36,7 @@ export const ANIMALS={
 export function buildAnimal(species){
   const info=ANIMALS[species]||ANIMALS.Sheep;
   if(!ANIMALS[species])species='Sheep';
-  const s=info.size*OBJ_SCALE;
+  const s=info.size*OBJ_SCALE*COLLECT_SCALE;
   // --- custom model path (only sheep/duck/goat ever had GLBs; skipped in pure-JS) ---
   const modelName={Sheep:'sheep',Duck:'duck',Goat:'goat'}[species]||null;
   if(modelName&&LOADED[modelName]){

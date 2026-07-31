@@ -20,6 +20,7 @@ import { TOUCH_ONLY } from '../core/env.js';
 import { heightAt, goodGround } from '../world/terrain.js';
 import { animals, pickups } from '../entities/registry.js';
 import { buildCrystal } from '../entities/crystals.js';
+import { buildAnimal } from '../entities/animals.js';
 import { banner } from '../ui/banner.js';
 import { Special } from './special.js';
 import { mark as markWaypoint, objectiveGlow, updateGlow } from './waypoints.js';
@@ -282,18 +283,40 @@ function makeMarker(){
   tick.rotation.x=Math.PI; tick.position.y=3.2; g.add(tick);   // ▼ pointing down at the creature
   g.visible=false; scene.add(g); marker=g; return g;
 }
-/* Keep the marker floating over the nearest catchable creature. */
+/* The first catch has to be winnable. Birds fly high and hop in long bounds, and
+   ducks sit out on the water, so neither is a fair thing to learn the beam on —
+   the lesson always targets a SHEEP, and spawns one nearby if the chunk happened
+   not to roll any. Strictly a sheep, so the on-screen hint can name it. */
+let tutSheep=null;
+function ensureSheep(){
+  let best=null,bd=1e9;
+  for(const a of animals){
+    if(a.visible===false||!a.parent)continue;
+    if(a.userData.name!=='Sheep')continue;        // not a bird, duck or goat
+    const d=Math.hypot(a.position.x-saucer.position.x,a.position.z-saucer.position.z);
+    if(d<bd){bd=d;best=a;}
+  }
+  if(best&&bd<200)return best;
+  // none in reach — place one on decent ground a short flight away
+  const D=110;
+  let x=saucer.position.x+Math.sin(S.yaw)*D, z=saucer.position.z+Math.cos(S.yaw)*D;
+  for(let k=0;k<14;k++){
+    const a=S.yaw+k*0.45, tx=saucer.position.x+Math.sin(a)*D, tz=saucer.position.z+Math.cos(a)*D;
+    if(goodGround(tx,tz)){ x=tx; z=tz; break; }
+  }
+  const g=buildAnimal('Sheep');
+  g.position.set(x,heightAt(x,z),z);
+  g.rotation.y=g.userData.face||0;
+  scene.add(g); animals.push(g);
+  tutSheep=g;
+  return g;
+}
+/* Keep the marker floating over the creature the lesson wants beamed. */
 function trackMarker(s){
   const m=makeMarker();
   let tgt=s.target;
   const ok=a=>a&&a.parent&&a.visible!==false;
-  if(!ok(tgt)){                                   // (re)acquire the nearest creature
-    let best=null,bd=1e9;
-    for(const a of animals){ if(a.visible===false||!a.parent)continue;
-      const d=Math.hypot(a.position.x-saucer.position.x,a.position.z-saucer.position.z);
-      if(d<bd){bd=d;best=a;} }
-    tgt=s.target=best;
-  }
+  if(!ok(tgt))tgt=s.target=ensureSheep();
   if(tgt){ m.visible=true;
     const bob=Math.sin(performance.now()*0.005)*0.5;
     m.position.set(tgt.position.x,tgt.position.y+5+bob,tgt.position.z);
@@ -390,8 +413,8 @@ const steps=[
     say(s){
       if(S.beamLock>0.03) return 'Locked on — hold it steady!';
       if(S.beamPower>0.12) return 'Beam open — centre it on the creature.';
-      return TOUCH?'Fly over the ▼ creature, then double-tap & HOLD to beam.'
-                  :'Fly over the ▼ creature, then hold SPACE to beam.';
+      return TOUCH?'Fly over the ▼ sheep, then double-tap & HOLD to beam.'
+                  :'Fly over the ▼ sheep, then hold SPACE to beam.';
     },
     begin(s){ s.base=S.taken; s.target=null; },
     test(s){ trackMarker(s); return S.taken>s.base; },
@@ -557,6 +580,11 @@ export const Tutorial={
       scene.remove(tutCrystal);
       const i=pickups.indexOf(tutCrystal); if(i>=0)pickups.splice(i,1);
       tutCrystal=null;
+    }
+    if(tutSheep){                         // ...and the lesson sheep, if it survived
+      scene.remove(tutSheep);
+      const i=animals.indexOf(tutSheep); if(i>=0)animals.splice(i,1);
+      tutSheep=null;
     }
     hudRestore();
   },

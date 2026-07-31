@@ -69,6 +69,7 @@ const _v=new THREE.Vector3();
    camera; the rest of the game (beam, cloak, collision, energy, HUD) reads the
    synced S.* fields exactly as before. */
 import { Tutorial } from './systems/tutorial.js';
+import { Intro } from './systems/intro.js';
 import { renderWaypoints, clearWaypoints } from './systems/waypoints.js';
 import { FlightModel } from './systems/flight.js';
 import { CameraRig } from './systems/camera-rig.js';
@@ -367,6 +368,26 @@ function animate(){
     // Draw the direction arrows for everything the systems above marked this
     // frame (story objectives, ship parts, tutorial goals).
     renderWaypoints(camera,saucer.position);
+
+  } else if(S.state==='intro'){
+    /* ---- arrival cinematic ----
+       The mothership lowers the saucer into the valley. None of the gameplay
+       systems tick; the world just lives and breathes underneath, and the film
+       hands the camera over to the chase rig exactly where it would have been. */
+    clearWaypoints();
+    Intro.update(dt);
+    updateChunks(saucer.position.x,saucer.position.z);
+    dayNightUpdate(dt);
+    applyDayNightLight();
+    beam.visible=disc.visible=false;
+    ebarBG.material.opacity=0;ebarFill3.material.opacity=0;
+    updateShadow(groundAt);          // the ship's shadow grows on the ground as it descends
+    shipLight.position.set(saucer.position.x,saucer.position.y+5.5,saucer.position.z);
+    shipLight.intensity=2.3;shipLight.distance=30;
+    glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);
+    glowLight.intensity=(0.9+4.2*(1-S.dayF));glowLight.distance=lerp(100,150,1-S.dayF);
+    updateAnimals(dt);
+    updateProps(dt,false);updateCrystals(dt,false);
 
   } else if(S.state==='crashing'){
     clearWaypoints();                 // no guidance arrows while going down

@@ -29,6 +29,7 @@ import { resetGeysers } from '../hazards/geysers.js';
 import { resetLightning } from '../hazards/lightning.js';
 import { Story, storyProceed } from '../story/story.js';
 import { Tutorial } from '../systems/tutorial.js';
+import { Intro } from '../systems/intro.js';
 import { Music, TRACK_BY_WORLD } from '../audio/music.js';
 import { BeamSFX } from '../audio/sfx.js';
 import { banner } from './banner.js';
@@ -44,10 +45,19 @@ const oExtra=document.getElementById('oExtra');   // "Tuning" sector chip summar
 /* opts.keep — "run it back" after a crash keeps the ship's earned upgrades
    (the save point survives a crash / disaster, per spec). Any other entry
    point (menu Play, restart, settings) passes no opts and starts grounded.
-   Called directly as a click handler too, where the arg is an Event → no .keep. */
+   Called directly as a click handler too, where the arg is an Event → no .keep.
+
+   opts.after — run once the player actually has control (i.e. after the arrival
+   cinematic). The tutorial hooks in here so its first prompt doesn't talk over
+   the film.
+   opts.film — false to skip the cinematic; a mid-run "run it back" replays the
+   same arrival, which gets old fast, so only fresh starts get the film. */
 export function startGame(opts){
   const keepUpgrades=!!(opts&&opts.keep===true);
+  const after=opts&&typeof opts.after==='function'?opts.after:null;
+  const film=!(opts&&opts.film===false)&&!keepUpgrades;
   Tutorial.stop();                 // clear any prior tutorial state on every fresh run
+  Intro.stop();                    // and any half-played cinematic
   // No time limit any more — the run is open-ended.
   S.score=0;scoreV.textContent='0';
   S.taken=0;S.tally={};specV.textContent=t('hud.taken',{n:0});
@@ -74,16 +84,28 @@ export function startGame(opts){
   Birds.reset(saucer.position.x,saucer.position.z);
   updateMissionHUD();
   Story.reset();
-  if(S.storyMode)Story.begin(S.world);
   applyWeather._last=null;weather.timer=0;weather.biome='plains';applyWeather('clear');
-  S.state='playing';
   startScreen.classList.add('hidden');
   overScreen.classList.add('hidden');
   document.getElementById('pauseScreen').classList.add('hidden');
-  hud.classList.add('on');
   Music.set(TRACK_BY_WORLD[S.world]||'drift');
-  if(S.world==='mars')setTimeout(()=>banner(t('banner.mars')),900);
-  if(S.world==='moon')setTimeout(()=>banner(t('banner.moon')),900);
+  const enterPlay=()=>{
+    S.state='playing';
+    hud.classList.add('on');
+    S.safePos.copy(saucer.position);S.safeYaw=S.yaw;   // the arrival point is the first safe point
+    // Story briefings wait for the film to end — nothing overlays the cinematic.
+    if(S.storyMode)Story.begin(S.world);
+    if(S.world==='mars')setTimeout(()=>banner(t('banner.mars')),900);
+    if(S.world==='moon')setTimeout(()=>banner(t('banner.moon')),900);
+    if(after)after();
+  };
+  if(film){
+    // The arrival: the HUD stays down and the world runs on its own until the
+    // mothership has set the saucer on its hover point.
+    S.state='intro';
+    hud.classList.remove('on');
+    Intro.play(saucer.position.x,saucer.position.z,S.yaw,enterPlay);
+  }else enterPlay();
 }
 /* Story-mode respawn: a fatal hit costs the current mission's progress, not the
    whole run. The ship reappears at its last safe point, in-progress quest items
@@ -128,12 +150,12 @@ export function endGame(reason){
 // Play offers the guided tutorial first; either choice starts the game, and
 // "Show me" then kicks off the walkthrough in the freshly-started world.
 document.getElementById('startBtn').addEventListener('click',()=>{
-  Tutorial.prompt(()=>{ startGame(); Tutorial.start(); }, ()=>startGame());
+  Tutorial.prompt(()=>startGame({after:()=>Tutorial.start()}), ()=>startGame());
 });
 /* Injected so the tutorial's closing modal can restart the run or switch to
    Story mode — screens.js owns startGame, so handing the callbacks down keeps
    the import one-way (screens -> tutorial). */
-Tutorial.replayRun=()=>{ startGame(); Tutorial.start(); };
+Tutorial.replayRun=()=>startGame({after:()=>Tutorial.start()});
 Tutorial.toMenu=()=>toMenu();
 // "run it back" continues the same ship — a crash never costs your upgrades.
 document.getElementById('againBtn').addEventListener('click',()=>startGame({keep:true}));
@@ -148,6 +170,7 @@ export function pauseGame(){ if(S.state!=='playing')return; S.state='paused'; Be
 function resumeGame(){ if(S.state!=='paused')return; S.state='playing'; pauseScreen.classList.add('hidden'); }
 function toMenu(){ pauseScreen.classList.add('hidden'); overScreen.classList.add('hidden');
   startScreen.classList.remove('hidden'); hud.classList.remove('on'); S.state='menu';
+  Intro.stop();
   BeamSFX.stop();S.prevBeam=false;Music.set('off');Story.reset();clearUpgradeItems();resetSaucerMenu(); }
 document.getElementById('pauseBtn').addEventListener('click',pauseGame);
 // The floating PULL button (shown by special.js only when charged) is a

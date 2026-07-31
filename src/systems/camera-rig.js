@@ -76,7 +76,13 @@ export class CameraRig {
     if (!this._initialised) {
       this.position.copy(this._anchor);
       this.velocity.set(0, 0, 0);
-      this.lookTarget.copy(flight.position);
+      // Start the aim where it belongs — ahead of and below the body — not on the
+      // body itself, which would pan the view downward over the first frames
+      // after every reset (visible as a lurch when handing over from the intro).
+      this.lookTarget
+        .copy(flight.position)
+        .addScaledVector(this._forward, c.lookAhead);
+      this.lookTarget.y -= c.lookDrop || 0;
       this._initialised = true;
     }
 

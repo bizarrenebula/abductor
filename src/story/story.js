@@ -16,6 +16,7 @@ import { spawnPop } from '../ui/pop.js';
 import { scoreV } from '../ui/dom.js';
 import { saucer } from '../systems/saucer.js';
 import { effBeamR } from '../systems/beam.js';
+import { makeFire, updateFire, updateFireTime } from '../systems/fire.js';
 import { objectiveGlow, updateGlow, mark as markWaypoint } from '../systems/waypoints.js';
 import { t } from '../i18n.js';
 
@@ -169,18 +170,37 @@ export const Story={
 
   /* =================== EARTH — the crashed mothership =================== */
   beginEarth(){
-    const p=this.farPoint(320,400,true);
+    const p=this.farPoint(430,560,true);
     this.shipPos=p;
     this.ship=this.buildShip();
     this.ship.position.set(p.x,heightAt(p.x,p.z)-1.2,p.z);
     this.ship.rotation.z=0.16;this.ship.rotation.y=Math.random()*6.28;
     scene.add(this.ship);
     this.need={crystal:false,water:false,sand:false};
-    const dpts=this.curvedPath(p.x,p.z,9,0.08,0.94,20);
+    /* Seven pieces over a longer fall, so the wreckage is strewn rather than
+       lined up: ~60 units apart instead of the ~30 it used to be. */
+    const dpts=this.curvedPath(p.x,p.z,7,0.06,0.96,26);
+    /* Nudge each piece onto dry land. A burning wreck floating in a lake reads
+       as a bug, and the curved fall path knows nothing about water. Anything
+       that cannot find a shore within 60 units simply sank. */
+    const dry=(x,z)=>{const sm=sample(x,z);return sm.biome!=='water'&&sm.h>WATER_Y+1.2;};
     for(const q of dpts){
+      let qx=q.x, qz=q.z;
+      if(!dry(qx,qz)){
+        let found=false;
+        for(let rad=14;rad<=60&&!found;rad+=14)
+          for(let a=0;a<8&&!found;a++){
+            const ang=a/8*Math.PI*2, tx=qx+Math.cos(ang)*rad, tz=qz+Math.sin(ang)*rad;
+            if(dry(tx,tz)){qx=tx;qz=tz;found=true;}
+          }
+        if(!found)continue;
+      }
+      q.x=qx; q.z=qz;
       const d=this.buildDebris();
       d.position.set(q.x,heightAt(q.x,q.z)+0.3,q.z);
-      d.rotation.set(Math.random()*2,Math.random()*6,Math.random()*2);
+      // Yaw only: the chunk inside carries its own tumble, and tipping the
+      // group would lay the flame and smoke over on their sides.
+      d.rotation.y=Math.random()*6.283;
       scene.add(d);this.debris.push(d);
     }
     setTimeout(()=>banner(t('banner.distress')),900);
@@ -210,8 +230,14 @@ export const Story={
   },
   buildDebris(){
     const g=new THREE.Group();
-    g.add(part(new THREE.TetrahedronGeometry(0.9+Math.random()*0.8,0),
-      new THREE.MeshStandardMaterial({color:0x22262c,metalness:0.8,roughness:0.5,emissive:0xff6a20,emissiveIntensity:0.35}),0,0.4,0));
+    // Charred, not orange: the heat should come from the fire on top of it, so
+    // the hull itself is nearly black with only its cooling edges still glowing.
+    const chunk=part(new THREE.TetrahedronGeometry(0.9+Math.random()*0.8,0),
+      new THREE.MeshStandardMaterial({color:0x14161a,metalness:0.7,roughness:0.85,
+        emissive:0xff5a12,emissiveIntensity:0.12}),0,0.4,0);
+    chunk.rotation.set(Math.random()*3,Math.random()*3,Math.random()*3);
+    g.add(chunk);
+    g.userData.fire=makeFire(g,0.9+Math.random()*0.5);
     return g;
   },
   buildSample(kind){
@@ -418,7 +444,9 @@ export const Story={
   },
 
   /* =================== HUD =================== */
-  hud(){
+  /* The current mission's objective, as HTML. Shared by the in-flight HUD strip
+     and the pause menu's objectives panel, so the two can never drift apart. */
+  objectiveText(){
     let txt='';
     const w=this.world;
     const mn=s=>'<span class="mnum">'+s+'</span>';
@@ -444,10 +472,23 @@ export const Story={
       else if(this.stage===3)txt=t('story.hud.r3',{n:mn(this.count+'/15')});
       else txt=t('story.hud.r.done');
     }
+    return txt;
+  },
+  /* A plain header for the current stage. Deliberately NOT story.<w>.<n>.title —
+     that key is the card shown when a stage COMPLETES ("WRECK FOUND"), so using
+     it here both spoils the stage and carries markup. */
+  missionTitle(){
+    if(!this.active||this.stage<1||this.stage>3)return '';
+    return t('pause.mission',{n:this.stage});
+  },
+  hud(){
+    const txt=this.objectiveText();
     if(txt!==this._last){document.getElementById('sTxt').innerHTML=txt;this._last=txt;}
     this._renderItems();
   },
   // Per-item breakdown for the current stage: [label, collected, required].
+  // Public alias: the pause menu renders the same breakdown the HUD does.
+  stageItems(){ return this._stageItems(); },
   _stageItems(){
     const w=this.world, out=[];
     if(w==='earth'){
@@ -537,7 +578,13 @@ export const Story={
     return u.lift>=1;
   },
   updateEarth(dt,beamActive,tt){
-    for(const d of this.debris)if(d.children[0])d.children[0].material.emissiveIntensity=0.25+0.25*Math.sin(tt*2.5+d.position.x);
+    updateFireTime(tt);
+    for(const d of this.debris){
+      // barely glowing: the light on a wreck should come from the fire on it,
+      // not from the metal, which otherwise reads as luminous orange rock
+      if(d.children[0])d.children[0].material.emissiveIntensity=0.09+0.07*Math.sin(tt*2.5+d.position.x);
+      if(d.userData.fire)updateFire(d.userData.fire,dt);
+    }
     const dx=saucer.position.x-this.shipPos.x,dz=saucer.position.z-this.shipPos.z;
     const near=(dx*dx+dz*dz)<26*26;
     if(this.stage===1&&near){completeStage(1);return;}

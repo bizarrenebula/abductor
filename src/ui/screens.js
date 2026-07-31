@@ -168,7 +168,31 @@ document.getElementById('settingsBtn').addEventListener('click',()=>{
 
 /* ---------- pause / navigation ---------- */
 const pauseScreen=document.getElementById('pauseScreen');
-export function pauseGame(){ if(S.state!=='playing')return; S.state='paused'; BeamSFX.stop();S.prevBeam=false; pauseScreen.classList.remove('hidden'); }
+/* What the run is asking of you, rendered into the pause card. In Story mode
+   that is the live mission objective (the same text the HUD strip shows, so the
+   two cannot drift); otherwise it is the open-ended brief. Built on open rather
+   than every frame — nobody is watching it change behind a pause screen. */
+function renderObjectives(){
+  const title=document.getElementById('pObjTitle');
+  const txt=document.getElementById('pObjTxt');
+  const items=document.getElementById('pObjItems');
+  if(!txt)return;
+  if(S.storyMode&&Story.active){
+    title.textContent=Story.missionTitle();
+    txt.innerHTML=Story.objectiveText();
+    const rows=Story.stageItems?Story.stageItems():[];
+    items.innerHTML=rows.map(r=>{
+      const got=r[1]>=r[2];
+      return '<div class="objRow'+(got?' got':'')+'"><span>'+r[0]+'</span><span>'+r[1]+' / '+r[2]+'</span></div>';
+    }).join('');
+  }else{
+    title.textContent='';
+    txt.textContent=t('pause.obj.explore');
+    items.innerHTML='';
+  }
+}
+export function pauseGame(){ if(S.state!=='playing')return; S.state='paused'; BeamSFX.stop();S.prevBeam=false;
+  renderObjectives(); pauseScreen.classList.remove('hidden'); }
 function resumeGame(){ if(S.state!=='paused')return; S.state='playing'; pauseScreen.classList.add('hidden'); }
 function toMenu(){ pauseScreen.classList.add('hidden'); overScreen.classList.add('hidden');
   startScreen.classList.remove('hidden'); hud.classList.remove('on'); S.state='menu';

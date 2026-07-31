@@ -383,6 +383,19 @@
     margin-top:2px}
   .chk input{accent-color:var(--beam);width:15px;height:15px}
 
+  /* Pause-menu objectives: what the run is actually asking of you, in the one
+     place a player looks when they have forgotten. */
+  #pauseObj{margin:14px 0 4px;padding:11px 13px;text-align:left;
+    border:1px solid var(--edge);border-radius:11px;background:rgba(8,16,13,.55)}
+  #pauseObj .objH{font-size:9px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--beam-dim);margin-bottom:7px}
+  #pauseObj .objTitle{font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--beam);margin-bottom:4px}
+  #pauseObj .objTitle:empty{display:none}
+  #pauseObj .objTxt{font-size:12px;line-height:1.5;color:var(--ink)}
+  #pauseObj .objRow{display:flex;justify-content:space-between;gap:10px;margin-top:6px;
+    font-size:10px;letter-spacing:.08em;color:var(--ink-soft)}
+  #pauseObj .objRow.got{color:var(--beam)}
   .seg{display:flex;gap:6px}
   .seg button{flex:1;padding:9px 4px;border-radius:9px;border:1px solid var(--edge);
     background:rgba(255,255,255,.03);color:var(--ink-soft);font-family:inherit;font-size:10px;
@@ -755,6 +768,12 @@
     <div class="eyebrow" data-i18n="eyebrow.hovering">hovering</div>
     <h1 data-i18n-html="pause.title">STAND <span class="g">BY</span></h1>
     <div class="sub" data-i18n="pause.sub">The engines hum. Below, the field pretends nothing happened.</div>
+    <div id="pauseObj">
+      <div class="objH" data-i18n="pause.objectives">Objectives</div>
+      <div class="objTitle" id="pObjTitle"></div>
+      <div class="objTxt" id="pObjTxt">—</div>
+      <div id="pObjItems"></div>
+    </div>
     <button class="go" id="resumeBtn" data-i18n="pause.resume">resume</button>
     <button class="go ghost" id="restartBtn" data-i18n="pause.restart">restart run</button>
     <button class="go ghost" id="pSettingsBtn" data-i18n="pause.settings">settings</button>

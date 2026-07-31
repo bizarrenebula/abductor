@@ -16,7 +16,7 @@ import { scene, camera } from '../core/engine.js';
 import { saucer } from './saucer.js';
 import { FLIGHT_PROFILE } from './flight-profile.js';
 import { heightAt } from '../world/terrain.js';
-import { beep } from '../audio/music.js';
+import { Arrival } from '../audio/arrival.js';
 
 const DUR = 9.0;            // seconds of film
 const SHIP_TOP = 220;       // where the mothership hangs
@@ -150,11 +150,13 @@ export const Intro={
     rig.disc.position.set(x,this._groundY+0.2,z);
     saucer.position.set(x,SHIP_TOP-18,z);
     saucer.rotation.set(0,yaw||0,0);
-    beep(150,0.5,0.05); setTimeout(()=>beep(110,0.9,0.05),420);
+    Arrival.play();                    // the score, scheduled against these same beats
     addEventListener('pointerdown',this._skip,{passive:true});
     addEventListener('keydown',this._skip);
   },
-  _skip:()=>{ if(Intro.active)Intro._t=Math.max(Intro._t,DUR-1.1); },   // rush to the handover
+  // Rush to the handover. The cue can't scrub, so it ducks its build and drops
+  // the landing under the shortened ending.
+  _skip:()=>{ if(!Intro.active||Intro._t>=DUR-1.1)return; Intro._t=DUR-1.1; Arrival.skip(); },
 
   update(dt){
     if(!this.active)return;
@@ -252,6 +254,7 @@ export const Intro={
   /* Hand over to gameplay. */
   finish(){
     if(!this.active)return;
+    Arrival.release();
     this._clear();
     saucer.position.set(this._x,this._restY,this._z);
     saucer.rotation.set(0,this._yaw,0);
@@ -262,6 +265,7 @@ export const Intro={
   /* Abort without running the callback (quit to menu mid-film). */
   stop(){
     this._done=null;
+    Arrival.stop();                    // the film is gone; its score goes with it
     this._clear();
   },
 };

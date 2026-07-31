@@ -34,6 +34,11 @@ function addGlow(g,tint){
   const s=new THREE.Sprite(m);s.scale.set(4,4,1);s.position.y=0.7;
   g.add(s);g.userData.glow=s;
 }
+/* Crystals are a pickup, not scenery: they were being built ~5.4u tall, taller
+   than a house and more than twice a human. This brings them to ~1.8u — a chunky
+   gem outcrop you could step over. Applied to both build paths so the GLB set
+   stays consistent if it is ever switched back on. */
+const CRYSTAL_S=0.34;
 export function buildCrystal(){
   const tint=World.name==='moon'?0x9fe8ff:World.name==='mars'?0xff7a50:0x8fe8b8;
   // --- custom model path ---
@@ -48,7 +53,7 @@ export function buildCrystal(){
     }});
     g.rotation.y=Math.random()*6.28;
     g.userData.lift=0;g.userData.phase=Math.random()*6.28;
-    g.userData.mats=mats;g.userData.s0=(ASSETS.crystal.scale||1)*OBJ_SCALE;
+    g.userData.mats=mats;g.userData.s0=(ASSETS.crystal.scale||1)*OBJ_SCALE*CRYSTAL_S;
     g.scale.setScalar(g.userData.s0);
     addGlow(g,tint);
     return g;
@@ -64,7 +69,7 @@ export function buildCrystal(){
     c.rotation.set((Math.random()-0.5)*0.9,Math.random()*3,(Math.random()-0.5)*0.9);
     g.add(c);
   }
-  g.userData.lift=0;g.userData.phase=Math.random()*6.28;g.userData.mats=[m];g.userData.s0=OBJ_SCALE;g.scale.setScalar(OBJ_SCALE);
+  g.userData.lift=0;g.userData.phase=Math.random()*6.28;g.userData.mats=[m];g.userData.s0=OBJ_SCALE*CRYSTAL_S;g.scale.setScalar(g.userData.s0);
   addGlow(g,tint);
   return g;
 }

@@ -20,12 +20,18 @@ import { updateWorm } from './aliens.js';
 /* turn = yaw speed in rad/s while pivoting in place. Heavier animals swing
    round slowly, which is most of what sells the weight difference. */
 /* Species table (keyed by name). class: 'land' grazers, 'water' ducks, 'air'
-   birds. Birds fly over anything and are quicker than sheep. */
+   birds. Birds fly over anything and are quicker than sheep.
+
+   SCALE: `size` is tuned against the world's shared yardstick — a human stands
+   ~2.2 world units, so 1 unit is roughly 0.85 m. Every creature must read as
+   SMALLER than a person; they used to be built at roughly double that, which put
+   a sheep's back above a farmer's head and made the whole world look toy-sized.
+   Measured heights at these values: sheep 1.4, goat 1.35, duck 0.75, bird 0.6. */
 export const ANIMALS={
-  Sheep:{pts:1, size:1.1,  turn:2.6, cls:'land'},
-  Goat :{pts:4, size:0.95, turn:3.4, cls:'land'},
-  Duck :{pts:2, size:0.7,  turn:2.2, cls:'water'},
-  Bird :{pts:2, size:0.5,  turn:3.2, cls:'air', hover:11, hopDist:7, hopRng:5, hopDur:0.42, restMin:0.7, restRng:1.5},
+  Sheep:{pts:1, size:0.47, turn:2.6, cls:'land'},
+  Goat :{pts:4, size:0.42, turn:3.4, cls:'land'},
+  Duck :{pts:2, size:0.26, turn:2.2, cls:'water'},
+  Bird :{pts:2, size:0.49, turn:3.2, cls:'air', hover:11, hopDist:7, hopRng:5, hopDur:0.42, restMin:0.7, restRng:1.5},
 };
 export function buildAnimal(species){
   const info=ANIMALS[species]||ANIMALS.Sheep;

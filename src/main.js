@@ -18,7 +18,7 @@ import { sample, heightAt } from './world/terrain.js';
 import { roadHeightAt, roadDist } from './world/roads.js';
 import { World, dayNightUpdate, applyDayNightLight } from './world/world-config.js';
 import { updateChunks, chunks } from './world/chunks.js';
-import { WEATHER, weather, updateDust, pickWeather, applyWeather, updateWeatherParticles, setBeamMultHUD } from './world/weather.js';
+import { WEATHER, weather, updateDust, tickWeather, applyWeather, updateWeatherParticles, setBeamMultHUD } from './world/weather.js';
 
 import { updateAnimals } from './entities/animals.js';
 import { updateCrystals } from './entities/crystals.js';
@@ -355,14 +355,10 @@ function animate(){
     updateChunks(saucer.position.x,saucer.position.z);
     updateAnimals(dt);
 
-    /* ---- weather ---- */
+    /* ---- weather ----
+       A slow-drifting field over the world, not a timer: see world/weather.js. */
     weather.biome=sample(saucer.position.x,saucer.position.z).biome;
-    weather.timer-=dt;
-    if(weather.timer<=0||applyWeather._last!==weather.biome){
-      applyWeather.prevBiome=weather.biome;
-      applyWeather(pickWeather(weather.biome));
-      applyWeather._last=weather.biome;
-    }
+    tickWeather(dt,saucer.position.x,saucer.position.z,weather.biome);
     scene.fog.density=lerp(scene.fog.density,weather.fogTarget,Math.min(1,dt*0.6));
     updateWeatherParticles(dt);
 

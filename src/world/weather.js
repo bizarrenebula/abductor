@@ -1,14 +1,16 @@
 /* =========================================================================
-   WEATHER — per-biome/world weather with a beam multiplier, falling-particle
-   system, ambient dust motes, and the HUD region label. Runtime weather state
-   (current type, timer, fog target, biome) lives on the shared `weather`
-   object so the main loop and startGame can mutate it across modules.
+   WEATHER — a drifting spatial weather field with a beam multiplier, a
+   falling-particle system, ambient dust motes, and the HUD region label.
+   Weather is a function of WHERE you are, not of a timer, so one region rains
+   while the next is sunny (see WEATHER SYSTEMS below). Runtime state (current
+   type, sample timer, fog target, biome) lives on the shared `weather` object
+   so the main loop and startGame can mutate it across modules.
    ========================================================================= */
 import { THREE } from '../core/three.js';
 import { env } from '../core/env.js';
 import { scene, camera } from '../core/engine.js';
 import { World } from './world-config.js';
-import { sample } from './terrain.js';
+import { nWx, nTemp, nMoist, fbm } from './noise.js';
 import { PARTTEX } from './textures.js';
 import { regionV, multV } from '../ui/dom.js';
 import { t } from '../i18n.js';
@@ -30,7 +32,8 @@ export const WEATHER={
 };
 
 /* shared runtime weather state */
-export const weather={ cur:'clear', timer:0, fogTarget:0.0062, biome:'plains' };
+export const weather={ cur:'clear', timer:0, fogTarget:0.0062, biome:'plains',
+                       pending:null, hold:0, snap:true, labelBiome:null, dwell:0 };
 
 const PCOUNT=1400;
 const pGeo=new THREE.BufferGeometry();
@@ -60,17 +63,100 @@ export function updateDust(){
   dGeo.attributes.position.needsUpdate=true;
 }
 
-export function pickWeather(biome){
-  weather.timer=8+Math.random()*10;
-  // Moon: airless. No precipitation at all — the old 'meteors' dust read as
-  // snowfall, and the real meteor hazard now covers that ground.
-  if(World.name==='moon')return 'vacuum';
-  // Mars: the red sand storm is the signature weather, with occasional lulls.
-  if(World.name==='mars')return Math.random()<0.7?'duststorm':'calm';
-  if(biome==='desert') return Math.random()<0.35?'sandstorm':'sunny';
-  if(biome==='mountain') return Math.random()<0.5?'snowstorm':'snow';
-  if(biome==='water') return 'fog';
-  return Math.random()<0.3?'rain':'clear';
+/* ---- WEATHER SYSTEMS -------------------------------------------------------
+   Weather belongs to the PLACE, not to a timer. A low-frequency field over the
+   world decides how unsettled the sky is at each point, so one region rains
+   while the next is sunny — and flying out of a storm and back again finds the
+   same storm rather than a fresh dice roll. That single property is what makes
+   the sky feel like geography instead of a slot machine.
+
+   The field drifts, so fronts do pass over a stationary ship; just on the order
+   of ten minutes rather than ten seconds. */
+export const WX_SCALE=0.00013;   // ~7700-unit weather systems: minutes to cross one
+export const WX_DRIFT=9;         // units/sec the whole field travels (~14 min per system)
+const WX_SAMPLE=1.5;             // seconds between samples (the field moves slowly)
+const WX_HOLD=5;                 // agreeing samples to commit: 7.5s of steady evidence
+const WX_DWELL=18;               // ...and once it changes, it holds at least this long
+let wxDrift=0;
+
+/* How unsettled the sky is here: 0 settled and bright, 1 the middle of a front.
+   The noise is roughly symmetric about 0 with its 10th/90th percentiles at
+   -+0.385, so x1.3 about 0.5 spreads it across the full 0..1 range. */
+export function severityAt(x,z){
+  // TWO octaves, not the usual three or four. Extra octaves put high-frequency
+  // detail on the threshold crossings, which shatters the edge of a front into
+  // dozens of slivers — measured as a weather change every ~180 units. A nearly
+  // smooth field gives blobby systems with one clean boundary.
+  const v=fbm(nWx,(x+wxDrift)*WX_SCALE,(z+wxDrift*0.42)*WX_SCALE,2);
+  const s=0.5+v*1.45;
+  return s<0?0:s>1?1:s;
+}
+
+/* Regional climate — deliberately sampled an order of magnitude below the
+   frequency the BIOME uses. Weather must not switch identity because the ship
+   crossed a pond or a ridge: a rain system stays a rain system over whatever
+   happens to be underneath it. This is the difference between weather that
+   belongs to a region and weather that belongs to a texel. */
+const CLIM=0.00018;              // ~5500-unit climate zones
+
+/* What the sky over this point wants to be. A pure function of position — no
+   randomness anywhere, which is the whole point: leave a storm, come back, and
+   the storm is still there. */
+export function weatherAt(x,z){
+  if(World.name==='moon')return 'vacuum';          // airless: no weather at all
+  const sev=severityAt(x,z);
+  if(World.name==='mars')return sev>0.55?'duststorm':'calm';
+  // One octave: the climate decides a system's IDENTITY, and identity should not
+  // wobble mid-storm. Extra octaves here made a front flip rain/sandstorm/rain.
+  const temp =fbm(nTemp ,(x+900)*CLIM,(z-900)*CLIM,1);
+  const moist=fbm(nMoist,(x-500)*CLIM,(z+500)*CLIM,1);
+  if(sev>0.74){                                    // a front is over this region
+    if(temp<-0.16)return 'snowstorm';              // cold region: it comes down as snow
+    if(temp>0.14&&moist<-0.04)return 'sandstorm';  // hot and dry: it comes up as sand
+    return 'rain';
+  }
+  if(sev>0.54){
+    if(temp<-0.16)return 'snow';
+    if(moist>0.14)return 'fog';                    // damp region, settling air
+    return 'clear';
+  }
+  return sev<0.28?'sunny':'clear';
+}
+
+/* Called every frame from the main loop. Samples on a slow cadence and only
+   commits a change once the new system has agreed with itself for a few
+   samples, so skimming along a boundary never flickers the sky. */
+export function tickWeather(dt,x,z,biome){
+  wxDrift+=dt*WX_DRIFT;
+  if(biome!==weather.labelBiome){ weather.labelBiome=biome; refreshRegion(); }
+  weather.dwell+=dt;
+  weather.timer-=dt;
+  if(weather.timer>0)return;
+  weather.timer=WX_SAMPLE;
+  const want=weatherAt(x,z);
+  if(want===weather.cur){ weather.pending=null; weather.hold=0; return; }
+  if(weather.snap){                      // first sample of a run: no easing in
+    weather.snap=false; weather.pending=null; weather.hold=0;
+    applyWeather(want); weather.dwell=0; return;
+  }
+  // Clipping the corner of a system must not change the sky. Two guards: the
+  // new weather has to agree with itself for WX_HOLD samples, and whatever is
+  // showing has to have been up for WX_DWELL. Without the second one, threading
+  // between two fronts still produced six-second bursts of snow.
+  if(weather.dwell<WX_DWELL)return;
+  if(want===weather.pending){
+    if(++weather.hold>=WX_HOLD){
+      applyWeather(want); weather.pending=null; weather.hold=0; weather.dwell=0;
+    }
+  }else{ weather.pending=want; weather.hold=1; }
+}
+
+/* Start a run: drop the drift so a fresh world is not mid-front, and take the
+   next sample immediately rather than debouncing into the right sky. */
+export function resetWeatherField(){
+  wxDrift=0;
+  weather.timer=0; weather.pending=null; weather.hold=0;
+  weather.snap=true; weather.labelBiome=null; weather.dwell=WX_DWELL;
 }
 export function curBiomeLabel(){
   if(World.name==='moon')return t('region.mare');
@@ -84,9 +170,13 @@ export function applyWeather(w){
     pMat.map=PARTTEX[W.tex]||null;pMat.needsUpdate=true;
     precip.userData={fall:W.fall,slant:W.slant};}
   else precip.visible=false;
-  const disp=t(W.name);
-  regionV.textContent=(curBiomeLabel()+' · '+disp);
+  refreshRegion();
   setBeamMultHUD(W.mult);
+}
+/* The HUD's "<region> · <weather>" line. Biome and weather now change
+   independently, so either one refreshes it. */
+export function refreshRegion(){
+  regionV.textContent=(curBiomeLabel()+' · '+t(WEATHER[weather.cur].name));
 }
 /* The `beam ±%` readout. Altitude now moves it too, so the main loop refreshes
    this every frame with weather × altitude rather than only on weather change. */

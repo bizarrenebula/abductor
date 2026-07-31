@@ -11,7 +11,7 @@ import { input, resetInputTouch, ACTIONS, binds, keyLabel, beginCapture, cancelC
 import { reseed } from '../world/noise.js';
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
 import { clearWorld, updateChunks } from '../world/chunks.js';
-import { applyWeather, weather } from '../world/weather.js';
+import { applyWeather, weather, resetWeatherField } from '../world/weather.js';
 import { saucer } from '../systems/saucer.js';
 import { Special } from '../systems/special.js';
 import { resetBuffs } from '../systems/buffs.js';
@@ -85,7 +85,7 @@ export function startGame(opts){
   Birds.reset(saucer.position.x,saucer.position.z);
   updateMissionHUD();
   Story.reset();
-  applyWeather._last=null;weather.timer=0;weather.biome='plains';applyWeather('clear');
+  resetWeatherField();weather.biome='plains';applyWeather('clear');
   startScreen.classList.add('hidden');
   overScreen.classList.add('hidden');
   document.getElementById('pauseScreen').classList.add('hidden');

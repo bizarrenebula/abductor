@@ -9,6 +9,7 @@ import { env, HAS_TOUCH, TOUCH_ONLY } from '../core/env.js';
 import { input, resetInputTouch, ACTIONS, binds, keyLabel, beginCapture, cancelCapture, resetBinds,
          AXES, FUNCS, touchMap, touchInv, setTouchMap, setTouchInv, resetTouch } from '../core/input.js';
 import { reseed } from '../world/noise.js';
+import { pickSpawn } from '../world/spawn.js';
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
 import { clearWorld, updateChunks } from '../world/chunks.js';
 import { applyWeather, weather, resetWeatherField } from '../world/weather.js';
@@ -65,15 +66,24 @@ export function startGame(opts){
   resetBuffs();
   Special.charge=1;Special.active=false;input.spHeld=false;resetInputTouch();
   S.energy=1;S.vy=0;saucer.rotation.set(0,0,0);
-  S.yaw=0;S.yawV=0;S.hoverV=0;S.safePos.set(0,40,0);S.safeYaw=0;S.safeT=0;
+  S.yaw=0;S.yawV=0;S.hoverV=0;S.safeYaw=0;S.safeT=0;   // safePos is set once the spawn is chosen
   applyWorld(S.world);
   S.crystals=0;S.missionIdx=0;S.crashReason=null;
   S.isDay=true;S.dayF=1;S.cloak=false;S.warnLevel=0;S.hover=HOVER_BASE;S.agl=HOVER_BASE;S.beamStr=1;
   resetMeteors();
   resetGeysers();
   resetLightning();
-  S.vel.set(0,0,0);saucer.position.set(0,40,0);
-  reseed();clearWorld();resetDestruction();updateChunks(0,0);
+  S.vel.set(0,0,0);
+  /* Seed the world, THEN choose where to land in it. The old code put the ship
+     at the origin regardless of what was there, which is how a run could end on
+     a lamp post seconds after the arrival film. clearWorld() first because the
+     search consults the settlement field, which caches per world. */
+  reseed();clearWorld();resetDestruction();
+  const sp=pickSpawn();
+  S.spawnX=sp.x; S.spawnZ=sp.z;
+  S.safePos.set(sp.x,40,sp.z);
+  saucer.position.set(sp.x,40,sp.z);
+  updateChunks(sp.x,sp.z);
   // Ship upgrades: keep them through a "run it back" after a crash, otherwise
   // start grounded. Then scatter whichever field parts aren't installed yet.
   if(keepUpgrades)Upgrades.restore(); else Upgrades.reset();

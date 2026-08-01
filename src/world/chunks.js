@@ -8,6 +8,8 @@ import { env } from '../core/env.js';
 import { CHUNK, SEG, WATER_Y, MTN_H, GROUND_TILING, VEH_PER_CHUNK, STATION_CHANCE, PROP_ROAD_GAP,
          SPAWN_DENSITY } from '../core/constants.js';
 import { scene } from '../core/engine.js';
+import { S } from '../core/state.js';
+import { SPAWN_CLEAR } from './spawn.js';
 import { disposeDeep } from '../core/dispose.js';
 import { World } from './world-config.js';
 import { sample, goodGround, slopeAt } from './terrain.js';
@@ -118,6 +120,10 @@ export function buildChunk(cx,cz){
      the deliberate exception, so the street through the middle stays live. */
   const clearSpot=(x,z,r)=>{
     if(inSettlement(x,z,r+4))return false;
+    // ...and so does the landing site: collision.js only looks 24 units out, so
+    // an empty disc here means the arrival cannot end on a lamp post.
+    const sdx=x-S.spawnX, sdz=z-S.spawnZ;
+    if(sdx*sdx+sdz*sdz<SPAWN_CLEAR*SPAWN_CLEAR)return false;
     for(const p of placed){const dx=p.x-x,dz=p.z-z; if(dx*dx+dz*dz<(p.r+r)*(p.r+r))return false;}
     return true; };
   const mark=(x,z,r)=>placed.push({x,z,r});
@@ -300,6 +306,7 @@ export function buildChunk(cx,cz){
           if(sm2.biome==='water')continue;                               // no lamp posts in a lake
           if(sp.y-sm2.h>3)continue;                                      // road is a bridge here — no floating pole
           if(inSettlement(lx,lz,6))continue;                             // the town lights its own streets
+          if((lx-S.spawnX)**2+(lz-S.spawnZ)**2<SPAWN_CLEAR*SPAWN_CLEAR)continue;   // never on the landing site
           const lamp=streetLamp();
           lamp.position.set(lx,sm2.h,lz);                                // base sits on the ground at the edge
           lamp.rotation.y=Math.atan2(-sp.fx*side,-sp.fz*side);           // arm/pool reach over the road

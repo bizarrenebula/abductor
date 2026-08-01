@@ -91,10 +91,13 @@ export const Story={
   },
 
   /* ---- helpers ---- */
+  /* Distances are measured from where the player actually STARTED, not from the
+     world origin — the two are no longer the same (see world/spawn.js), and a
+     mission laid out around the origin would sit lopsided around the ship. */
   farPoint(minD,maxD,avoidWater){
     for(let tr=0;tr<60;tr++){
       const ang=Math.random()*Math.PI*2,d=minD+Math.random()*(maxD-minD);
-      const x=Math.cos(ang)*d,z=Math.sin(ang)*d;
+      const x=S.spawnX+Math.cos(ang)*d,z=S.spawnZ+Math.sin(ang)*d;
       const sm=sample(x,z);
       if(avoidWater&&sm.biome==='water')continue;
       if(sm.h>28)continue;
@@ -112,11 +115,14 @@ export const Story={
   },
   // points laid along a randomly-curved route from origin (0,0) toward {tx,tz}.
   // The path bows sideways via a sine arc + a secondary wobble, so it's never straight.
+  /* A bowed trail from the spawn out to (tx,tz). */
   curvedPath(tx,tz,n,tStart,tEnd,jitter){
     const out=[];
-    const len=Math.hypot(tx,tz)||1;
+    const ox=S.spawnX, oz=S.spawnZ;
+    const vx=tx-ox, vz=tz-oz;
+    const len=Math.hypot(vx,vz)||1;
     // unit direction and its perpendicular
-    const dirx=tx/len, dirz=tz/len;
+    const dirx=vx/len, dirz=vz/len;
     const perpx=-dirz, perpz=dirx;
     // random arc shape for this run
     const amp=(len*0.18)*(0.5+Math.random());          // how far the curve bows out
@@ -126,7 +132,7 @@ export const Story={
     for(let i=1;i<=n;i++){
       const t=tStart+(i/(n+1))*(tEnd-tStart);          // fraction along the main axis
       // base point along the straight line
-      let x=tx*t, z=tz*t;
+      let x=ox+vx*t, z=oz+vz*t;
       // sine arc offset perpendicular to the route (0 at both ends, max in the middle)
       const bow=Math.sin(t*Math.PI)*amp*side;
       // secondary wobble for a less regular curve

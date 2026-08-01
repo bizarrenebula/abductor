@@ -32,6 +32,10 @@ export const S={
   yaw:0, yawV:0,           // ship heading (rad) + its angular velocity; the flight frame turns with it
   pitch:0,                 // nose angle (rad), mirrored from the flight model
   tiltX:0,tiltZ:0,
+  // Where this run began. Chosen by world/spawn.js for flat, clear ground;
+  // chunks.js keeps solid scenery away from it and the story lays its
+  // missions out relative to it rather than to the world origin.
+  spawnX:0, spawnZ:0,
   // rolling "last living point" for the story-mode respawn (see main.js)
   safePos:new THREE.Vector3(0,40,0), safeYaw:0, safeT:0,
 };

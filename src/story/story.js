@@ -7,6 +7,7 @@ import { THREE } from '../core/three.js';
 import { WATER_Y, COLLECT_SCALE } from '../core/constants.js';
 import { part } from '../core/mesh.js';
 import { S } from '../core/state.js';
+import { lanePoint } from '../world/lane.js';
 import { scene } from '../core/engine.js';
 import { sample, heightAt } from '../world/terrain.js';
 import { beep } from '../audio/music.js';
@@ -94,7 +95,22 @@ export const Story={
   /* Distances are measured from where the player actually STARTED, not from the
      world origin — the two are no longer the same (see world/spawn.js), and a
      mission laid out around the origin would sit lopsided around the ship. */
+  /* ON THE LANE. minD/maxD are now read as "roughly which leg of the lane" —
+     the caller still says near or far, but the direction comes from the lane so
+     a mission's objectives march outward along one route instead of ringing the
+     ship. See world/lane.js. */
   farPoint(minD,maxD,avoidWater){
+    const mid=(minD+maxD)*0.5;
+    for(let i=0;i<14;i++){
+      const pt=lanePoint(i,{dry:!!avoidWater});
+      if(pt.d>=mid){
+        const sm=sample(pt.x,pt.z);
+        if(!(avoidWater&&sm.biome==='water')&&sm.h<=40)return {x:pt.x,z:pt.z};
+      }
+    }
+    return this.farPointRing(minD,maxD,avoidWater);
+  },
+  farPointRing(minD,maxD,avoidWater){
     for(let tr=0;tr<60;tr++){
       const ang=Math.random()*Math.PI*2,d=minD+Math.random()*(maxD-minD);
       const x=S.spawnX+Math.cos(ang)*d,z=S.spawnZ+Math.sin(ang)*d;

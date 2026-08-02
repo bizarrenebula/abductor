@@ -14,6 +14,7 @@ import { heightAt, goodGround } from '../world/terrain.js';
 import { S } from '../core/state.js';
 import { saucer } from '../systems/saucer.js';
 import { Upgrades, UP_ITEMS, ITEM_KEYS } from '../systems/upgrades.js';
+import { lanePoint } from '../world/lane.js';
 import { spawnPop } from '../ui/pop.js';
 import { objectiveGlow, updateGlow, mark } from '../systems/waypoints.js';
 import { t } from '../i18n.js';
@@ -67,18 +68,25 @@ function buildItem(key){
    through a crash, so they don't respawn). Called by startGame. */
 export function spawnUpgradeItems(){
   clearUpgradeItems();
+  /* ON THE LANE, in order. These used to be scattered on a ring around the
+     origin — a random bearing and a random distance each — which is fair and
+     shapeless: every direction as good as any other, so no reason to commit to
+     one, and a run that reads as wandering. Strung along the lane instead
+     (world/lane.js) they lead somewhere: the first is nearly straight ahead,
+     each next one further out and offset left or right of the last, and the
+     player finds the route by finding the things on it. */
   const placed=[];
+  let slot=0;
   for(const key of ITEM_KEYS){
     if(Upgrades.items[key])continue;
-    const spec=UP_ITEMS[key], dMin=spec.dMin||380, dMax=spec.dMax||1150;
-    let x,z,tries=0,ok=false;
-    do{
-      const ang=Math.random()*Math.PI*2, d=dMin+Math.random()*(dMax-dMin);
-      x=Math.cos(ang)*d; z=Math.sin(ang)*d; tries++;
-      // A module has to be reachable and land flat: never in a lake, on a cliff
-      // edge or up a peak, and spaced from the other modules.
-      ok=goodGround(x,z)&&!placed.some(p=>Math.hypot(p.x-x,p.z-z)<SEP_MIN);
-    }while(tries<80&&!ok);
+    // Take the next lane slot, skipping any that landed on top of an earlier
+    // module — the lane's spacing usually prevents that on its own.
+    let x,z;
+    for(let tries=0;tries<8;tries++){
+      const pt=lanePoint(slot++);
+      x=pt.x; z=pt.z;
+      if(!placed.some(p=>Math.hypot(p.x-x,p.z-z)<SEP_MIN))break;
+    }
     placed.push({x,z});
     const g=buildItem(key);
     g.position.set(x,Math.max(heightAt(x,z),WATER_Y),z);

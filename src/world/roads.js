@@ -25,10 +25,20 @@
    Everything is cached per (axis,k,i); clearRoadCache() on reseed.
    ========================================================================= */
 import { THREE } from '../core/three.js';
-import { WATER_Y, MTN_H } from '../core/constants.js';
+import { WATER_Y, MTN_H, RESTRICT_R } from '../core/constants.js';
 import { heightAt } from './terrain.js';
 
 export const ROAD_S    = 300;   // spacing between parallel corridors (wider = fewer roads)
+/* The corridor grid is offset by half a spacing, so NO corridor line runs
+   through the world origin. Every run starts there — in the middle of the
+   desert beside the Area 51 sign — and the middle of the desert cannot have a
+   highway down the centre of it. With the phase the nearest nominal line is
+   ROAD_S/2 away, and the router's restricted-area cost below bends it further
+   out still. Everything that enumerates corridors goes through kIndex/kAt so
+   the phase is stated once. */
+export const ROAD_K0   = ROAD_S/2;
+export const kIndex = v => Math.round((v-ROAD_K0)/ROAD_S);
+export const kAt    = n => n*ROAD_S+ROAD_K0;
 export const ROAD_HW   = 4.0;   // half-width of the carriageway (thinner; everything
                                 // — mesh, stripes, junction node, overpass, verges —
                                 // keys off this, so roads stay uniform everywhere)
@@ -63,7 +73,7 @@ const OP_SHARE = 0.16;   // fraction of 4-way crossings built as an overpass (ke
 function jhash(a,b){ let h=Math.imul(a|0,73856093)^Math.imul(b|0,19349663); h^=h>>>13; return ((h>>>0)%100000)/100000; }
 /* mode for the junction at world grid coords (kx,kz) — both multiples of ROAD_S. */
 export function junctionMode(kx,kz){
-  const ix=Math.round(kx/ROAD_S), iz=Math.round(kz/ROAD_S);
+  const ix=kIndex(kx), iz=kIndex(kz);
   if(jhash(ix,iz)<OP_SHARE) return { overpass:true, over: jhash(iz*7+1,ix*13+3)<0.5 ? 'x' : 'z' };
   return { overpass:false };
 }
@@ -72,7 +82,7 @@ export function junctionMode(kx,kz){
    hump so vehicles climb a smooth ramp up and over, then settle again. */
 export function overpassLift(axis,k,t){
   let lift=0;
-  const c0=Math.round(t/ROAD_S)*ROAD_S;
+  const c0=kAt(kIndex(t));
   for(let c=c0-ROAD_S;c<=c0+ROAD_S;c+=ROAD_S){
     const kx=axis==='x'?c:k, kz=axis==='x'?k:c;   // crossing grid point
     const m=junctionMode(kx,kz);
@@ -110,6 +120,12 @@ function cellCost(axis,k,i,n){
   if(h>MTN_H)c+=5000;                  // never ride onto a mountain — thread the pass instead
   if(h<WATER_Y)c+=26+(WATER_Y-h)*1.1;  // crossing water is a last resort, not banned
   c+=d*d*0.004;                        // prefer to stay near the corridor
+  /* The restricted area around the landing site. A flat ban would make the DP
+     pick some arbitrary escape; a cost that grows as you approach makes it bow
+     smoothly around the zone and rejoin its line afterwards, which is what a
+     road diverted around a government facility actually looks like. */
+  const dr=Math.hypot(p.x,p.z);
+  if(dr<RESTRICT_R)c+=800+(RESTRICT_R-dr)*45;
   cCell.set(kk,c);return c;
 }
 
@@ -351,7 +367,7 @@ function nearestRoad(x,z){
   let bd=Infinity, by=-Infinity;
   for(const axis of ['x','z']){
     const c=(axis==='x')?z:x, t=(axis==='x')?x:z;
-    const k0=Math.ceil((c-MAXDEV-ROAD_HW)/ROAD_S)*ROAD_S;
+    const k0=kAt(Math.ceil((c-MAXDEV-ROAD_HW-ROAD_K0)/ROAD_S));
     for(let k=k0;k<=c+MAXDEV+ROAD_HW;k+=ROAD_S){
       const sp=roadSample(axis,k,t);
       const d=Math.hypot(sp.x-x,sp.z-z);
@@ -377,7 +393,7 @@ export function roadDist(x,z){ return nearestRoad(x,z).d; }
    grid point inside the chunk, so junctions aren't rendered twice. */
 export function junctionsIn(ox,oz,size){
   const out=[];
-  const kx0=Math.ceil(ox/ROAD_S)*ROAD_S, kz0=Math.ceil(oz/ROAD_S)*ROAD_S;
+  const kx0=kAt(Math.ceil((ox-ROAD_K0)/ROAD_S)), kz0=kAt(Math.ceil((oz-ROAD_K0)/ROAD_S));
   for(let kx=kx0;kx<ox+size;kx+=ROAD_S)for(let kz=kz0;kz<oz+size;kz+=ROAD_S){
     let best=Infinity,bx=0,bz=0,by=0,ang=0;
     for(let t=kx-90;t<=kx+90;t+=STEP){
@@ -399,8 +415,8 @@ export function roadsNear(ox,oz,size){
   const out=[], pad=MAXDEV+22;
   for(const axis of ['x','z']){
     const lo=(axis==='x'?oz:ox)-pad, hi=(axis==='x'?oz:ox)+size+pad;
-    const k0=Math.ceil(lo/ROAD_S), k1=Math.floor(hi/ROAD_S);
-    for(let n=k0;n<=k1;n++)out.push({axis,k:n*ROAD_S});
+    const k0=Math.ceil((lo-ROAD_K0)/ROAD_S), k1=Math.floor((hi-ROAD_K0)/ROAD_S);
+    for(let n=k0;n<=k1;n++)out.push({axis,k:kAt(n)});
   }
   return out;
 }

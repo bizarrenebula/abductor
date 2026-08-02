@@ -31,7 +31,7 @@ export function makeNoise(seed){
   };
 }
 
-export let nElev,nHill,nMtn,nRiver,nTemp,nMoist,nCanyon,nWx;
+export let nElev,nHill,nMtn,nRiver,nTemp,nMoist,nCanyon,nWx,nRegion,nDune;
 /* The run's seed, exported so systems that need a stable per-cell decision
    (settlements) can hash against it instead of sampling a noise field. */
 export let worldSeed=0;
@@ -42,5 +42,7 @@ export function reseed(){
   nRiver=makeNoise(s+4); nTemp=makeNoise(s+5); nMoist=makeNoise(s+6);
   nCanyon=makeNoise(s+7);
   nWx=makeNoise(s+8);          // weather systems (see world/weather.js)
+  nRegion=makeNoise(s+9);      // wilderness / desert / urban (see world/regions.js)
+  nDune=makeNoise(s+10);       // desert dune ridges
 }
 export function fbm(nz,x,z,oct){let a=1,f=1,sum=0,norm=0;for(let i=0;i<oct;i++){sum+=a*nz(x*f,z*f);norm+=a;a*=0.5;f*=2;}return sum/norm;}

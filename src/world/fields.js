@@ -20,7 +20,7 @@
 import { THREE } from '../core/three.js';
 import { worldSeed } from './noise.js';
 import { sample, slopeAt } from './terrain.js';
-import { WATER_Y } from '../core/constants.js';
+import { WATER_Y, RESTRICT_R } from '../core/constants.js';
 import { disposable } from '../core/dispose.js';
 import { roadDist } from './roads.js';
 import { inSettlement } from './settlements.js';
@@ -58,6 +58,7 @@ function hash(a,b,k){
 
 /* Farmland only goes on ground you could actually plough. */
 function tillable(x,z){
+  if(x*x+z*z<RESTRICT_R*RESTRICT_R)return false;   // nothing farmed inside the restricted area
   const sm=sample(x,z);
   if(sm.biome!=='plains'&&sm.biome!=='forest')return false;
   if(sm.h<WATER_Y+2.0||sm.h>26)return false;

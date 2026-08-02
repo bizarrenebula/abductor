@@ -36,6 +36,11 @@ export const S={
   // chunks.js keeps solid scenery away from it and the story lays its
   // missions out relative to it rather than to the world origin.
   spawnX:0, spawnZ:0,
+  /* Where the Area 51 sign ended up, published by world/chunks.js when the chunk
+     holding the landing site is built. The arrival film aims its ground-level
+     shot at it, so the opening of every run reads as "set down in the desert,
+     right by the sign" rather than "set down in some desert". */
+  signX:null, signZ:null,
   // rolling "last living point" for the story-mode respawn (see main.js)
   safePos:new THREE.Vector3(0,40,0), safeYaw:0, safeT:0,
 };

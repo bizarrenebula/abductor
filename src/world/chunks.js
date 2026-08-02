@@ -6,7 +6,7 @@
 import { THREE } from '../core/three.js';
 import { env } from '../core/env.js';
 import { CHUNK, SEG, WATER_Y, MTN_H, GROUND_TILING, VEH_PER_CHUNK, STATION_CHANCE, PROP_ROAD_GAP,
-         SPAWN_DENSITY } from '../core/constants.js';
+         SPAWN_DENSITY, RESTRICT_R } from '../core/constants.js';
 import { scene } from '../core/engine.js';
 import { S } from '../core/state.js';
 import { SPAWN_CLEAR } from './spawn.js';
@@ -25,11 +25,19 @@ import { buildProp } from '../entities/props.js';
 import { buildBuilding, buildHuman } from '../entities/humans.js';
 import { buildStation } from '../entities/stations.js';
 import { buildBillboard } from '../entities/billboards.js';
+import { buildArea51Sign } from '../entities/area51.js';
 import { buildVehicle, placeVehicle } from '../entities/vehicles.js';
 import { streetLamp } from '../systems/nightlights.js';
 
 const LOW_END = env.LOW_END;
 const LAMP_S = 54;        // spacing between street lamps along a road corridor
+
+/* Inside the restricted area around the landing site, nothing MAN-MADE is
+   generated. Deliberately not folded into clearSpot: cacti, wildlife and
+   crystals belong in the zone — a lamp post, a hoarding or a fuel station is
+   what would spoil "the middle of the desert". The one exception is the Area 51
+   sign itself, which is the reason the zone exists. */
+const inRestricted=(x,z,r=0)=>x*x+z*z<(RESTRICT_R+r)*(RESTRICT_R+r);
 
 export const chunks=new Map();
 export function chunkKey(cx,cz){return cx+'|'+cz;}
@@ -160,17 +168,22 @@ export function buildChunk(cx,cz){
         if(!goodGround(wx,wz,{water:true,slope:0.6}))continue;   // shallows, not mid-lake or a steep bank
         species='Duck';
       }else if(w==='desert'||w==='mountain'||w==='canyon'||sm.h>MTN_H-4){
-        // No grazers on sand / mountains / canyons — only the odd bird passing over.
+        // No grazers on sand / mountains / canyons — only what passes overhead.
+        // Over the desert that is mostly vultures, which are what the region has
+        // instead of a flock: a few big slow shapes turning high up.
         if(Math.random()>0.20)continue;
-        species='Bird';
+        species=(sm.biome==='desert'&&Math.random()<0.62)?'Vulture':'Bird';
       }else{
         // plains / forest: grazers kept off the road, plus a few birds.
         if(roadDist(wx,wz)<ROAD_HW+3)continue;
         // never balanced on a cliff edge / canyon lip
         if(slopeAt(wx,wz)>0.5)continue;
-        if(Math.random()>0.55)continue;
+        // Flocks are a wilderness thing. Town land still has birds over it, but
+        // the sheep thin out as the ground turns urban.
+        if(Math.random()>0.58-sm.wUrb*0.26)continue;
         const r=Math.random();
-        species=r<0.12?'Bird':r<0.64?'Sheep':'Goat';
+        species=sm.wUrb>0.5?(r<0.34?'Bird':r<0.78?'Sheep':'Goat')
+                           :(r<0.12?'Bird':r<0.64?'Sheep':'Goat');
       }
       a=buildAnimal(species);
       // Ground animals keep clear of solids so they don't spawn inside a tree.
@@ -219,9 +232,13 @@ export function buildChunk(cx,cz){
       if(sm.biome==='water')continue;
       // The shore band is still land but renders as wet sand — keep scenery above it.
       if(sm.h<WATER_Y+1.6)continue;
-      // density per biome
-      const dens=sm.biome==='forest'?0.92:sm.biome==='desert'?0.42:sm.biome==='canyon'?0.20
-                :sm.biome==='mountain'?0.10:0.26;   // plains
+      // Density per biome, then thinned by how urban the ground is. Woods belong
+      // to the wilderness; a town keeps single specimen trees in its gaps and
+      // along its verges, never a canopy. Same tree model, different spacing —
+      // which is all "separate trees rather than forests" actually needs.
+      let dens=sm.biome==='forest'?0.95:sm.biome==='desert'?0.42:sm.biome==='canyon'?0.20
+              :sm.biome==='mountain'?0.10:0.30;   // plains
+      dens*=1-sm.wUrb*0.62;
       if(Math.random()>dens)continue;
       // Nothing on the tarmac or its verges.
       if(roadDist(wx,wz)<ROAD_HW+PROP_ROAD_GAP)continue;
@@ -246,12 +263,44 @@ export function buildChunk(cx,cz){
     }
   };
   const bl=[],sh=[];
+
+  /* The Area 51 sign: one per world, in whichever chunk holds the landing site.
+     It goes down BEFORE the random building roll so it always gets its ground,
+     and it sits just outside SPAWN_CLEAR — near enough to be the first thing you
+     read, far enough that arriving on top of it is not a crash. Angles are tried
+     for the flattest footing so it does not stand half-buried in a dune face. */
+  if(World.name==='earth'&&S.spawnX>=ox&&S.spawnX<ox+CHUNK&&S.spawnZ>=oz&&S.spawnZ<oz+CHUNK){
+    let best=null;
+    for(let i=0;i<12;i++){
+      const a=i/12*Math.PI*2, rad=SPAWN_CLEAR+6;
+      const sx=S.spawnX+Math.cos(a)*rad, sz=S.spawnZ+Math.sin(a)*rad;
+      const sm=sample(sx,sz);
+      if(sm.biome==='water'||sm.h<WATER_Y+1.6)continue;
+      if(roadDist(sx,sz)<ROAD_HW+6)continue;
+      const sl=slopeAt(sx,sz,4);
+      if(!best||sl<best.sl)best={x:sx,z:sz,h:sm.h,sl,a};
+    }
+    if(best){
+      const sg=buildArea51Sign();
+      sg.position.set(best.x,best.h,best.z);
+      // local +Z is the printed face, so aim it back at the landing site
+      sg.rotation.y=Math.atan2(S.spawnX-best.x,S.spawnZ-best.z);
+      mark(best.x,best.z,6);
+      S.signX=best.x; S.signZ=best.z;      // the arrival film stages a shot on it
+      scene.add(sg);bl.push(sg);buildings.push(sg);
+    }
+  }
   if(World.name==='earth'&&Math.random()<0.32){
     const wx=ox+8+Math.random()*(CHUNK-16), wz=oz+8+Math.random()*(CHUNK-16);
     const sm=sample(wx,wz);
     if(sm.biome!=='water'&&sm.biome!=='canyon'&&sm.biome!=='mountain'&&sm.h<20&&sm.h>=WATER_Y+1.6
-       &&roadDist(wx,wz)>ROAD_HW+9&&clearSpot(wx,wz,11)&&flatEnough(wx,wz,9)){
-      const kind=sm.biome==='desert'?'camp':['barn','house','watertower','windmill','house','barn'][(Math.random()*6)|0];
+       &&!inRestricted(wx,wz,11)&&roadDist(wx,wz)>ROAD_HW+9&&clearSpot(wx,wz,11)&&flatEnough(wx,wz,9)){
+      // What a lone building out in the country IS depends on the country. The
+      // wilderness gets working farmsteads; town land gets houses and the odd
+      // water tower, and never a windmill.
+      const kind=sm.biome==='desert'?'camp'
+        :sm.wUrb>0.5?['house','house','house','watertower','barn','house'][(Math.random()*6)|0]
+        :['barn','house','watertower','windmill','house','barn'][(Math.random()*6)|0];
       const b=buildBuilding(kind);
       b.position.set(wx,sm.h,wz);b.rotation.y=Math.random()*6.28;
       clearPropsNear(wx,wz,10);mark(wx,wz,10);
@@ -311,6 +360,7 @@ export function buildChunk(cx,cz){
           if(sm2.biome==='water')continue;                               // no lamp posts in a lake
           if(sp.y-sm2.h>3)continue;                                      // road is a bridge here — no floating pole
           if(inSettlement(lx,lz,6))continue;                             // the town lights its own streets
+          if(inRestricted(lx,lz,4))continue;
           if((lx-S.spawnX)**2+(lz-S.spawnZ)**2<SPAWN_CLEAR*SPAWN_CLEAR)continue;   // never on the landing site
           const lamp=streetLamp();
           lamp.position.set(lx,sm2.h,lz);                                // base sits on the ground at the edge
@@ -327,7 +377,7 @@ export function buildChunk(cx,cz){
         const sx=sp.x+sp.fz*off*side, sz=sp.z-sp.fx*off*side;
         const sm2=sample(sx,sz);
         if(sm2.biome!=='water'&&sm2.biome!=='mountain'&&sm2.biome!=='canyon'&&sm2.h>WATER_Y+1
-           &&clearSpot(sx,sz,12)&&flatEnough(sx,sz,9)){
+           &&!inRestricted(sx,sz,12)&&clearSpot(sx,sz,12)&&flatEnough(sx,sz,9)){
           const st=buildStation();
           clearPropsNear(sx,sz,13);mark(sx,sz,11);
           st.position.set(sx,sm2.h,sz);
@@ -358,7 +408,7 @@ export function buildChunk(cx,cz){
           // in a canyon, on a mountain, or where the road bridges/embanks above it
           if(sm2.biome!=='water'&&sm2.biome!=='mountain'&&sm2.biome!=='canyon'
              &&sm2.h>WATER_Y+1&&Math.abs(sp.y-sm2.h)<2.5
-             &&clearSpot(bx,bz,5)&&flatEnough(bx,bz,5)){
+             &&!inRestricted(bx,bz,5)&&clearSpot(bx,bz,5)&&flatEnough(bx,bz,5)){
             const bb=buildBillboard();
             clearPropsNear(bx,bz,5);mark(bx,bz,4);
             bb.position.set(bx,sm2.h,bz);

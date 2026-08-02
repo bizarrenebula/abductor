@@ -20,10 +20,10 @@
    ========================================================================= */
 import { worldSeed } from './noise.js';
 import { sample, slopeAt } from './terrain.js';
-import { WATER_Y } from '../core/constants.js';
+import { WATER_Y, RESTRICT_R } from '../core/constants.js';
 import { streetLamp } from '../systems/nightlights.js';
 import { buildBuilding } from '../entities/humans.js';
-import { roadDist, roadHeightAt, roadSample, wob, ROAD_S, ROAD_HW } from './roads.js';
+import { roadDist, roadHeightAt, roadSample, wob, ROAD_S, ROAD_HW, kIndex, kAt } from './roads.js';
 
 const CELL      = 1100;   // one village slot per 1100x1100 square...
 const OCCUPY    = 0.55;   // ...and only this fraction of slots are built on
@@ -64,7 +64,7 @@ function snapToRoad(x,z){
   // therefore missed the actual tarmac and almost every candidate failed the
   // on-a-road test. roadSample returns the real routed point AND its heading,
   // which is what lets the houses line the road instead of ignoring it.
-  const k=Math.round((z-wob(x))/ROAD_S)*ROAD_S;
+  const k=kAt(kIndex(z-wob(x)));
   const sp=roadSample('x',k,x);
   return {x:sp.x,z:sp.z,fx:sp.fx,fz:sp.fz};
 }
@@ -73,6 +73,8 @@ function snapToRoad(x,z){
    flat grass throughout, no water or rock or sand anywhere in it, and no bridge
    deck flying over it. */
 function siteOK(x,z,r){
+  // The restricted area around the landing site is off limits to settlement.
+  if(Math.hypot(x,z)<RESTRICT_R+r)return false;
   /* Terrain first, roads second. The terrain tests are pure noise evaluations;
      the road tests walk a routed path and populate a cache. Most candidates die
      on the terrain, so asking the cheap question first keeps the road machinery

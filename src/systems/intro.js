@@ -14,6 +14,7 @@
 import { THREE } from '../core/three.js';
 import { scene, camera } from '../core/engine.js';
 import { saucer } from './saucer.js';
+import { S } from '../core/state.js';
 import { FLIGHT_PROFILE } from './flight-profile.js';
 import { heightAt } from '../world/terrain.js';
 import { Arrival } from '../audio/arrival.js';
@@ -75,7 +76,12 @@ function build(){
     fragmentShader:`varying float vY;varying float vRim;uniform float uTime;uniform float uPow;
       void main(){ float t=vY+0.5;
         float bands=0.5+0.5*sin(t*30.0-uTime*4.0);
-        float a=(mix(0.08,0.22,t)+0.06*bands)*smoothstep(0.0,0.62,vRim);
+        // Roughly 40% of the alpha this was tuned at over grass. The cone is
+        // additive and DOUBLE-sided, so a fragment gets the near wall AND the far
+        // wall; over dark meadow that summed to a shaft of light, but over the
+        // sand every run lands on it summed straight past white and buried the
+        // saucer in a flat trapezoid.
+        float a=(mix(0.032,0.088,t)+0.024*bands)*smoothstep(0.0,0.62,vRim);
         vec3 col=mix(vec3(0.20,0.72,0.95),vec3(0.80,0.97,1.0),t);
         gl_FragColor=vec4(col,clamp(a,0.0,1.0)*uPow); }`
   });
@@ -86,7 +92,12 @@ function build(){
     new THREE.MeshBasicMaterial({color:0x9fe8ff,transparent:true,opacity:0,
       blending:THREE.AdditiveBlending,depthWrite:false}));
   disc.rotation.x=-Math.PI/2;
-  const glow=new THREE.PointLight(0x9fe8ff,0,150,2);   // tight pool: a wider one clips snow to white
+  /* The pool. Note the 3rd argument: with physicallyCorrectLights off, three
+     falls off as (1 - d/distance)^decay, NOT inverse-square — so `distance` is
+     the pool's RADIUS, and at 150 this was a floodlight covering the whole shot.
+     Over grass that read as moonlight; over the sand every run now lands on, it
+     clipped a 300-unit circle of ground to flat white. */
+  const glow=new THREE.PointLight(0x9fe8ff,0,62,2);
 
   const props=[g,beam,disc,glow];
   for(const p of props){ scene.add(p); p.visible=false; }
@@ -182,10 +193,15 @@ export const Intro={
     const top=rig.g.position.y-15, bot=this._groundY;
     rig.beam.position.set(x,(top+bot)/2,z);
     rig.beam.scale.set(22*bp, top-bot, 22*bp);
-    rig.disc.material.opacity=0.22*bp;
+    rig.disc.material.opacity=0.13*bp;
     rig.disc.scale.setScalar(20*bp);
     rig.glow.position.set(x,this._groundY+34,z);
-    rig.glow.intensity=1.5*bp;                        // a pool of light, not a floodlight
+    /* Halved from the value that was tuned over grass. Every run now lands on
+       SAND, which is roughly three times as bright and gets a further x1.45 from
+       the ground shader's texture multiply, so the old pool clipped to a flat
+       white disc with a hard elliptical edge — the brightest thing in a film
+       whose subject is a small lit saucer. */
+    rig.glow.intensity=0.85*bp;                       // a pool of light, not a floodlight
 
     // --- the saucer rides the beam down ---
     // Front-loaded: it pulls away from the mothership smoothly, covers most of the
@@ -210,8 +226,14 @@ export const Intro={
       // 2. cut to the valley floor, well back, watching it come down. The aim
       //    sits between the beam's base and the ship so the land stays in frame
       //    however high the saucer still is.
-      const k=(T-0.30)/0.34, a=this._yaw+1.15+k*0.75;
-      _v.set(x+Math.sin(a)*120, this._groundY+20, z+Math.cos(a)*120);
+      // The bearing is taken from the AREA 51 SIGN, not from the ship's heading:
+      // standing beyond the sign and looking back at the beam puts the sign in
+      // the foreground of the shot, so the film says where this is, not just
+      // that it is a desert. Offset a little off the sign's own bearing so it
+      // frames to one side instead of eclipsing the descending saucer.
+      const sd=(S.signX!=null)?Math.atan2(S.signX-x,S.signZ-z):this._yaw+1.15;
+      const k=(T-0.30)/0.34, a=sd+0.34+k*0.30;
+      _v.set(x+Math.sin(a)*82, this._groundY+13, z+Math.cos(a)*82);
       _l.set(x, this._groundY+(saucer.position.y-this._groundY)*0.42, z);
     }else{
       // 3. swing behind and settle exactly on the play pose

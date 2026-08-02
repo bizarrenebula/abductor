@@ -148,3 +148,11 @@ export const VEH_PER_CHUNK = 1;      // attempts per road-bearing chunk (~55% ta
 export const VEH_STOP_R    = 26;     // ship within this radius -> traffic halts
 export const STATION_CHANCE= 0.10;   // chance a road-bearing chunk gets a station
 export const PROP_ROAD_GAP = 4.5;    // clear verge kept either side of the tarmac
+
+/* THE RESTRICTED AREA. Every run begins at the world origin, in the middle of
+   the desert, beside the Area 51 sign — and "middle of the desert" has to mean
+   it. Nothing man-made is generated inside this radius of the origin: the road
+   router pays to bow around it, and settlements, farmland, buildings,
+   billboards, fuel stations and roadside lamps all skip it. Cacti and wildlife
+   still belong here; a highway does not. */
+export const RESTRICT_R = 210;

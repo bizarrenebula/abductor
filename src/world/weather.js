@@ -11,6 +11,7 @@ import { env } from '../core/env.js';
 import { scene, camera } from '../core/engine.js';
 import { World } from './world-config.js';
 import { nWx, nTemp, nMoist, fbm } from './noise.js';
+import { regionWeights } from './regions.js';
 import { PARTTEX } from './textures.js';
 import { regionV, multV } from '../ui/dom.js';
 import { t } from '../i18n.js';
@@ -88,7 +89,15 @@ export function severityAt(x,z){
   // dozens of slivers — measured as a weather change every ~180 units. A nearly
   // smooth field gives blobby systems with one clean boundary.
   const v=fbm(nWx,(x+wxDrift)*WX_SCALE,(z+wxDrift*0.42)*WX_SCALE,2);
-  const s=0.5+v*1.45;
+  let s=0.5+v*1.45;
+  /* A land has a climate, and the climate scales the front. The wilderness is a
+     bright spring country and the desert is brighter still, so the same system
+     that sits over a town as rain passes over the meadows as a shower and over
+     the sand as nothing much at all. Urban land alone feels the field at full
+     strength, which is what makes flying out of the city feel like flying into
+     better weather. */
+  const W=regionWeights(x,z);
+  s*=1-W.wild*0.22-W.des*0.42;
   return s<0?0:s>1?1:s;
 }
 
@@ -110,13 +119,20 @@ export function weatherAt(x,z){
   // wobble mid-storm. Extra octaves here made a front flip rain/sandstorm/rain.
   const temp =fbm(nTemp ,(x+900)*CLIM,(z-900)*CLIM,1);
   const moist=fbm(nMoist,(x-500)*CLIM,(z+500)*CLIM,1);
+  /* Identity comes from the LAND first and the climate second. Sand blows where
+     there is sand to blow; snow falls on cold country, but never on a
+     wilderness that is meant to read as spring — there it comes down as a
+     shower instead. */
+  const W=regionWeights(x,z);
+  const des=W.des>0.5, wild=W.wild>0.5;
   if(sev>0.74){                                    // a front is over this region
-    if(temp<-0.16)return 'snowstorm';              // cold region: it comes down as snow
-    if(temp>0.14&&moist<-0.04)return 'sandstorm';  // hot and dry: it comes up as sand
+    if(des)return 'sandstorm';
+    if(!wild&&temp<-0.16)return 'snowstorm';       // cold region: it comes down as snow
     return 'rain';
   }
   if(sev>0.54){
-    if(temp<-0.16)return 'snow';
+    if(des)return 'clear';                         // the desert's worst is a hot haze
+    if(!wild&&temp<-0.16)return 'snow';
     if(moist>0.14)return 'fog';                    // damp region, settling air
     return 'clear';
   }

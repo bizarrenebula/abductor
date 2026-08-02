@@ -19,7 +19,7 @@ import { effBeamR } from '../systems/beam.js';
 import { heightAt } from '../world/terrain.js';
 import { CHUNK } from '../core/constants.js';
 import { scene } from '../core/engine.js';
-import { roadSample, ROAD_LANE, ROAD_S, junctionMode } from '../world/roads.js';
+import { roadSample, ROAD_LANE, ROAD_S, ROAD_K0, junctionMode, kAt } from '../world/roads.js';
 import { LOADED, spawnModel } from '../assets.js';
 import { animals, vehicles } from './registry.js';
 import { buildHuman } from './humans.js';
@@ -234,7 +234,7 @@ export function updateVehicles(dt,beamActive){
       if(u.turnLock>0){ u.turnLock-=Math.abs(u.t-before); }
       else{
         const lo=Math.min(before,u.t), hi=Math.max(before,u.t);
-        const jc=Math.ceil(lo/ROAD_S)*ROAD_S;
+        const jc=kAt(Math.ceil((lo-ROAD_K0)/ROAD_S));
         if(jc<=hi)tryTurn(u,jc);
       }
       syncVehicle(g,dt);

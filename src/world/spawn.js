@@ -26,7 +26,12 @@ import { WATER_Y } from '../core/constants.js';
    to even consider. */
 export const SPAWN_CLEAR = 26;
 
-const RINGS=[0,34,68,104,142,182,225,270,320,375];
+/* The search stays well inside RESTRICT_R (210): the landing site has to sit in
+   the middle of the restricted area, not on its rim, or the Area 51 sign ends
+   up standing on the edge with a highway just beyond it. Measured over 40 seeds
+   the strict pass never needed to look past 142 anyway — the ground around the
+   origin is guaranteed flat desert now (see world/regions.js). */
+const RINGS=[0,34,68,104,142];
 const ANGLES=16;
 
 /* Can the ship be set down here? Checked over a small disc, not just the point:

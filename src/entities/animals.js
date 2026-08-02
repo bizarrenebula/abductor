@@ -32,6 +32,12 @@ export const ANIMALS={
   Goat :{pts:4, size:0.42, turn:3.4, cls:'land'},
   Duck :{pts:2, size:0.26, turn:2.2, cls:'water'},
   Bird :{pts:2, size:0.49, turn:3.2, cls:'air', hover:11, hopDist:7, hopRng:5, hopDur:0.42, restMin:0.7, restRng:1.5},
+  /* The desert's bird: twice the wingspan, half the hurry. Everything about the
+     numbers is the opposite of Bird — long slow glides between long rests, a
+     lazy turn rate, and a higher hover, because a vulture's whole character is
+     that it is in no rush and it is circling above you. Worth more for the same
+     reason it is harder to line up under the beam. */
+  Vulture:{pts:6, size:0.62, turn:1.4, cls:'air', hover:17, hopDist:13, hopRng:8, hopDur:1.5, restMin:1.8, restRng:3.0},
 };
 export function buildAnimal(species){
   const info=ANIMALS[species]||ANIMALS.Sheep;
@@ -84,6 +90,42 @@ export function buildAnimal(species){
     g.add(part(new THREE.BoxGeometry(0.4,0.05,0.65),fe,0,0,-0.75));   // tail
     g.userData.wings=[wl,wr];
     eyes(0.14,0.3,0.78,0.05);
+  }else if(species==='Vulture'){
+    /* Read from below, which is how the player almost always sees it: a heavy
+       dark body, a long straight plank of a wing with fingered tips, a bald pink
+       neck and a hooked beak. The bare neck is the whole silhouette cue — put
+       feathers all the way to the head and it is just a large crow. */
+    const fe=mat([0x241d18,0x2e2620,0x1c1a18][(Math.random()*3)|0],0.85);
+    const ruff=mat(0x3a3028,0.95), skin=mat(0x6f4536,0.65), bill=mat(0xc9b98a,0.5);
+    const body=part(new THREE.SphereGeometry(0.5,14,10),fe,0,0,0);
+    body.scale.set(0.95,0.80,1.55);g.add(body);
+    /* The RUFF is the collar of dark feathers a vulture's bare neck comes out
+       of. Keep it back and narrow: an earlier version had it wide and sitting
+       forward, which swallowed the neck entirely and left the bird with a pale
+       lump for a head. */
+    const sh=part(new THREE.SphereGeometry(0.30,12,8),ruff,0,0.20,0.46);
+    sh.scale.set(1.10,0.92,0.68);g.add(sh);
+    // the bare neck, craning well clear of the collar and angled down
+    const nk=part(new THREE.CylinderGeometry(0.095,0.135,0.62,8),skin,0,0.26,0.86);
+    nk.rotation.x=0.95;g.add(nk);
+    const head=part(new THREE.SphereGeometry(0.19,10,8),skin,0,0.27,1.22);
+    head.scale.set(0.9,0.9,1.15);g.add(head);
+    const bk=part(new THREE.ConeGeometry(0.105,0.34,7),bill,0,0.23,1.48);
+    bk.rotation.x=Math.PI/2*1.08;g.add(bk);                       // hooked, tipped down
+    // wings: long and SQUARE, not swept — a soaring bird holds a flat plank
+    const wl=part(new THREE.BoxGeometry(1.75,0.07,0.74),fe,-0.99,0.10,0.02);
+    wl.rotation.z=0.10;g.add(wl);
+    const wr=part(new THREE.BoxGeometry(1.75,0.07,0.74),fe, 0.99,0.10,0.02);
+    wr.rotation.z=-0.10;g.add(wr);
+    // fingered primaries at each tip, splayed the way a thermal-riding bird's are
+    for(const sgn of [-1,1])for(let i=0;i<3;i++){
+      const f=part(new THREE.BoxGeometry(0.52,0.05,0.14),fe,
+        sgn*(2.02+i*0.04),0.12,-0.20+i*0.20);
+      f.rotation.z=-sgn*(0.16+i*0.06);g.add(f);
+    }
+    g.add(part(new THREE.BoxGeometry(0.62,0.06,0.72),fe,0,0.02,-0.92));   // short fanned tail
+    g.userData.wings=[wl,wr];
+    eyes(0.12,0.31,1.34,0.045);
   }else{
     // mountain goat: compact, sturdy — chunky legs, bolder horns, clear beard
     const hide=mat(0xc8702e,0.95), horn=mat(0xf0e4c8,0.6);

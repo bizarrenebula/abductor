@@ -23,6 +23,7 @@
    ========================================================================= */
 import { THREE } from './three.js';
 import { camera, renderer } from './engine.js';
+import { TOUCH_ONLY } from './env.js';
 import { S } from './state.js';
 import { saucer } from '../systems/saucer.js';
 import { toggleCloak } from '../systems/cloak.js';
@@ -311,7 +312,22 @@ function endPtr(e){
 addEventListener('pointerup',endPtr);
 addEventListener('pointercancel',endPtr);
 
-/* ---- PC: pointer-lock mouse-look + LMB beam + RMB hold-2s cloak ---- */
+/* ---- PC: pointer-lock mouse-look + LMB beam + RMB hold-2s cloak ----
+
+   Two guards, both learned from an iPhone.
+
+   A touchscreen browser fires SYNTHETIC mouse events after a tap for backwards
+   compatibility, so every touch on the canvas also arrived here — which on iOS
+   Safari threw outright, because requestPointerLock does not exist there
+   (TypeError, input.js:324, on the first tap of a run). Even where it does not
+   throw, a tap firing the PC handlers means a stray beam or a cloak hold armed
+   behind the player's back. So the whole PC path is off on a touch-only device.
+
+   And the API itself is feature-detected regardless: pointer lock is absent or
+   permission-gated in more places than iOS, and it is a nicety here — without it
+   mouse-look simply does not engage, which is a far better outcome than a hard
+   error on the first click. */
+const PC_MOUSE = !TOUCH_ONLY;
 let locked=false, pcCloakTimer=0, pcCloakT0=0;
 const MOUSE_SENS=0.0022;                 // radians per pixel, before the model's turnRate
 function cancelPcCloak(){ if(pcCloakTimer){clearTimeout(pcCloakTimer);pcCloakTimer=0;} pcCloakT0=0; }
@@ -320,8 +336,13 @@ document.addEventListener('pointerlockchange',()=>{
   if(!locked){ input.beamHold=false; cancelPcCloak(); }
 });
 renderer.domElement.addEventListener('mousedown',e=>{
+  if(!PC_MOUSE)return;                       // synthetic event behind a touch
   if(S.state!=='playing')return;
-  if(!locked){ renderer.domElement.requestPointerLock(); return; }   // first click grabs the mouse
+  if(!locked){                               // first click grabs the mouse
+    const el=renderer.domElement;
+    if(el.requestPointerLock)el.requestPointerLock();
+    return;
+  }
   if(e.button===0){ input.beamHold=true; }
   else if(e.button===2){
     if(!S.upCloak&&!S.cloak){ toggleCloak(); return; }               // locked: just flash the message
@@ -330,12 +351,13 @@ renderer.domElement.addEventListener('mousedown',e=>{
   }
 });
 addEventListener('mouseup',e=>{
+  if(!PC_MOUSE)return;
   if(e.button===0)input.beamHold=false;
   else if(e.button===2)cancelPcCloak();
 });
 renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('mousemove',e=>{
-  if(!locked)return;
+  if(!PC_MOUSE||!locked)return;
   input.mDX+=e.movementX*MOUSE_SENS;
   input.mDY+=e.movementY*MOUSE_SENS;
 });

@@ -60,6 +60,33 @@ import { smoothstep } from '../core/math.js';
    a road leaving town keeps going into the country and only gives out where the
    sand starts. That is what stops it ending in nothing. */
 const WILD_SHARE = 0.34;      // fraction of corridors that carry on into wilderness
+
+/* ---- TRUNK ROADS: the desert crossings ----------------------------------
+   A desert used to sever the network. Measured over a 6.4km box, the world came
+   out as 12 disconnected road components with the largest holding only 63% of
+   the tarmac — every sand blob cut whatever ran into it.
+
+   So a sparse subset of corridors are TRUNKS, and a trunk keeps its surface all
+   the way across the sand. It is the one road in and the one road out: no side
+   turnings, no grid, just a line of tarmac between the dunes with nothing on it.
+
+   Trunks are X-AXIS ONLY, deliberately. Allow both axes and two trunks
+   eventually cross INSIDE a desert, which gives you a junction in the middle of
+   the sand and turns "a single road in and out" into a crossroads that leads
+   nowhere twice. One axis makes that impossible by construction rather than by
+   a test, and costs only that desert crossings all run roughly east-west —
+   which is consistent with the world already having one fixed dune direction.
+
+   1 in 9 of the X corridors, so a trunk every ~2.7km: a typical desert gets one
+   crossing, a wide one gets two. */
+const TRUNK_SHARE = 0.11;
+export function corridorIsTrunk(axis,k){
+  if(axis!=='x')return false;
+  let h=Math.imul((k/ROAD_S)|0,2246822519)^0x27d4eb2f;
+  h=Math.imul(h^(h>>>15),1274126177);
+  return (((h^(h>>>16))>>>0)/4294967296)<TRUNK_SHARE;
+}
+
 export function corridorRuns(axis,k){
   // deterministic per corridor, and stable across chunks and reloads
   let h=Math.imul((k/ROAD_S)|0,668265263)^(axis==='x'?0x9e3779b9:0x85ebca6b);
@@ -77,6 +104,11 @@ export function roadWidth(x,z,axis,k){
      instead means the tarmac narrows to a track, then to a pair of ruts, then to
      nothing, the way a road actually gives out at the edge of a desert. */
   const sand=1-smoothstep(0.10,0.40,W.des);
+  /* A trunk ignores the sand entirely — that is what makes it a crossing. It
+     runs narrow out here (0.5): a single carriageway between the dunes, not a
+     town street that happens to be in a desert. */
+  if(axis!==undefined&&corridorIsTrunk(axis,k))
+    return Math.max(smoothstep(0.22,0.58,W.urb),0.50);
   if(sand<=0)return 0;
   const urb=smoothstep(0.22,0.58,W.urb);
   const runs=(axis===undefined)||corridorRuns(axis,k);

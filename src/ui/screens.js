@@ -10,6 +10,20 @@ import { input, resetInputTouch, ACTIONS, binds, keyLabel, beginCapture, cancelC
          AXES, FUNCS, touchMap, touchInv, setTouchMap, setTouchInv, resetTouch } from '../core/input.js';
 import { reseed, worldSeed } from '../world/noise.js';
 import { pickSpawn, pickSignSpot } from '../world/spawn.js';
+import { setRegionScale } from '../world/regions.js';
+/* Measured, not guessed. Median distance from the landing site to the nearest
+   other region, over 30 seeds, at 80% of the ship's 55 units/s cruise:
+
+     x1 (normal)  900m  20.5s     x4    210m   4.8s
+     x2.6         330m   7.5s     x5    150m   3.4s
+     x3           ~270m  ~6.5s    x6    120m   2.7s
+
+   x3 is the pick. The figure above is the nearest border in the best direction;
+   the player actually flies the beacon's bearing, which is a little longer — so
+   this lands on the seven-or-eight seconds wanted rather than under it. Long
+   enough to look at the country, short enough that a first-time player never
+   starts wondering whether they are going the right way. */
+const TUTORIAL_REGION_SCALE=3.0;
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
 import { clearWorld, updateChunks } from '../world/chunks.js';
 import { applyWeather, weather, resetWeatherField } from '../world/weather.js';
@@ -58,6 +72,9 @@ export function startGame(opts){
   const keepUpgrades=!!(opts&&opts.keep===true);
   const after=opts&&typeof opts.after==='function'?opts.after:null;
   const film=!(opts&&opts.film===false)&&!keepUpgrades;
+  /* The tutorial has to be known HERE, not when Tutorial.start() runs — the
+     world is built in this function and a tutorial run builds a smaller one. */
+  const isTutorial=!!(opts&&opts.tutorial===true);
   Tutorial.stop();                 // clear any prior tutorial state on every fresh run
   Intro.stop();                    // and any half-played cinematic
   // No time limit any more — the run is open-ended.
@@ -80,6 +97,10 @@ export function startGame(opts){
      at the origin regardless of what was there, which is how a run could end on
      a lamp post seconds after the arrival film. clearWorld() first because the
      search consults the settlement field, which caches per world. */
+  /* The tutorial gets a finer-grained world so its three legs are a flight
+     each rather than a commute — see setRegionScale. Set BEFORE reseed,
+     because the region field is what the terrain is built from. */
+  setRegionScale(isTutorial?TUTORIAL_REGION_SCALE:1);
   reseed();clearWorld();resetDestruction();
   const sp=pickSpawn();
   S.spawnX=sp.x; S.spawnZ=sp.z;
@@ -172,12 +193,12 @@ export function endGame(reason){
 // Play offers the guided tutorial first; either choice starts the game, and
 // "Show me" then kicks off the walkthrough in the freshly-started world.
 document.getElementById('startBtn').addEventListener('click',()=>{
-  Tutorial.prompt(()=>startGame({after:()=>Tutorial.start()}), ()=>startGame());
+  Tutorial.prompt(()=>startGame({tutorial:true,after:()=>Tutorial.start()}), ()=>startGame());
 });
 /* Injected so the tutorial's closing modal can restart the run or switch to
    Story mode — screens.js owns startGame, so handing the callbacks down keeps
    the import one-way (screens -> tutorial). */
-Tutorial.replayRun=()=>startGame({after:()=>Tutorial.start()});
+Tutorial.replayRun=()=>startGame({tutorial:true,after:()=>Tutorial.start()});
 Tutorial.toMenu=()=>toMenu();
 // "run it back" continues the same ship — a crash never costs your upgrades.
 document.getElementById('againBtn').addEventListener('click',()=>startGame({keep:true}));

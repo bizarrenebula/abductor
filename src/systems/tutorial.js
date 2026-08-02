@@ -25,7 +25,7 @@ import { buildHuman } from '../entities/humans.js';
 import { banner } from '../ui/banner.js';
 import { Special } from './special.js';
 import { mark as markWaypoint, objectiveGlow, updateGlow } from './waypoints.js';
-import { lanePoint } from '../world/lane.js';
+import { lanePoint, laneHeading } from '../world/lane.js';
 import { regionAt, WILD, URBAN } from '../world/regions.js';
 
 const TOUCH = TOUCH_ONLY;   // pick touch vs keyboard wording for the hints
@@ -282,16 +282,26 @@ function placeBeacon(x,z){
    which is also the reason the lane exists — world/lane.js already guarantees
    the route passes through all three (measured 40/40 seeds). */
 function nextLandPoint(want){
-  // walk out along the lane and take the first point standing in `want`
-  for(let i=0;i<14;i++){
-    const pt=lanePoint(i);
-    if(regionAt(pt.x,pt.z)===want)return pt;
-  }
-  // the lane never gets there (should not happen): sweep outward from the ship
-  for(let r=500;r<6000;r+=250)for(let k=0;k<12;k++){
-    const a=k/12*Math.PI*2;
-    const x=saucer.position.x+Math.cos(a)*r, z=saucer.position.z+Math.sin(a)*r;
-    if(regionAt(x,z)===want&&goodGround(x,z))return {x,z};
+  /* The NEAREST bit of that land, biased toward the lane's heading — not the
+     first lane point that happens to stand in it. Taking the lane point put one
+     beacon 2826m out because the lane strides 300-560m at a time and can
+     overshoot a whole region; the crossing completes on ENTERING the land
+     anyway, so a beacon far beyond the border only makes the leg look longer
+     than it is. Sweeping outward keeps the walk honest.
+
+     Bearings are ordered outward from the lane heading, so among equally near
+     candidates the one that continues the run's direction wins. */
+  const base=laneHeading();
+  for(let r=180;r<6000;r+=60){
+    for(let k=0;k<16;k++){
+      // 0, +1, -1, +2, -2 ... in steps of 22.5 degrees off the lane
+      const step=Math.ceil(k/2)*(k%2?1:-1);
+      const a=base+step*0.3927;
+      const x=saucer.position.x+Math.cos(a)*r, z=saucer.position.z+Math.sin(a)*r;
+      if(regionAt(x,z)!==want)continue;
+      if(!goodGround(x,z))continue;
+      return {x,z};
+    }
   }
   return null;
 }

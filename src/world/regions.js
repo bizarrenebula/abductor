@@ -40,7 +40,7 @@ export const REGION_NAME=['wilderness','desert','urban'];
    to look at — no woods, no towns, no roads, one ground colour — so it is the
    one you should spend least time in. Measured at 0.18/0.56: 46% wilderness,
    28% urban, 26% desert, against the 33/36/31 an even split gave. */
-const SCALE=0.00016;
+let SCALE=0.00016;
 const BAND_A=0.18, BAND_B=0.56, BLEND=0.085;
 
 /* 0..1. The noise is roughly symmetric about 0 with its 10th/90th percentiles
@@ -59,7 +59,30 @@ const OX=137.31, OZ=-91.77;
    every time, and the variety starts once you fly out of it — which now happens
    sooner, because a guaranteed desert is still a desert and the point of the
    opening is to leave it. */
-const HOME_IN=650, HOME_OUT=1900;
+let HOME_IN=650, HOME_OUT=1900;
+
+/* ---- the tutorial's world is a smaller one ------------------------------
+   A full-size region is ~6km across, so the tutorial's "leave the desert" leg
+   measured 2487m — around forty-five seconds of flight at the ship's 55 units/s
+   cruise, most of it over ground the player has already seen. That is a long
+   way past the point where a first run stops being a journey and starts being a
+   commute.
+
+   So a tutorial run generates the world at a finer grain: same field, same
+   shapes, same guarantees, just smaller. The player still crosses all three
+   lands and still gets to fly over each one properly — the target is roughly
+   fifteen seconds a leg, long enough to look at the country and short enough to
+   keep wanting to see the next.
+
+   It has to be set BEFORE reseed(), because the region field is what the terrain
+   is built from; this is a property of the world, not a display setting. */
+const SCALE_BASE=0.00016, HOME_IN_BASE=650, HOME_OUT_BASE=1900;
+export function setRegionScale(mult){
+  const m=mult||1;
+  SCALE=SCALE_BASE*m;          // bigger multiplier = finer grain = closer borders
+  HOME_IN=HOME_IN_BASE/m;      // ...and the guaranteed home desert shrinks with it
+  HOME_OUT=HOME_OUT_BASE/m;
+}
 
 export function regionField(x,z){
   const v=fbm(nRegion,x*SCALE+OX,z*SCALE+OZ,2);

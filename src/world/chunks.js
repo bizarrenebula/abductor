@@ -17,6 +17,7 @@ import { TEX, grassTex, sandTex, rockTex, snowTex } from './textures.js';
 import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, junctionsIn } from './roads.js';
 import { animals, pickups, props, buildings, vehicles, shelters, structures } from '../entities/registry.js';
 import { spawnSettlementParts, clearSettlementCache, inSettlement } from './settlements.js';
+import { spawnFieldParts, clearFieldCache, inField } from './fields.js';
 import { buildAnimal } from '../entities/animals.js';
 import { buildAlien } from '../entities/aliens.js';
 import { buildCrystal } from '../entities/crystals.js';
@@ -120,6 +121,7 @@ export function buildChunk(cx,cz){
      the deliberate exception, so the street through the middle stays live. */
   const clearSpot=(x,z,r)=>{
     if(inSettlement(x,z,r+4))return false;
+    if(inField(x,z,r+1))return false;              // nothing grows in the crop
     // ...and so does the landing site: collision.js only looks 24 units out, so
     // an empty disc here means the arrival cannot end on a lamp post.
     const sdx=x-S.spawnX, sdz=z-S.spawnZ;
@@ -141,6 +143,9 @@ export function buildChunk(cx,cz){
     for(const o of spawnSettlementParts(ox,oz,CHUNK,(obj,x,z,r)=>{ mark(x,z,r); })){
       scene.add(o); st.push(o); structures.push(o);
     }
+    // Farmland goes down with them — two batched meshes per chunk, and clearSpot
+    // then keeps every later pass out of the crop.
+    for(const o of spawnFieldParts(ox,oz,CHUNK)){ scene.add(o); st.push(o); }
   }
 
   const tries=dens(LOW_END?4:7);
@@ -439,6 +444,6 @@ export function clearWorld(){
     (c.vehs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);});
     (c.structs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);});
     (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});disposeDeep(o);});}
-  clearRoadCache();clearSettlementCache();
+  clearRoadCache();clearSettlementCache();clearFieldCache();
   chunks.clear();animals.length=0;pickups.length=0;props.length=0;buildings.length=0;vehicles.length=0;shelters.length=0;structures.length=0;
 }

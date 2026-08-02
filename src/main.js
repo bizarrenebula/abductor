@@ -74,6 +74,7 @@ const _v=new THREE.Vector3();
 import { Tutorial } from './systems/tutorial.js';
 import { Intro } from './systems/intro.js';
 import { renderWaypoints, clearWaypoints } from './systems/waypoints.js';
+import { HULL_DROP, FLY_CLEAR } from './core/constants.js';
 import { FlightModel } from './systems/flight.js';
 import { resetFlightInput } from './systems/flight-input.js';
 
@@ -280,7 +281,7 @@ function animate(){
     // Free flight, but never sink through the ground: a per-frame soft floor at the
     // terrain (crash-on-contact for flying INTO a rise is still handled below).
     const ghPre=Math.max(heightAt(flight._base.x,flight._base.z),roadHeightAt(flight._base.x,flight._base.z));
-    flight.f.floorY=ghPre+4;
+    flight.f.floorY=ghPre+HULL_DROP+FLY_CLEAR;   // clearance under the HULL, not the origin
     // Mobile auto-level: on touch devices, climb/dive is done by pitching with the
     // left stick's vertical. The moment that input is released, ease the nose back
     // to horizontal — quickly but smoothly — so the ship settles into level flight

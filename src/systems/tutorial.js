@@ -310,7 +310,12 @@ function nextLandPoint(want){
 /* A "get there" step: a beacon on the far land, done when the ship is standing
    in it. Shared by both crossings so the two read identically. */
 function crossStep(key,task,want,line){
-  return { key, task, joy:{side:'right',anim:'move'}, hud:{map:true},
+  /* No joystick guide here. The move guide was shown once, on the step that
+     taught moving; repeating it every time a later step happens to involve
+     flying is coaching someone through something they already did. The player
+     will also work out on their own that both sticks can climb — that is a
+     discovery, not a lesson, and it does not need a diagram either. */
+  return { key, task, hud:{map:true},
     say(s){
       if(!s.pt)return line;
       const d=Math.round(Math.hypot(saucer.position.x-s.pt.x,saucer.position.z-s.pt.z));
@@ -529,7 +534,14 @@ const steps=[
      Climbing used to mean pitching up on the left and thrusting on the right, a
      two-thumb negotiation for something you want while already doing something
      else; the slider is a third finger that composes with both. */
-  { key:'alt', task:'Up and down', hud:{},
+  /* THRUSTERS FIRST, then altitude. The order is the whole point: the module
+     IS the ability, so being taught to climb before owning the thing that
+     climbs was teaching a control the ship did not have. Look, then fly, then
+     find the engines, then use them. */
+  fetchStep('thrusters','Something is missing',
+    'A piece of the ship came down out on the sand'),
+  /* ...and only NOW altitude, with the thrusters aboard. */
+  { key:'alt', task:'Up and down', hud:{equip:true},
     say:()=>TOUCH?'Slide a finger up or down the MIDDLE of the screen, between the two '+
                   'sticks. It works while you fly — build speed, then slide up to climb '+
                   'along it. The ship is heavy: give it a moment to answer.'
@@ -541,9 +553,6 @@ const steps=[
      another land. Nothing to beam out here worth learning on: the sand holds
      vultures, which never touch the ground, and camels, which are a long walk
      apart. The lesson is over there. */
-  /* Thrusters, here, while the flying is still the lesson. */
-  fetchStep('thrusters','Something is missing',
-    'A piece of the ship came down out on the sand'),
   crossStep('toWild','Leave the desert',WILD,
     'Green country lies that way. Fly to the beacon'),
   /* ...the beam, before there is anything to beam. */

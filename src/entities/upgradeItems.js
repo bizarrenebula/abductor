@@ -8,7 +8,7 @@
    grounded). Marked on the radar too.
    ========================================================================= */
 import { THREE } from '../core/three.js';
-import { WATER_Y, COLLECT_SCALE } from '../core/constants.js';
+import { WATER_Y, COLLECT_SCALE, FLY_CLEAR, HULL_DROP } from '../core/constants.js';
 import { scene, camera } from '../core/engine.js';
 import { heightAt, goodGround } from '../world/terrain.js';
 import { S } from '../core/state.js';
@@ -18,12 +18,28 @@ import { lanePoint } from '../world/lane.js';
 import { spawnPop } from '../ui/pop.js';
 import { objectiveGlow, updateGlow, mark } from '../systems/waypoints.js';
 import { t } from '../i18n.js';
+import { banner } from '../ui/banner.js';
 
 const _wp=new THREE.Vector3();
 
 export const upgradeItems=[];   // live meshes; read by the minimap
 
 const COLLECT_R=8;              // fly this close (horizontally) to install
+/* ...and, for everything after the thrusters, this LOW. A module lying on the
+   ground should have to be descended onto: hover over it, ease down, take it.
+   Without a ceiling on the pickup the whole altitude control was optional — you
+   could cruise the map at height and hoover up every part without ever touching
+   the dive.
+
+   The thrusters themselves are exempt, and obviously so: they are what altitude
+   IS, and requiring a descent to collect the ability to descend would be a lock
+   with its key inside. Everything after them is fair game.
+
+   The limit sits a little above the ship's floor (FLY_CLEAR + HULL_DROP) so it
+   is reachable by holding the dive rather than by threading a needle — or, as
+   intended, by simply flying along at the bottom of the envelope. */
+const COLLECT_AGL=FLY_CLEAR+HULL_DROP+4.5;
+let _highT=0;   // throttle for the "too high" nudge
 const SEP_MIN=280;             // keep modules apart from each other where possible
 const _v=new THREE.Vector3(), _pop=new THREE.Vector3();
 
@@ -122,8 +138,15 @@ export function updateUpgradeItems(dt){
     // parts keep glowing but stay out of the guidance until the lessons are done.
     if(!S.tutorialLesson)
       mark(_wp.set(g.position.x,g.position.y+5,g.position.z),'#'+u.col.toString(16).padStart(6,'0'),COLLECT_R+4);
-    // install on close approach
-    if(dx*dx+dz*dz<COLLECT_R*COLLECT_R){
+    // install on close approach — and, past the thrusters, on a LOW approach
+    const lowEnough = u.key==='thrusters' ||
+      (saucer.position.y-heightAt(saucer.position.x,saucer.position.z))<=COLLECT_AGL;
+    if(dx*dx+dz*dz<COLLECT_R*COLLECT_R && !lowEnough){
+      // right over it and too high — say so, or the non-pickup is a mystery
+      const now=performance.now();
+      if(now-_highT>2600){ _highT=now; banner(t('upg.tooHigh')); }
+    }
+    if(dx*dx+dz*dz<COLLECT_R*COLLECT_R && lowEnough){
       Upgrades.collectItem(u.key);
       spawnPop(_pop.set(g.position.x,g.position.y+4,g.position.z),'★',t('upg.name.'+u.key));
       scene.remove(g);upgradeItems.splice(i,1);

@@ -31,11 +31,13 @@ export const CHUNK = 80, SEG = 28;   // terrain tessellation per chunk (desktop)
 
 /* Hover altitude, in world units above the terrain directly below the ship.
    HOVER_BASE is the resting height the ship has always flown at; arrow up/down
-   (or a vertical swipe on touch) moves S.hover between HOVER_MIN (skimming the
-   surface — the crash floor is ground+2.5, so this keeps a little clearance)
-   and HOVER_MAX (3x base). The rate is momentum-driven, see the flight-feel
-   constants below. */
-export const HOVER_BASE = 15, HOVER_MIN = 4, HOVER_MAX = HOVER_BASE * 3;
+   (or a vertical swipe on touch) moves S.hover between HOVER_MIN and HOVER_MAX
+   (3x base). The rate is momentum-driven, see the flight-feel constants below. */
+/* HOVER_MIN is the bottom of the BEAM-STRENGTH ramp, not a flight limit — the
+   floor is FLY_CLEAR + HULL_DROP (7.5) further down this file, and the ramp has
+   to bottom out at or above it or the strongest beam is at an altitude the ship
+   can no longer reach. */
+export const HOVER_BASE = 15, HOVER_MIN = 7.5, HOVER_MAX = HOVER_BASE * 3;
 
 /* ---- Flight feel (a HEAVY, massive craft — momentum over agility) ----
    Nothing is commanded instantly. Translation, altitude and heading each feed a
@@ -156,3 +158,17 @@ export const PROP_ROAD_GAP = 4.5;    // clear verge kept either side of the tarm
    billboards, fuel stations and roadside lamps all skip it. Cacti and wildlife
    still belong here; a highway does not. */
 export const RESTRICT_R = 210;
+
+/* ---- how low the ship may fly ----
+   Measured from the hull's UNDERSIDE, not from the origin: the saucer's centre
+   sits HULL_DROP above its lowest point, which is the same 1.5 collision.js
+   uses when it asks whether the underside is below a solid's top.
+
+   Six units is about five metres at this world's yardstick (~0.85m per unit) —
+   roughly the height of the trees. Low enough that descending onto something is
+   a real manoeuvre and the ground fills the screen; high enough that holding the
+   dive control can never end a run, which is the point. Before this the floor
+   was 4 units at the CENTRE, so the hull came within about two metres of the
+   dirt and "down" was a way to crash. */
+export const HULL_DROP  = 1.5;   // centre -> underside
+export const FLY_CLEAR  = 6.0;   // underside -> ground, minimum

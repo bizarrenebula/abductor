@@ -309,6 +309,17 @@ function animate(){
         if(flight.velocity.y>0)flight.velocity.y=0;
       }
     }
+    /* THE THRUSTERS GATE THE DEDICATED ALTITUDE CONTROL, NOT CLIMBING.
+
+       Only `vertical` is zeroed — the lift slider and Shift/Ctrl. Pitching the
+       nose up and pushing forward still climbs, because that comes out of the
+       flight model's facing frame (pitchDelta + forward) and never touches this
+       axis. That distinction is the whole design: a ship with no thrusters can
+       still get up and down by flying like an aircraft, it just cannot hold an
+       altitude on a stick. The thrusters are for reaching the modules lying on
+       the ground and for convenience — not a licence to leave the deck.
+
+       Do not "fix" this by gating pitch or forward as well. */
     if(!S.upAltitude){
       if(Math.abs(fin.verticalRaw||0)>0.02)lockedHint('alt');
       fin.vertical=0; fin.verticalRaw=0;

@@ -193,10 +193,11 @@ export function buildChunk(cx,cz){
       }else if(w==='desert'){
         /* THE DESERT'S ONLY WILDLIFE IS THE VULTURE. Nothing grazes on sand and
            nothing small lives on it either — a few big slow shapes turning high
-           up is the whole population, and that emptiness is what the region is
-           for. (The camel belongs here too and is not built yet.) */
-        if(Math.random()>0.22)continue;
-        species='Vulture';
+           up and the occasional camel is the whole population, and that
+           emptiness is what the region is for. */
+        if(Math.random()>0.24)continue;
+        // camels want ground a camel could stand on; vultures do not care
+        species=(Math.random()<0.42&&slopeAt(wx,wz)<0.4)?'Camel':'Vulture';
       }else if(w==='mountain'||w==='canyon'||sm.h>MTN_H-4){
         if(Math.random()>0.20)continue;
         species='Bird';

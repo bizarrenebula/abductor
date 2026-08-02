@@ -37,6 +37,10 @@ export const ANIMALS={
      lazy turn rate, and a higher hover, because a vulture's whole character is
      that it is in no rush and it is circling above you. Worth more for the same
      reason it is harder to line up under the beam. */
+  /* The desert's grazer. Big, slow to turn and worth more than a sheep — there
+     is one animal per square kilometre out there, so the one you find has to be
+     worth the flight. */
+  Camel:{pts:5, size:0.70, turn:1.7, cls:'land'},
   Vulture:{pts:6, size:0.62, turn:1.4, cls:'air', hover:17, hopDist:13, hopRng:8, hopDur:1.5, restMin:1.8, restRng:3.0},
 };
 export function buildAnimal(species){
@@ -90,6 +94,41 @@ export function buildAnimal(species){
     g.add(part(new THREE.BoxGeometry(0.4,0.05,0.65),fe,0,0,-0.75));   // tail
     g.userData.wings=[wl,wr];
     eyes(0.14,0.3,0.78,0.05);
+  }else if(species==='Camel'){
+    /* A dromedary is three shapes: a deep barrel body, ONE hump set well back,
+       and a long neck that leaves the chest low and rises to a small head. Get
+       the neck wrong and it is a horse; get the hump forward and it is a bull.
+       Legs are deliberately long — the height off the ground is most of why a
+       camel reads as a camel from the air. */
+    /* Linear pre-images, not the colours they look like. three r128 does not
+       convert a hex handed to a material, and outputEncoding is sRGB, so a
+       literal 0xc8a068 arrives on screen as near-white — the first camel was a
+       polar bear. These land on ~#c8a068 / #b08850 / #d8b478. */
+    const hide=mat([0x945923,0x6e3f14,0xaf742f][(Math.random()*3)|0],0.92);
+    const dark=mat(0x251206,0.9);
+    const b=part(new THREE.SphereGeometry(1,14,10),hide,0,2.05,0);
+    b.scale.set(0.98,0.92,1.75);g.add(b);
+    const hump=part(new THREE.SphereGeometry(0.62,12,9),hide,0,2.86,-0.18);
+    hump.scale.set(1.05,0.95,1.15);g.add(hump);
+    // neck: two tapering segments, rising forward out of a low chest
+    const n1=part(new THREE.CylinderGeometry(0.30,0.42,1.15,9),hide,0,2.60,1.30);
+    n1.rotation.x=0.62;g.add(n1);
+    const n2=part(new THREE.CylinderGeometry(0.22,0.30,1.05,9),hide,0,3.42,1.78);
+    n2.rotation.x=0.30;g.add(n2);
+    const head=part(new THREE.SphereGeometry(0.30,10,8),hide,0,3.98,2.02);
+    head.scale.set(0.85,0.9,1.35);g.add(head);
+    const muz=part(new THREE.SphereGeometry(0.19,8,7),hide,0,3.82,2.46);
+    muz.scale.set(0.9,0.8,1.2);g.add(muz);
+    g.add(part(new THREE.SphereGeometry(0.10,7,6),dark,-0.17,4.20,1.92));   // ears
+    g.add(part(new THREE.SphereGeometry(0.10,7,6),dark, 0.17,4.20,1.92));
+    // long legs, front pair a touch further forward than the barrel
+    [[-0.48,0.86],[0.48,0.86],[-0.50,-0.80],[0.50,-0.80]].forEach(pp=>{
+      g.add(part(new THREE.CylinderGeometry(0.135,0.10,1.85,8),hide,pp[0],0.93,pp[1]));
+      g.add(part(new THREE.SphereGeometry(0.17,8,6),dark,pp[0],0.06,pp[1]));  // splayed foot
+    });
+    const tail=part(new THREE.CylinderGeometry(0.05,0.09,0.85,6),hide,0,2.20,-1.62);
+    tail.rotation.x=-0.5;g.add(tail);
+    eyes(0.19,4.12,2.24,0.065);
   }else if(species==='Vulture'){
     /* Read from below, which is how the player almost always sees it: a heavy
        dark body, a long straight plank of a wing with fingered tips, a bald pink

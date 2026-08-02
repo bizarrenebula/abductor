@@ -271,34 +271,16 @@ function placeBeacon(x,z){
   b.position.set(x,heightAt(x,z),z); b.visible=true;
 }
 
-/* ---- "tap anywhere to continue" for the reading steps ----------------------
-   The closing steps are not tasks, they are text: the radar, the three lands,
-   the upgrade checklist, the hull warning. They used to advance on a countdown,
-   which is the worst of both worlds — a fast reader waits out a timer, a slow
-   one loses the card mid-sentence. So they wait for the player instead.
-
-   The listener is on the window rather than the card, because the card is
-   pointer-events:none (it must never swallow a joystick touch) and because
-   "tap ANYWHERE" is the whole instruction. It is armed after a short delay: the
-   tap that finished the previous step is often still in flight, and without the
-   delay one press would walk through every remaining card at once. */
-let tapT=0, tapped=false, tapBound=false;
-const onTap=()=>{ if(tapT<=0)tapped=true; };
-function armTap(delay){
-  tapT=delay==null?0.85:delay; tapped=false;
-  if(tapBound)return;
-  addEventListener('pointerdown',onTap,{passive:true});
-  addEventListener('keydown',onTap);
-  tapBound=true;
-}
-function disarmTap(){
-  if(!tapBound)return;
-  removeEventListener('pointerdown',onTap);
-  removeEventListener('keydown',onTap);
-  tapBound=false; tapped=false; tapT=0;
-}
-function tapTest(dt){ if(tapT>0)tapT-=dt; return tapped; }
-const TAP_ON=()=>TOUCH?' — tap anywhere to continue.':' — click or press any key to continue.';
+/* ---- the reading steps ---------------------------------------------------
+   The closing steps are not tasks, they are text, and they hold for a fixed ten
+   seconds each. A tap-to-advance version read better on paper and worse in the
+   hand: the player is flying while they read, and a stray touch on the stick
+   walked them through three cards at once. A countdown never does that, and ten
+   seconds is long enough to read a card twice. */
+const DWELL=10;
+const dwellBegin=function(s){ s.t=DWELL; };
+const dwellTest=(s,dt)=>{ s.t-=dt; return s.t<=0; };
+const CLOCK=s=>' ('+Math.ceil(Math.max(0,s.t))+'s)';
 
 /* ---- creature marker (a "beam this one" pointer for the final step) -------- */
 let marker=null;
@@ -483,58 +465,44 @@ const steps=[
     },
     begin(s){ s.used=false; Special.charge=1; },   // hand them a full charge to try it
     test(s){ if(Special.active)s.used=true; return s.used; } },
-  /* 8..11 — the reading steps. No task to perform, so no countdown either: each
-     waits for a tap (see armTap above). */
-  // 8 — the MAP is revealed, once flying is second nature, and explained.
-  { key:'map', task:'Your radar', hud:{map:true,point:'map'},
-    say(){ return 'Bottom-left: a heading-up radar. You are the arrow at its '+
-                  'centre, and it pings nearby crystals and ship parts'+TAP_ON(); },
-    begin(){ armTap(); },
-    test(s,dt){ return tapTest(dt); },
-    end(){ disarmTap(); } },
-  /* 9 — THE THREE LANDS. Placed straight after the radar because the radar is
-     how you read them: the map is tinted for the land under you, and its rim
-     carries the other two. Teaching the world and the instrument together is
-     what makes either of them stick. */
-  { key:'biomes', task:'Three lands', hud:{map:true,point:'map'},
-    /* Note what this does NOT say: which land you are standing in. The desert
-       around the sign is the opening image and naming it would explain the
-       joke — you are told the name of a land when you CROSS into it, not before
-       (see watchRegion in world/weather.js). */
-    say(){ return 'This world is three lands. DESERT — dunes, cacti, vultures. '+
-                  'WILDERNESS — meadows, forest, mountains, flocks and farms. '+
-                  'SETTLED COUNTRY — flat ground, roads, traffic and towns. Each '+
-                  'has its own creatures and its own weather, and each is named '+
-                  'as you fly into it'+TAP_ON(); },
-    begin(){ armTap(); },
-    test(s,dt){ return tapTest(dt); },
-    end(){ disarmTap(); } },
-  { key:'compass', task:'Reading the map', hud:{map:true,point:'map'},
-    say(){ return 'The radar is tinted for the land you are in. The coloured arcs '+
-                  'on its rim are the other two — yellow desert, green wilderness, '+
-                  'blue urban — each on its real bearing with the distance to it. '+
-                  'An arc grows as you close in, so fly toward the one that is '+
-                  'opening up'+TAP_ON(); },
-    begin(){ armTap(); },
-    test(s,dt){ return tapTest(dt); },
-    end(){ disarmTap(); } },
+  /* 8..12 — the reading steps.
+
+     The wording here is deliberately not a manual. An earlier pass spelled the
+     world out — "DESERT: dunes, cacti, vultures" — and read like a wiki page
+     stapled to the front of a game about a silent hostile sky. What a player
+     needs before their first flight is not an inventory, it is a reason to go
+     and look. So these say what the world FEELS like and leave what it contains
+     to be found. The instrument steps stay concrete enough to use. */
+  // 8 — the MAP is revealed, once flying is second nature.
+  { key:'map', task:'Something is listening', hud:{map:true,point:'map'},
+    say(s){ return 'Bottom-left. You are the arrow at its heart, and it feels '+
+                   'what the dark is holding — crystals, and pieces of your own '+
+                   'ship that came down elsewhere.'+CLOCK(s); },
+    begin:dwellBegin, test:dwellTest },
+  /* 9 — THE THREE LANDS, named as little as possible. */
+  { key:'biomes', task:'This world is not one place', hud:{map:true,point:'map'},
+    say(s){ return 'There is country that sleeps, and country that watches back, '+
+                   'and between them a long stretch of ground that has forgotten '+
+                   'it was ever alive. Each keeps different things. You will know '+
+                   'them when you arrive.'+CLOCK(s); },
+    begin:dwellBegin, test:dwellTest },
+  { key:'compass', task:'Reading the dial', hud:{map:true,point:'map'},
+    say(s){ return 'Colour bleeds in at the rim — the lands you have not reached, '+
+                   'lying in the direction they truly lie, with the distance still '+
+                   'to run. One of them widens as you close on it. Follow that one.'+CLOCK(s); },
+    begin:dwellBegin, test:dwellTest },
   // 11 — ship upgrades + the full HUD.
-  { key:'upgrades', task:'Ship upgrades', hud:{map:true,equip:true,point:'equip'},
-    say(){ return 'Your ship starts bare. That checklist tracks the three modules '+
-                  'scattered out there — thrusters, plasma beam, cloak. Fly over one to '+
-                  'install it. Everything you beam up widens your beam'+TAP_ON(); },
-    begin(){ armTap(); },
-    test(s,dt){ return tapTest(dt); },
-    end(){ disarmTap(); } },
-  // 12 — HULL. Saved for last: it is the hand-off line, the moment training ends
-  //      and the world turns lethal.
-  { key:'hull', task:'Watch the hull', hud:{map:true,equip:true},
-    say(){ return 'Flying into ground, trees, buildings or traffic destroys the ship — '+
-                  'and so do meteors, geysers and lightning. All of it is switched OFF for '+
-                  'training. From here on it is real'+TAP_ON(); },
-    begin(){ armTap(); },
-    test(s,dt){ return tapTest(dt); },
-    end(){ disarmTap(); } },
+  { key:'upgrades', task:'You came down incomplete', hud:{map:true,equip:true,point:'equip'},
+    say(s){ return 'Three pieces of this ship fell somewhere else — thrust, a '+
+                   'harder light, a way to not be seen. The checklist knows which '+
+                   'are still missing. Everything you take aboard widens the beam.'+CLOCK(s); },
+    begin:dwellBegin, test:dwellTest },
+  // 12 — HULL. Saved for last: the hand-off line, the moment training ends.
+  { key:'hull', task:'Nothing down there is soft', hud:{map:true,equip:true},
+    say(s){ return 'Ground, timber, stone, steel, and worse things that fall out '+
+                   'of the sky without warning. None of it is armed while you are '+
+                   'learning. After this it is.'+CLOCK(s); },
+    begin:dwellBegin, test:dwellTest },
 ];
 
 /* ---- controller ----------------------------------------------------------- */
@@ -618,7 +586,6 @@ export const Tutorial={
   /* All lessons passed: clear the coaching UI, show the closing banner and put
      the choice up right behind it. */
   _roamPhase(){
-    disarmTap();
     this.hint.classList.remove('on');
     showJoyDemo(null);
     S.tutorialLesson=false;        // free flight — show every objective again
@@ -642,7 +609,6 @@ export const Tutorial={
   /* Tear everything down (called by startGame on any fresh run). */
   stop(){
     this.active=false; this._awaiting=false; S.tutorial=false; S.tutorialLesson=false; this._i=0; this._s=null; this._roam=0;
-    disarmTap();                          // a reading step may have been mid-wait
     joySide=null; clearTimeout(joyDimT);
     if(dom){ dom.hint.classList.remove('on'); dom.modal.classList.remove('on'); dom.joy.classList.remove('on'); }
     if(beacon)beacon.visible=false;

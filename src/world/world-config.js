@@ -54,35 +54,71 @@ export function applyDayNightLight(){
   // gently uncovers — not a lit grey haze that washes the whole scene out. The
   // world tint is kept faint and only barely lifted by day.
   if(wc){
-    const nf=wc.fog;const nr=(nf>>16)&255,ng=(nf>>8)&255,nb=nf&255;
-    scene.fog.color.setRGB((nr*0.42+f*6)/255,(ng*0.42+f*7)/255,(nb*0.42+f*8)/255);
+    paintSky(wc,f);                 // the sky itself turns with the cycle
+    /* Fog has to end up where the sky ends up. It is lerped to fogDay — the day
+       gradient's horizon stop — so distant terrain dissolves INTO the sky at
+       both ends of the cycle rather than being silhouetted against a bright one. */
+    const nf=wc.fog, df=wc.fogDay!=null?wc.fogDay:wc.fog;
+    _a.setHex(nf).multiplyScalar(0.42);
+    _b.setHex(df);
+    scene.fog.color.copy(_a).lerp(_b,f);
   }
   scene.fog.density=lerp(env.LOW_END?0.0050:0.0026, env.LOW_END?0.0040:0.0019, f);
   // stars fade out by day, moon fades in by night
   if(stars)stars.material.opacity=(wc?wc.stars:0.7)*(1-f);
   if(moon)moon.material.opacity=0.9*(1-f)+0.15;
 }
+/* Each world carries TWO sky gradients — `sky` at midnight, `skyDay` at noon —
+   and the background is repainted between them as the cycle turns. `fogDay` is
+   the day gradient's horizon stop: the fog has to land on the same colour the
+   sky ends on, or distant terrain dissolves into a hard line against a bright
+   sky instead of into the sky itself.
+
+   The Moon's two palettes are deliberately identical. It has no atmosphere, so
+   its sky is black whether or not the sun is up — the ground lights, the stars
+   stay out, and that reads as exactly the airless place it is. */
 export const WORLD_CFG={
-  earth:{sky:['#010203','#040a0d','#0a1416'],fog:0x0a1416,hemi:[0x264a5a,0.42],sun:[0x8fb2c8,0.7],
+  earth:{sky:['#010203','#040a0d','#0a1416'],skyDay:['#12385f','#3a72a2','#93bbd0'],
+    fog:0x0a1416,fogDay:0x93bbd0,hemi:[0x264a5a,0.42],sun:[0x8fb2c8,0.7],
     water:true,stars:0.7,moonTint:0xffffff,label:'Earth'},
-  moon:{sky:['#000000','#010203','#040608'],fog:0x040608,hemi:[0x40454e,0.35],sun:[0xdfe8f4,0.95],
+  moon:{sky:['#000000','#010203','#040608'],skyDay:['#000000','#010203','#060a10'],
+    fog:0x040608,fogDay:0x090e14,hemi:[0x40454e,0.35],sun:[0xdfe8f4,0.95],
     water:false,stars:1.0,moonTint:0x7fa8d8,label:'Moon'},
-  mars:{sky:['#0a0303','#150705','#221008'],fog:0x221008,hemi:[0x4e2c20,0.45],sun:[0xd8926a,0.75],
+  mars:{sky:['#0a0303','#150705','#221008'],skyDay:['#3a2418','#6d4726','#bd8f63'],
+    fog:0x221008,fogDay:0xbd8f63,hemi:[0x4e2c20,0.45],sun:[0xd8926a,0.75],
     water:false,stars:0.5,moonTint:0xd8b090,label:'Mars'}
 };
-const skyCache={};
-function makeSky(cols){
-  const c=document.createElement('canvas');c.width=8;c.height=256;
-  const ctx=c.getContext('2d');
-  const g=ctx.createLinearGradient(0,0,0,256);
-  g.addColorStop(0,cols[0]);g.addColorStop(0.55,cols[1]);g.addColorStop(1,cols[2]);
-  ctx.fillStyle=g;ctx.fillRect(0,0,8,256);
-  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t;
+
+/* The sky is ONE 8x256 gradient canvas, repainted in place as the light
+   changes. scene.background takes a texture, and a texture cannot cross-fade,
+   so the blend has to happen in the pixels — but an 8x256 fill is 2k pixels, so
+   repainting it is cheaper than almost anything else in the frame. It is still
+   quantised to 1/64 of the cycle: below that the change is invisible and the
+   texture upload is pure waste. */
+const _skyC=document.createElement('canvas'); _skyC.width=8; _skyC.height=256;
+const _skyCtx=_skyC.getContext('2d');
+const _skyTex=new THREE.CanvasTexture(_skyC); _skyTex.encoding=THREE.sRGBEncoding;
+const _a=new THREE.Color(), _b=new THREE.Color(), _m=new THREE.Color();
+let _skyKey='';
+function paintSky(cfg,f){
+  const key=World.name+'|'+Math.round(f*64);
+  if(key===_skyKey)return; _skyKey=key;
+  const night=cfg.sky, day=cfg.skyDay||cfg.sky;
+  const g=_skyCtx.createLinearGradient(0,0,0,256);
+  for(let i=0;i<3;i++){
+    _a.set(night[i]); _b.set(day[i]);
+    _m.copy(_a).lerp(_b,f);
+    g.addColorStop(i===0?0:i===1?0.55:1,'#'+_m.getHexString());
+  }
+  _skyCtx.fillStyle=g; _skyCtx.fillRect(0,0,8,256);
+  _skyTex.needsUpdate=true;
 }
 export function refreshHemi(){hemi.intensity=worldHemiBase*(env.usePost?1.02:1.48)*(0.62+1.18*(S?S.dayF:1));}
 export function applyWorld(w){
   World.name=w;const cfg=WORLD_CFG[w];
-  scene.background=skyCache[w]||(skyCache[w]=makeSky(cfg.sky));
+  _skyKey='';                       // force a repaint in the new world's palette
+  paintSky(cfg,S?S.dayF:0);
+  scene.background=_skyTex;
   scene.fog.color.setHex(cfg.fog);
   hemi.color.setHex(cfg.hemi[0]);worldHemiBase=cfg.hemi[1];refreshHemi();
   sun.color.setHex(cfg.sun[0]);sun.intensity=cfg.sun[1];

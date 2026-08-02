@@ -11,7 +11,8 @@ import { env } from '../core/env.js';
 import { scene, camera } from '../core/engine.js';
 import { World } from './world-config.js';
 import { nWx, nTemp, nMoist, fbm } from './noise.js';
-import { regionWeights } from './regions.js';
+import { regionWeights, regionAt, REGION_NAME } from './regions.js';
+import { banner } from '../ui/banner.js';
 import { PARTTEX } from './textures.js';
 import { regionV, multV } from '../ui/dom.js';
 import { t } from '../i18n.js';
@@ -143,6 +144,7 @@ export function weatherAt(x,z){
    commits a change once the new system has agreed with itself for a few
    samples, so skimming along a boundary never flickers the sky. */
 export function tickWeather(dt,x,z,biome){
+  if(World.name==='earth')watchRegion(x,z);
   wxDrift+=dt*WX_DRIFT;
   if(biome!==weather.labelBiome){ weather.labelBiome=biome; refreshRegion(); }
   weather.dwell+=dt;
@@ -173,7 +175,28 @@ export function resetWeatherField(){
   wxDrift=0;
   weather.timer=0; weather.pending=null; weather.hold=0;
   weather.snap=true; weather.labelBiome=null; weather.dwell=WX_DWELL;
+  resetRegionWatch();
 }
+/* ---- crossing into a new land ------------------------------------------
+   The player is never told which land they started in — the desert around the
+   Area 51 sign is the opening image and naming it would explain the joke. What
+   IS announced is every crossing after that, so the three regions are learned
+   by travelling rather than by reading a label that is always on screen.
+
+   Committed on WEIGHT, not on the dominant label: the weight rises smoothly
+   through the border blend, so requiring 0.62 means skimming along a boundary
+   cannot flap the banner, and there is no timer to tune. */
+let lastRegion=-1;
+export function resetRegionWatch(){ lastRegion=-1; }
+function watchRegion(x,z){
+  const W=regionWeights(x,z);
+  const w=[W.wild,W.des,W.urb];
+  const rg=regionAt(x,z);
+  if(rg===lastRegion||w[rg]<0.62)return;
+  if(lastRegion>=0)banner(t('land.'+REGION_NAME[rg]));   // silent on the first sample
+  lastRegion=rg;
+}
+
 export function curBiomeLabel(){
   if(World.name==='moon')return t('region.mare');
   if(World.name==='mars')return t('region.redwaste');
@@ -192,7 +215,9 @@ export function applyWeather(w){
 /* The HUD's "<region> · <weather>" line. Biome and weather now change
    independently, so either one refreshes it. */
 export function refreshRegion(){
-  regionV.textContent=(curBiomeLabel()+' · '+t(WEATHER[weather.cur].name));
+  // Weather only. The land you are in is announced when you cross into it (see
+  // watchRegion) rather than sitting permanently in the corner of the HUD.
+  regionV.textContent=t(WEATHER[weather.cur].name);
 }
 /* The `beam ±%` readout. Altitude now moves it too, so the main loop refreshes
    this every frame with weather × altitude rather than only on weather change. */

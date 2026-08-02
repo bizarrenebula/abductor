@@ -129,6 +129,7 @@ const STRINGS = {
     'diag.builtin':'built-in',
     // --- worlds / regions ---
     'world.earth':'Earth','world.moon':'Moon','world.mars':'Mars',
+    'land.wilderness':'ENTERING THE WILDERNESS','land.desert':'ENTERING THE DESERT','land.urban':'ENTERING SETTLED COUNTRY',
     'region.grassland':'Grassland','region.desert':'Desert','region.highlands':'Highlands',
     'region.wetland':'Wetland','region.wilds':'Wilds','region.mare':'Mare Umbra','region.redwaste':'Red Waste',
     // --- weather ---
@@ -309,6 +310,7 @@ const STRINGS = {
     'ctrl.desktop':'<b>↑ ↓</b> — движение &nbsp;·&nbsp; <b>← →</b> — поворот &nbsp;·&nbsp; <b>A</b>/<b>D</b> — стрейф &nbsp;·&nbsp; <b>W</b>/<b>S</b> — высота &nbsp;·&nbsp; <b>пробел</b> — луч &nbsp;·&nbsp; <b>Q</b> — тяга &nbsp;·&nbsp; <b>C</b> — маскировка',
     'diag.builtin':'встроенный',
     'world.earth':'Земля','world.moon':'Луна','world.mars':'Марс',
+    'land.wilderness':'ВЫ ВХОДИТЕ В ДИКИЕ ЗЕМЛИ','land.desert':'ВЫ ВХОДИТЕ В ПУСТЫНЮ','land.urban':'ВЫ ВХОДИТЕ В ОБЖИТЫЕ ЗЕМЛИ',
     'region.grassland':'Луга','region.desert':'Пустыня','region.highlands':'Нагорье',
     'region.wetland':'Топи','region.wilds':'Дичь','region.mare':'Море Тени','region.redwaste':'Красная Пустошь',
     'weather.clear':'Ясное небо','weather.rain':'Дождь','weather.sunny':'Лунный свет','weather.sandstorm':'Песчаная буря',
@@ -480,6 +482,7 @@ const STRINGS = {
     'ctrl.desktop':'<b>↑ ↓</b> — движение &nbsp;·&nbsp; <b>← →</b> — завъртане &nbsp;·&nbsp; <b>A</b>/<b>D</b> — странично &nbsp;·&nbsp; <b>W</b>/<b>S</b> — височина &nbsp;·&nbsp; <b>интервал</b> — лъч &nbsp;·&nbsp; <b>Q</b> — тяга &nbsp;·&nbsp; <b>C</b> — маскировка',
     'diag.builtin':'вграден',
     'world.earth':'Земя','world.moon':'Луна','world.mars':'Марс',
+    'land.wilderness':'ВЛИЗАТЕ В ДИВИТЕ ЗЕМИ','land.desert':'ВЛИЗАТЕ В ПУСТИНЯТА','land.urban':'ВЛИЗАТЕ В ОБИТАЕМИ ЗЕМИ',
     'region.grassland':'Ливади','region.desert':'Пустиня','region.highlands':'Планини',
     'region.wetland':'Мочурища','region.wilds':'Пущинак','region.mare':'Море на сянката','region.redwaste':'Червената пустош',
     'weather.clear':'Ясно небе','weather.rain':'Дъжд','weather.sunny':'Лунна светлина','weather.sandstorm':'Пясъчна буря',

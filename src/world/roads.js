@@ -27,6 +27,18 @@
 import { THREE } from '../core/three.js';
 import { WATER_Y, MTN_H, RESTRICT_R } from '../core/constants.js';
 import { heightAt } from './terrain.js';
+import { regionWeights } from './regions.js';
+
+/* ---------- where roads exist at all ----------
+   Roads belong to the URBAN region and nowhere else. The corridor grid is still
+   global — it has to be, or a road could not run from one town to the next — but
+   only the stretches crossing urban ground are built, populated and reported.
+   Everywhere else the network is a line on a map that was never surfaced.
+
+   Everything keys off roadDist(), which returns Infinity off-network, so the
+   dozens of "keep clear of the tarmac" tests scattered through the world
+   builders all follow automatically without knowing why. */
+export function roadHere(x,z){ return regionWeights(x,z).urb>0.5; }
 
 export const ROAD_S    = 300;   // spacing between parallel corridors (wider = fewer roads)
 /* The corridor grid is offset by half a spacing, so NO corridor line runs
@@ -427,12 +439,13 @@ function nearestRoad(x,z){
   return {d:bd,y:by};
 }
 export function roadHeightAt(x,z){
+  if(!roadHere(x,z))return -Infinity;      // no deck out here to ride over
   const n=nearestRoad(x,z);
   return n.d<ROAD_HW+1.2 ? n.y : -Infinity;
 }
 /* Horizontal distance to the nearest carriageway centre line, or Infinity.
    Used to keep scenery off the tarmac and its verges. */
-export function roadDist(x,z){ return nearestRoad(x,z).d; }
+export function roadDist(x,z){ return roadHere(x,z)?nearestRoad(x,z).d:Infinity; }
 
 /* ---------- crossroads ----------
    The network is a grid, so an X-corridor (k=kz) and a Z-corridor (k=kx) meet
@@ -452,7 +465,7 @@ export function junctionsIn(ox,oz,size){
       const d=Math.abs(a.x-b.x);
       if(d<best){best=d;bx=(a.x+b.x)*0.5;bz=a.z;by=Math.max(a.y,b.y);ang=Math.atan2(a.fx,a.fz);}
     }
-    if(best<ROAD_HW*1.7){
+    if(best<ROAD_HW*1.7 && roadHere(bx,bz)){
       const m=junctionMode(kx,kz);
       out.push({x:bx,y:by,z:bz,ang,overpass:m.overpass,over:m.over});   // they really meet -> a junction
     }
@@ -485,7 +498,7 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
      so this now comfortably exceeds MAX_RISE and the two together mean a pier
      appears only where the deck is genuinely flying. */
   const SLAB=0.4, MAXFILL=4.2;
-  let along=0, vbase=0;
+  let along=0, vbase=0, wasOn=false;
   const grp=new THREE.Group();
 
   for(let i=i0;i<=i1;i++){
@@ -520,7 +533,12 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
     pos.push(lx, lb, lz);
     pos.push(rx, rb, rz);
     uv.push(0,along, 1,along, 0,along, 1,along);
-    if(i>i0){
+    /* Only the URBAN stretches are surfaced. The vertices are still emitted so
+       the strip's indexing stays simple; what is skipped is the pair of
+       triangles joining this rib to the last, so the ribbon simply stops at the
+       edge of town instead of running on across the sand. */
+    const on=roadHere(p.x,p.z);
+    if(i>i0 && on && wasOn){
       const a=vbase-4, b=vbase;
       // Winding matters: with the deck wound the other way its normal points
       // DOWN and the whole carriageway is backface-culled, leaving only the
@@ -530,11 +548,12 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
       idx.push(a+1,a+3,b+1, a+3,b+3,b+1);      // inner skirt
     }
     vbase+=4;
+    wasOn=on;
     along+=STEP/TILE_ALONG;
 
     // Pillars only under a real bridge span, and only where it is genuinely
     // flying — the deck cap above keeps everything else on the ground.
-    if(i%4===0 && bridging && lfill>MAXFILL && rfill>MAXFILL){
+    if(i%4===0 && on && bridging && lfill>MAXFILL && rfill>MAXFILL){
       const gh=Math.min(heightAt(p.x,p.z),lg,rg);
       const hgt=y-gh;
       if(hgt>MAXFILL){

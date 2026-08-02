@@ -29,7 +29,17 @@ function hits(o){
   if(u.gone!=null||u.lift>0.02)return false;
   const dx=saucer.position.x-o.position.x, dz=saucer.position.z-o.position.z;
   const r=(u.rad||1.2)+SHIP_R;
-  if(dx*dx+dz*dz>r*r)return false;
+  const d2=dx*dx+dz*dz;
+  if(d2>r*r)return false;
+  /* A TAPERED solid (the pyramids) is tested against its real silhouette: the
+     height it occupies falls off linearly from the apex to nothing at the base
+     edge. With the usual cylinder the ship would be stopped dead in open air
+     level with the apex and forty units clear of any stone. */
+  if(u.cone){
+    const k=1-Math.sqrt(d2)/Math.max(0.001,u.coneR+SHIP_R);
+    if(k<=0)return false;
+    return saucer.position.y-1.5 < o.position.y+u.coneH*k;
+  }
   // Vertical: the ship's underside must be below the object's top. o.position.y
   // sits at the object's base, so u.top is measured up from there.
   return saucer.position.y-1.5 < o.position.y+(u.top||4);
@@ -39,7 +49,11 @@ function scan(list){
   for(let i=0;i<list.length;i++){
     const o=list[i];
     const dx=saucer.position.x-o.position.x, dz=saucer.position.z-o.position.z;
-    if(dx*dx+dz*dz>NEAR*NEAR)continue;      // cheap reject before the real test
+    // The cheap reject has to widen for anything bigger than NEAR — a pyramid's
+    // footprint is twice it, and a fixed 24 would skip the test entirely and let
+    // the ship fly through the stone.
+    const nr=Math.max(NEAR,(o.userData.rad||0)+SHIP_R);
+    if(dx*dx+dz*dz>nr*nr)continue;
     if(hits(o))return o;
   }
   return null;

@@ -35,12 +35,13 @@ export const REGION_NAME=['wilderness','desert','urban'];
    median, so the three lands are neighbours you cross between rather than
    territories you are stuck in.
 
-   The bands are asymmetric on purpose. Desert is the cheapest region to look at
-   — no woods, no towns, one ground colour — so it gets the smallest slice:
-   0.26/0.66 measures out at 39% wilderness, 30% desert, 31% urban, against the
-   33/36/31 an even split gave. */
+   The bands are asymmetric on purpose, and the ORDER of the shares is the point:
+   wilderness largest, urban next, desert smallest. Desert is the cheapest region
+   to look at — no woods, no towns, no roads, one ground colour — so it is the
+   one you should spend least time in. Measured at 0.18/0.56: 46% wilderness,
+   28% urban, 26% desert, against the 33/36/31 an even split gave. */
 const SCALE=0.00016;
-const BAND_A=0.26, BAND_B=0.66, BLEND=0.085;
+const BAND_A=0.18, BAND_B=0.56, BLEND=0.085;
 
 /* 0..1. The noise is roughly symmetric about 0 with its 10th/90th percentiles
    near -+0.385, so x1.35 about 0.5 spreads it across the range. */

@@ -14,10 +14,11 @@ import { disposeDeep } from '../core/dispose.js';
 import { World } from './world-config.js';
 import { sample, goodGround, slopeAt } from './terrain.js';
 import { TEX, grassTex, sandTex, rockTex, snowTex } from './textures.js';
-import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, junctionsIn } from './roads.js';
+import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, roadHere, junctionsIn } from './roads.js';
 import { animals, pickups, props, buildings, vehicles, shelters, structures } from '../entities/registry.js';
 import { spawnSettlementParts, clearSettlementCache, inSettlement } from './settlements.js';
 import { spawnFieldParts, clearFieldCache, inField } from './fields.js';
+import { monumentsNear, clearMonumentCache, inMonument, sphinxPos } from './monuments.js';
 import { buildAnimal } from '../entities/animals.js';
 import { buildAlien } from '../entities/aliens.js';
 import { buildCrystal } from '../entities/crystals.js';
@@ -26,6 +27,7 @@ import { buildBuilding, buildHuman } from '../entities/humans.js';
 import { buildStation } from '../entities/stations.js';
 import { buildBillboard } from '../entities/billboards.js';
 import { buildArea51Sign } from '../entities/area51.js';
+import { buildPyramid, buildSphinx, PYRAMID_R } from '../entities/egypt.js';
 import { buildVehicle, placeVehicle } from '../entities/vehicles.js';
 import { streetLamp } from '../systems/nightlights.js';
 
@@ -130,6 +132,7 @@ export function buildChunk(cx,cz){
   const clearSpot=(x,z,r)=>{
     if(inSettlement(x,z,r+4))return false;
     if(inField(x,z,r+1))return false;              // nothing grows in the crop
+    if(inMonument(x,z,r+2))return false;           // nor out of the masonry
     // ...and so does the landing site: collision.js only looks 24 units out, so
     // an empty disc here means the arrival cannot end on a lamp post.
     const sdx=x-S.spawnX, sdz=z-S.spawnZ;
@@ -146,7 +149,7 @@ export function buildChunk(cx,cz){
      scenery pass below naturally routes around them (rather than a lone barn's
      approach of deleting the trees it landed on). They stream per chunk but are
      positioned globally — see world/settlements.js. */
-  const st=[];
+  const st=[], mons=[];
   if(World.name==='earth'){
     for(const o of spawnSettlementParts(ox,oz,CHUNK,(obj,x,z,r)=>{ mark(x,z,r); })){
       scene.add(o); st.push(o); structures.push(o);
@@ -154,6 +157,26 @@ export function buildChunk(cx,cz){
     // Farmland goes down with them — two batched meshes per chunk, and clearSpot
     // then keeps every later pass out of the crop.
     for(const o of spawnFieldParts(ox,oz,CHUNK)){ scene.add(o); st.push(o); }
+
+    /* Monuments. A pyramid is far wider than a chunk, so it is instantiated by
+       the chunk containing its CENTRE and simply overhangs its neighbours —
+       splitting it would mean four meshes and a seam. Its ground is claimed in
+       every chunk it reaches (see inMonument in clearSpot), which is what keeps
+       cacti from growing out of the masonry. */
+    for(const m of monumentsNear(ox,oz,CHUNK)){
+      if(m.x<ox||m.x>=ox+CHUNK||m.z<oz||m.z>=oz+CHUNK)continue;
+      const py=buildPyramid();
+      py.position.set(m.x,m.y-1.5,m.z);      // seated slightly into the sand
+      py.rotation.y=m.ang*0.25;              // barely off-axis, like a real survey error
+      scene.add(py);mons.push(py);buildings.push(py);
+      if(m.sphinx){
+        const sp=sphinxPos(m);
+        const sx=buildSphinx();
+        sx.position.set(sp.x,sample(sp.x,sp.z).h-0.6,sp.z);
+        sx.rotation.y=m.ang+Math.PI;         // facing away from the pyramid, out east
+        scene.add(sx);mons.push(sx);buildings.push(sx);
+      }
+    }
   }
 
   const tries=dens(LOW_END?4:7);
@@ -167,25 +190,35 @@ export function buildChunk(cx,cz){
       if(w==='water'){
         if(!goodGround(wx,wz,{water:true,slope:0.6}))continue;   // shallows, not mid-lake or a steep bank
         species='Duck';
-      }else if(w==='desert'||w==='mountain'||w==='canyon'||sm.h>MTN_H-4){
-        // No grazers on sand / mountains / canyons — only what passes overhead.
-        // Over the desert that is mostly vultures, which are what the region has
-        // instead of a flock: a few big slow shapes turning high up.
+      }else if(w==='desert'){
+        /* THE DESERT'S ONLY WILDLIFE IS THE VULTURE. Nothing grazes on sand and
+           nothing small lives on it either — a few big slow shapes turning high
+           up is the whole population, and that emptiness is what the region is
+           for. (The camel belongs here too and is not built yet.) */
+        if(Math.random()>0.22)continue;
+        species='Vulture';
+      }else if(w==='mountain'||w==='canyon'||sm.h>MTN_H-4){
         if(Math.random()>0.20)continue;
-        species=(sm.biome==='desert'&&Math.random()<0.62)?'Vulture':'Bird';
+        species='Bird';
       }else{
-        // plains / forest: grazers kept off the road, plus a few birds.
+        // plains / forest: kept off the road, never on a cliff edge or lip
         if(roadDist(wx,wz)<ROAD_HW+3)continue;
-        // never balanced on a cliff edge / canyon lip
         if(slopeAt(wx,wz)>0.5)continue;
-        // Flocks are a wilderness thing. Town land still has birds over it, but
-        // the sheep thin out as the ground turns urban.
-        if(Math.random()>0.58-sm.wUrb*0.26)continue;
+        if(Math.random()>0.58-sm.wUrb*0.18)continue;
         const r=Math.random();
-        species=sm.wUrb>0.5?(r<0.34?'Bird':r<0.78?'Sheep':'Goat')
-                           :(r<0.12?'Bird':r<0.64?'Sheep':'Goat');
+        /* Each land has its own catch. WILDERNESS is flocks and the people who
+           keep them; SETTLED COUNTRY has no flocks at all, so what walks about
+           there is people, with the same birds overhead in both. */
+        if(sm.wUrb>0.5) species=r<0.42?'Bird':'@human';
+        else            species=r<0.16?'Bird':r<0.74?'Sheep':'@human';
       }
-      a=buildAnimal(species);
+      /* '@human' is not a species in the animal table — villagers and hikers are
+         built by humans.js but live in the same `animals` list and are abducted
+         the same way, so the spawn table can name one wherever it wants a
+         person. */
+      a=species==='@human'
+        ? buildHuman(sm.wUrb>0.5?'hiker':'villager')
+        : buildAnimal(species);
       // Ground animals keep clear of solids so they don't spawn inside a tree.
       if(!a.userData.fly && !clearSpot(wx,wz,2.2))continue;
       a.position.set(wx, a.userData.fly?Math.max(sm.h,WATER_Y)+a.userData.hover
@@ -262,7 +295,7 @@ export function buildChunk(cx,cz){
       pr.splice(i,1);
     }
   };
-  const bl=[],sh=[];
+  const bl=mons,sh=[];
 
   /* The Area 51 sign: one per world. WHERE it stands was decided by
      world/spawn.js before the world streamed, because the ship's opening heading
@@ -349,6 +382,10 @@ export function buildChunk(cx,cz){
           if(sp.y-sm2.h>3)continue;                                      // road is a bridge here — no floating pole
           if(inSettlement(lx,lz,6))continue;                             // the town lights its own streets
           if(inRestricted(lx,lz,4))continue;
+          // Street lighting is an URBAN thing. Outside town there is no deck to
+          // light anyway (see roadHere in world/roads.js), and a lit verge in
+          // open desert was the single most town-like thing in the wilderness.
+          if(!roadHere(lx,lz))continue;
           if((lx-S.spawnX)**2+(lz-S.spawnZ)**2<SPAWN_CLEAR*SPAWN_CLEAR)continue;   // never on the landing site
           const lamp=streetLamp();
           lamp.position.set(lx,sm2.h,lz);                                // base sits on the ground at the edge
@@ -365,6 +402,7 @@ export function buildChunk(cx,cz){
         const sx=sp.x+sp.fz*off*side, sz=sp.z-sp.fx*off*side;
         const sm2=sample(sx,sz);
         if(sm2.biome!=='water'&&sm2.biome!=='mountain'&&sm2.biome!=='canyon'&&sm2.h>WATER_Y+1
+           &&roadHere(sx,sz)                      // filling stations are urban only
            &&!inRestricted(sx,sz,12)&&clearSpot(sx,sz,12)&&flatEnough(sx,sz,9)){
           const st=buildStation();
           clearPropsNear(sx,sz,13);mark(sx,sz,11);
@@ -396,6 +434,7 @@ export function buildChunk(cx,cz){
           // in a canyon, on a mountain, or where the road bridges/embanks above it
           if(sm2.biome!=='water'&&sm2.biome!=='mountain'&&sm2.biome!=='canyon'
              &&sm2.h>WATER_Y+1&&Math.abs(sp.y-sm2.h)<2.5
+             &&roadHere(bx,bz)
              &&!inRestricted(bx,bz,5)&&clearSpot(bx,bz,5)&&flatEnough(bx,bz,5)){
             const bb=buildBillboard();
             clearPropsNear(bx,bz,5);mark(bx,bz,4);
@@ -410,6 +449,9 @@ export function buildChunk(cx,cz){
       for(let i=0;i<VEH_PER_CHUNK;i++){
         if(Math.random()<1-(1-0.45)*SPAWN_DENSITY)continue;   // ~55% take, thinned by SPAWN_DENSITY
         const t=t0+Math.random()*(t1-t0);
+        // no deck out here means no traffic on it
+        const at=roadSample(c.axis,c.k,t);
+        if(!roadHere(at.x,at.z))continue;
         const roll=Math.random();
         const kind=roll<0.45?'car1':roll<0.8?'car2':'bus1';
         const v=buildVehicle(kind);
@@ -482,6 +524,6 @@ export function clearWorld(){
     (c.vehs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);});
     (c.structs||[]).forEach(o=>{scene.remove(o);disposeDeep(o);});
     (c.roads||[]).forEach(o=>{scene.remove(o);o.traverse(q=>{if(q.geometry)q.geometry.dispose();});disposeDeep(o);});}
-  clearRoadCache();clearSettlementCache();clearFieldCache();
+  clearRoadCache();clearSettlementCache();clearFieldCache();clearMonumentCache();
   chunks.clear();animals.length=0;pickups.length=0;props.length=0;buildings.length=0;vehicles.length=0;shelters.length=0;structures.length=0;
 }

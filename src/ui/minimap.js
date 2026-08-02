@@ -8,6 +8,7 @@ import { upgradeItems } from '../entities/upgradeItems.js';
 import { saucer } from '../systems/saucer.js';
 import { Story } from '../story/story.js';
 import { townsWithin } from '../world/settlements.js';
+import { regionWeights, regionAt, REGION_NAME } from '../world/regions.js';
 
 const CRYSTAL_COL='#8fe8b8';
 
@@ -15,6 +16,84 @@ const mmCanvas=document.getElementById('minimap');
 const mmCtx=mmCanvas&&mmCanvas.getContext('2d');
 const MM_RANGE=340;
 let mmSweep=0;
+
+/* ---- region wash -------------------------------------------------------
+   A translucent tint under everything else showing which of the three lands
+   the ground belongs to: yellow desert, green wilderness, blue urban. It is
+   painted from the region WEIGHTS rather than the dominant label, so a border
+   comes out as a gradient on the map exactly as it is underfoot.
+
+   Rendered into a tiny offscreen canvas and scaled up: at 28x28 the whole wash
+   is 784 noise samples, and the browser's bilinear upscale does the smoothing
+   for free. It is refreshed a few times a second and only after the ship has
+   actually moved — regions are kilometres across, so there is nothing to see
+   at 60Hz. The buffer is world-axis-aligned and drawn under a rotation, which
+   is what keeps it registered with the heading-up markers. */
+const RGN_N=28;
+const rgCan=document.createElement('canvas'); rgCan.width=rgCan.height=RGN_N;
+const rgCtx=rgCan.getContext('2d');
+const rgImg=rgCtx.createImageData(RGN_N,RGN_N);
+const RGN_COL={des:[236,196,62], wild:[58,196,84], urb:[70,140,240]};
+let rgX=1e9, rgZ=1e9, rgT=0;
+
+/* ---- the rim: which lands are around you ------------------------------
+   A region is ~6km across and the map reaches 340m, so the wash almost always
+   shows one flat colour: it tells you where you ARE and nothing about what is
+   next. The border answers that. It is painted in three parts — the land you
+   are in, which holds most of the ring, and a cap for each of the other two on
+   its true bearing, with the distance to it written across the middle of its
+   cap.
+
+   A cap GROWS as you close on that land: far off it is a token tick on the rim,
+   and by the time the border is within map range it wraps a third of the ring.
+   So approaching a biome reads as a band of colour opening up in the direction
+   you are flying, and the number in it tells you how far.
+
+   Bearings are ray-marched outward until the region changes; 32 bearings x up
+   to 40 steps is ~1300 noise samples, so it refreshes about once a second and
+   only after the ship has actually travelled. */
+const SCAN_BEARINGS=32, SCAN_STEP=150, SCAN_MAX=6000;
+let here=0, nbr=[], nbrX=1e9, nbrZ=1e9, nbrT=0;
+function refreshNeighbours(sx,sz,dt){
+  nbrT-=dt;
+  if(nbrT>0 && Math.abs(sx-nbrX)<40 && Math.abs(sz-nbrZ)<40)return;
+  nbrT=1.0; nbrX=sx; nbrZ=sz;
+  here=regionAt(sx,sz);
+  const best={};
+  for(let i=0;i<SCAN_BEARINGS;i++){
+    const a=i/SCAN_BEARINGS*Math.PI*2, cs=Math.cos(a), sn=Math.sin(a);
+    const seen={}; let n=0;
+    for(let d=SCAN_STEP;d<=SCAN_MAX;d+=SCAN_STEP){
+      const r=regionAt(sx+cs*d, sz+sn*d);
+      if(r===here||seen[r])continue;
+      // keep scanning past the first crossing: the far land is usually behind
+      // the near one on every bearing, and it still deserves its cap
+      seen[r]=1; n++;
+      if(!best[r]||d<best[r].d)best[r]={d,a};
+      if(n>=2)break;
+    }
+  }
+  nbr=[0,1,2].filter(r=>r!==here&&best[r]).map(r=>({region:r,d:best[r].d,a:best[r].a}));
+}
+const RGN_KEY=['wild','des','urb'];
+const rgbCss=(c,al)=>'rgba('+c[0]+','+c[1]+','+c[2]+','+al+')';
+function refreshRegionWash(sx,sz,dt){
+  rgT-=dt;
+  if(rgT>0 && Math.abs(sx-rgX)<10 && Math.abs(sz-rgZ)<10)return;
+  rgT=0.25; rgX=sx; rgZ=sz;
+  const d=rgImg.data;
+  for(let j=0;j<RGN_N;j++)for(let i=0;i<RGN_N;i++){
+    const wx=sx+((i+0.5)/RGN_N*2-1)*MM_RANGE;
+    const wz=sz+((j+0.5)/RGN_N*2-1)*MM_RANGE;
+    const W=regionWeights(wx,wz);
+    const o=(j*RGN_N+i)*4;
+    d[o  ]=RGN_COL.des[0]*W.des+RGN_COL.wild[0]*W.wild+RGN_COL.urb[0]*W.urb;
+    d[o+1]=RGN_COL.des[1]*W.des+RGN_COL.wild[1]*W.wild+RGN_COL.urb[1]*W.urb;
+    d[o+2]=RGN_COL.des[2]*W.des+RGN_COL.wild[2]*W.wild+RGN_COL.urb[2]*W.urb;
+    d[o+3]=255;
+  }
+  rgCtx.putImageData(rgImg,0,0);
+}
 export function drawMinimap(dt){
   if(!mmCtx)return;
   const on=S.state==='playing';
@@ -24,6 +103,15 @@ export function drawMinimap(dt){
   mmCtx.clearRect(0,0,W,H);
   mmCtx.save();mmCtx.beginPath();mmCtx.arc(cx,cy,R,0,7);mmCtx.clip();
   mmCtx.fillStyle='rgba(6,16,12,0.5)';mmCtx.fillRect(0,0,W,H);
+  {
+    const sx0=saucer.position.x, sz0=saucer.position.z;
+    refreshRegionWash(sx0,sz0,dt);
+    mmCtx.save();
+    mmCtx.translate(cx,cy); mmCtx.rotate(S.yaw);
+    mmCtx.globalAlpha=0.46; mmCtx.imageSmoothingEnabled=true;
+    mmCtx.drawImage(rgCan,-R,-R,R*2,R*2);
+    mmCtx.restore(); mmCtx.globalAlpha=1;
+  }
   mmCtx.strokeStyle='rgba(143,232,184,0.14)';mmCtx.lineWidth=1;
   for(let i=1;i<=2;i++){mmCtx.beginPath();mmCtx.arc(cx,cy,R*i/2,0,7);mmCtx.stroke();}
   mmSweep+=dt*1.6;
@@ -113,6 +201,38 @@ export function drawMinimap(dt){
         if(Story.shipPos)plot(Story.shipPos.x,Story.shipPos.z,'#ff8050',3,true);            // altar (return point)
       }
     }
+  }
+  /* The rim. Drawn last inside the clip so it sits over the wash and the
+     scenery markers but under the ship. */
+  {
+    refreshNeighbours(sx,sz,dt);
+    const RIM=5.5;
+    const hcol=RGN_COL[RGN_KEY[here]];
+    if(hcol){
+      mmCtx.strokeStyle=rgbCss(hcol,0.72); mmCtx.lineWidth=RIM;
+      mmCtx.beginPath();mmCtx.arc(cx,cy,R-RIM/2,0,7);mmCtx.stroke();
+    }
+    // Each neighbour's cap: a token tick when it is far, a third of the ring
+    // when its border is on the map. Squared so the opening-up accelerates as
+    // you actually get there rather than creeping the whole way.
+    const MIN_HALF=0.12, MAX_HALF=0.95;
+    mmCtx.font='600 8px ui-monospace,Menlo,monospace';
+    mmCtx.textAlign='center'; mmCtx.textBaseline='middle';
+    for(const nb of nbr){
+      const col=RGN_COL[RGN_KEY[nb.region]]; if(!col)continue;
+      const pr=1-Math.max(0,Math.min(1,(nb.d-MM_RANGE)/(SCAN_MAX-MM_RANGE)));
+      const half=MIN_HALF+(MAX_HALF-MIN_HALF)*pr*pr;
+      const mid=nb.a+yaw, t=RIM+2.6*pr;
+      mmCtx.strokeStyle=rgbCss(col,0.55+0.42*pr); mmCtx.lineWidth=t;
+      mmCtx.beginPath();mmCtx.arc(cx,cy,R-t/2,mid-half,mid+half);mmCtx.stroke();
+      const km=nb.d>=1000?(nb.d/1000).toFixed(1)+'k':Math.round(nb.d/10)*10+'';
+      const tx=cx+Math.cos(mid)*(R-15), ty=cy+Math.sin(mid)*(R-15);
+      mmCtx.lineWidth=2.5; mmCtx.strokeStyle='rgba(4,10,8,0.9)';
+      mmCtx.strokeText(km,tx,ty);                  // keep it readable over the wash
+      mmCtx.fillStyle=rgbCss(col,1);
+      mmCtx.fillText(km,tx,ty);
+    }
+    mmCtx.globalAlpha=1;
   }
   mmCtx.restore();
   // ship heading arrow at the centre — always points up (forward), since the map

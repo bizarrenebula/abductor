@@ -9,7 +9,7 @@ import { env, HAS_TOUCH, TOUCH_ONLY } from '../core/env.js';
 import { input, resetInputTouch, ACTIONS, binds, keyLabel, beginCapture, cancelCapture, resetBinds,
          AXES, FUNCS, touchMap, touchInv, setTouchMap, setTouchInv, resetTouch } from '../core/input.js';
 import { reseed } from '../world/noise.js';
-import { pickSpawn } from '../world/spawn.js';
+import { pickSpawn, pickSignSpot } from '../world/spawn.js';
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
 import { clearWorld, updateChunks } from '../world/chunks.js';
 import { applyWeather, weather, resetWeatherField } from '../world/weather.js';
@@ -67,6 +67,7 @@ export function startGame(opts){
   Special.charge=1;Special.active=false;input.spHeld=false;resetInputTouch();
   S.energy=1;S.vy=0;saucer.rotation.set(0,0,0);
   S.yaw=0;S.yawV=0;S.hoverV=0;S.safeYaw=0;S.safeT=0;   // safePos is set once the spawn is chosen
+  S.descendT=0;                                        // set by Intro.finish if a film plays
   applyWorld(S.world);
   S.crystals=0;S.missionIdx=0;S.crashReason=null;
   S.isDay=true;S.dayF=1;S.cloak=false;S.warnLevel=0;S.hover=HOVER_BASE;S.agl=HOVER_BASE;S.beamStr=1;
@@ -81,8 +82,16 @@ export function startGame(opts){
   reseed();clearWorld();resetDestruction();
   const sp=pickSpawn();
   S.spawnX=sp.x; S.spawnZ=sp.z;
+  /* The sign is sited and the ship is AIMED AT IT before any chunk is built.
+     It is the game's opening joke, so the player has to be looking straight at
+     AREA 51 when the film hands over — not turning round to find it. */
+  const sg=pickSignSpot(sp.x,sp.z);
+  S.signX=sg?sg.x:null; S.signZ=sg?sg.z:null;
+  if(sg)S.yaw=Math.atan2(sg.x-sp.x, sg.z-sp.z);
   S.safePos.set(sp.x,40,sp.z);
+  S.safeYaw=S.yaw;
   saucer.position.set(sp.x,40,sp.z);
+  saucer.rotation.y=S.yaw;
   updateChunks(sp.x,sp.z);
   // Ship upgrades: keep them through a "run it back" after a crash, otherwise
   // start grounded. Then scatter whichever field parts aren't installed yet.

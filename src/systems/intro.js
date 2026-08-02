@@ -27,6 +27,9 @@ const SHIP_TOP = 220;       // where the mothership hangs
    the band (the opening, on top of the cloud deck) or below it (everything after
    the ship has come down). */
 const CLOUD_TOP = 150;      // shot 1 altitude: above the deck, under the mothership
+const HOVER_BASE= 15;       // resting altitude above ground once settled
+const HANDOVER_UP=36;       // ...where the FILM leaves it; the rest is flown down live
+export const DESCEND_S=5.0; // seconds the live loop spends easing down that last stretch
 const DROP_FROM = 0.06;     // the saucer starts down the beam at this point in the film
 const DROP_TO   = 0.74;     // ...and touches its hover height here
 
@@ -155,7 +158,11 @@ export const Intro={
     this.active=true; this._t=0; this._shot=0; this._done=onDone||null;
     this._x=x; this._z=z; this._yaw=yaw||0;
     this._groundY=heightAt(x,z);
-    this._restY=this._groundY+15;                       // HOVER_BASE above the ground
+    /* The film deliberately stops the ship WELL above its hover height. The
+       remaining drop is handed to the play loop (S.descendT/descendY), so the
+       cut to gameplay does not also stop the descent — you take the controls
+       while the mothership is still lowering you. */
+    this._restY=this._groundY+HANDOVER_UP;
     for(const p of rig.props)p.visible=true;
     rig.g.position.set(x,SHIP_TOP,z);
     rig.disc.position.set(x,this._groundY+0.2,z);
@@ -280,6 +287,10 @@ export const Intro={
     this._clear();
     saucer.position.set(this._x,this._restY,this._z);
     saucer.rotation.set(0,this._yaw,0);
+    /* Hand the remaining descent to the play loop. This is the whole point of
+       ending the film high: the cut to gameplay must not also stop the ship. */
+    S.descendY=this._groundY+HOVER_BASE;
+    S.descendT=DESCEND_S;
     const cb=this._done; this._done=null;
     if(cb)cb(this._x,this._restY,this._z,this._yaw);
   },

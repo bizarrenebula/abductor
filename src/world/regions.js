@@ -24,18 +24,23 @@ import { smoothstep } from '../core/math.js';
 export const WILD=0, DESERT=1, URBAN=2;
 export const REGION_NAME=['wilderness','desert','urban'];
 
-/* ~11000 units across, so crossing one takes real flying. Two octaves: enough
-   shape that borders wander, few enough that they fray into slivers — the same
-   lesson the weather field taught.
+/* ~6200 units across. Two octaves: enough shape that borders wander, few enough
+   that they fray into slivers — the same lesson the weather field taught.
 
    These numbers are measured, not guessed. Walking 40km lines across five seeds
    and recording the distance between region changes: at SCALE 0.00022 the median
-   stretch was 950m and half of all stretches were under a kilometre, which is a
-   patchwork, not a land. At 0.00009 with the bands below the median is 2750m and
-   only 17% come in under a kilometre — you fly for a couple of minutes before
-   the country changes, which is what "spread over several km" has to mean. */
-const SCALE=0.00009;
-const BAND_A=0.32, BAND_B=0.72, BLEND=0.085;
+   stretch was 950m, a patchwork rather than a land; at 0.00009 it was 2750m,
+   which turned out to be TOO far — the desert in particular went on long enough
+   to get boring before anything changed. 0.00016 sits between them at a 1250m
+   median, so the three lands are neighbours you cross between rather than
+   territories you are stuck in.
+
+   The bands are asymmetric on purpose. Desert is the cheapest region to look at
+   — no woods, no towns, one ground colour — so it gets the smallest slice:
+   0.26/0.66 measures out at 39% wilderness, 30% desert, 31% urban, against the
+   33/36/31 an even split gave. */
+const SCALE=0.00016;
+const BAND_A=0.26, BAND_B=0.66, BLEND=0.085;
 
 /* 0..1. The noise is roughly symmetric about 0 with its 10th/90th percentiles
    near -+0.385, so x1.35 about 0.5 spreads it across the range. */
@@ -48,10 +53,12 @@ const OX=137.31, OZ=-91.77;
 
 /* HOME. Every run begins at Area 51, which means every run begins in deep
    desert whatever the noise wanted — so the field is pulled to sand inside a
-   bowl around the world origin and released over the next couple of kilometres.
+   bowl around the world origin and released over the next kilometre or so.
    Fixed, not seeded: the opening shot of the game should be the same country
-   every time, and the variety starts once you fly out of it. */
-const HOME_IN=1100, HOME_OUT=2900;
+   every time, and the variety starts once you fly out of it — which now happens
+   sooner, because a guaranteed desert is still a desert and the point of the
+   opening is to leave it. */
+const HOME_IN=650, HOME_OUT=1900;
 
 export function regionField(x,z){
   const v=fbm(nRegion,x*SCALE+OX,z*SCALE+OZ,2);

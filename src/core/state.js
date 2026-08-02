@@ -41,6 +41,11 @@ export const S={
      shot at it, so the opening of every run reads as "set down in the desert,
      right by the sign" rather than "set down in some desert". */
   signX:null, signZ:null,
+  /* The arrival is not over when the film is. The cinematic hands the ship over
+     ABOVE its resting hover height and these carry the rest of the descent into
+     live play, so the first seconds of a run are still the mothership setting
+     you down. Any climb/dive input cancels it — the player is never fought. */
+  descendT:0, descendY:0,
   // rolling "last living point" for the story-mode respawn (see main.js)
   safePos:new THREE.Vector3(0,40,0), safeYaw:0, safeT:0,
 };

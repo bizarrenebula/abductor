@@ -266,6 +266,23 @@ function animate(){
       flight.pitch-=flight.pitch*Math.min(1,dt*1.5);    // soft: τ≈0.67s → eases level over ~2s
       if(Math.abs(flight.pitch)<0.004)flight.pitch=0;
     }
+    /* THE REST OF THE ARRIVAL. The film ends with the ship still well above its
+       hover height (see systems/intro.js) and this flies the last stretch down
+       under live control, so the opening seconds of a run read as the mothership
+       still lowering you rather than as a cut to a parked saucer.
+
+       An exponential ease, not a linear one — it arrives asymptotically and so
+       has no moment where the descent visibly stops. Any climb or dive input
+       cancels it outright: the instant the player reaches for the controls they
+       own the ship, and a scripted animation that fights them would feel broken. */
+    if(S.descendT>0){
+      if(Math.abs(fin.vertical||0)>0.02||Math.abs(fin.pitchDelta||0)>0.004){ S.descendT=0; }
+      else{
+        S.descendT=Math.max(0,S.descendT-dt);
+        flight._base.y+=(S.descendY-flight._base.y)*(1-Math.exp(-dt*0.85));
+        if(flight.velocity.y>0)flight.velocity.y=0;
+      }
+    }
     flight.update(dt,fin);
     saucer.position.copy(flight.position);
     saucer.quaternion.copy(flight.quaternion);        // dragonfly bank/heading

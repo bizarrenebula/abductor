@@ -264,31 +264,19 @@ export function buildChunk(cx,cz){
   };
   const bl=[],sh=[];
 
-  /* The Area 51 sign: one per world, in whichever chunk holds the landing site.
-     It goes down BEFORE the random building roll so it always gets its ground,
-     and it sits just outside SPAWN_CLEAR — near enough to be the first thing you
-     read, far enough that arriving on top of it is not a crash. Angles are tried
-     for the flattest footing so it does not stand half-buried in a dune face. */
-  if(World.name==='earth'&&S.spawnX>=ox&&S.spawnX<ox+CHUNK&&S.spawnZ>=oz&&S.spawnZ<oz+CHUNK){
-    let best=null;
-    for(let i=0;i<12;i++){
-      const a=i/12*Math.PI*2, rad=SPAWN_CLEAR+6;
-      const sx=S.spawnX+Math.cos(a)*rad, sz=S.spawnZ+Math.sin(a)*rad;
-      const sm=sample(sx,sz);
-      if(sm.biome==='water'||sm.h<WATER_Y+1.6)continue;
-      if(roadDist(sx,sz)<ROAD_HW+6)continue;
-      const sl=slopeAt(sx,sz,4);
-      if(!best||sl<best.sl)best={x:sx,z:sz,h:sm.h,sl,a};
-    }
-    if(best){
-      const sg=buildArea51Sign();
-      sg.position.set(best.x,best.h,best.z);
-      // local +Z is the printed face, so aim it back at the landing site
-      sg.rotation.y=Math.atan2(S.spawnX-best.x,S.spawnZ-best.z);
-      mark(best.x,best.z,6);
-      S.signX=best.x; S.signZ=best.z;      // the arrival film stages a shot on it
-      scene.add(sg);bl.push(sg);buildings.push(sg);
-    }
+  /* The Area 51 sign: one per world. WHERE it stands was decided by
+     world/spawn.js before the world streamed, because the ship's opening heading
+     is aimed at it; all this does is put the mesh at the answer, in whichever
+     chunk contains it. It goes down before the random building roll so it always
+     gets its ground. */
+  if(World.name==='earth'&&S.signX!=null
+     &&S.signX>=ox&&S.signX<ox+CHUNK&&S.signZ>=oz&&S.signZ<oz+CHUNK){
+    const sg=buildArea51Sign();
+    sg.position.set(S.signX,sample(S.signX,S.signZ).h,S.signZ);
+    // local +Z is the printed face, so aim it back at the landing site
+    sg.rotation.y=Math.atan2(S.spawnX-S.signX,S.spawnZ-S.signZ);
+    mark(S.signX,S.signZ,6);
+    scene.add(sg);bl.push(sg);buildings.push(sg);
   }
   if(World.name==='earth'&&Math.random()<0.32){
     const wx=ox+8+Math.random()*(CHUNK-16), wz=oz+8+Math.random()*(CHUNK-16);

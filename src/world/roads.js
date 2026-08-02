@@ -96,7 +96,7 @@ export function overpassLift(axis,k,t){
 /* ---------- caches ---------- */
 const cCell=new Map(), cBlock=new Map(), cOff=new Map(), cDeck=new Map();
 const key=(a,k,i)=>a+'|'+k+'|'+i;
-export function clearRoadCache(){ cCell.clear();cBlock.clear();cOff.clear();cDeck.clear();cEdge.clear();cEnv.clear();cWater.clear(); }
+export function clearRoadCache(){ cCell.clear();cBlock.clear();cOff.clear();cDeck.clear();cEdge.clear();cEnv.clear();cWater.clear();cH.clear(); }
 
 /* Point on the corridor's nominal (unrouted) line. */
 function base(axis,k,t){
@@ -108,17 +108,41 @@ function shift(axis,p,d){
 }
 const cand=n=>-MAXDEV+(2*MAXDEV)*n/(NCAND-1);
 
+/* Ground height at candidate n of step i, memoized — the cross-slope term below
+   reads its NEIGHBOURS' heights, and adjacent candidates are ~4 units apart
+   perpendicular to the corridor, which is exactly the direction the carriageway
+   is wide in. So the samples each cell needs are the samples its neighbours
+   already took. */
+const cH=new Map();
+function candH(axis,k,i,n){
+  const kk=key(axis,k,i)+':h'+n; let v=cH.get(kk);
+  if(v!==undefined)return v;
+  const p=shift(axis,base(axis,k,i*STEP),cand(n));
+  v=heightAt(p.x,p.z); cH.set(kk,v); return v;
+}
+
 /* Terrain cost of putting the road at candidate n, step i. */
 function cellCost(axis,k,i,n){
   const kk=key(axis,k,i)+':'+n; let v=cCell.get(kk);
   if(v!==undefined)return v;
   const t=i*STEP, d=cand(n);
   const p=shift(axis,base(axis,k,t),d);
-  const h=heightAt(p.x,p.z);
+  const h=candH(axis,k,i,n);
   let c=0;
   if(h>6)c+=Math.pow(h-6,1.55);        // climbing is expensive
   if(h>MTN_H)c+=5000;                  // never ride onto a mountain — thread the pass instead
   if(h<WATER_Y)c+=26+(WATER_Y-h)*1.1;  // crossing water is a last resort, not banned
+  /* CROSS-SLOPE. A carriageway is level across its width, so it must clear the
+     highest ground under it — and costing only the centre line let the router
+     run along the foot of a mountain with the uphill edge buried 20m into the
+     slope, which then came out as a deck on a 20m bank. Costing the rise ACROSS
+     the corridor makes the DP step out onto the flat instead of benching itself
+     into a hillside, which is what actually keeps roads on the surface in hill
+     country — the deck cap alone cannot, because clearing that edge is the one
+     thing it is not allowed to compromise on. */
+  const hl=candH(axis,k,i,Math.max(0,n-1)), hr=candH(axis,k,i,Math.min(NCAND-1,n+1));
+  const cross=Math.abs(hr-hl);
+  c+=cross*cross*0.9;
   c+=d*d*0.004;                        // prefer to stay near the corridor
   /* The restricted area around the landing site. A flat ban would make the DP
      pick some arbitrary escape; a cost that grows as you approach makes it bow
@@ -206,10 +230,34 @@ function pathAt(axis,k,i){
    flat roadway that touches the ground on the high spots and rides flat — on a
    short embankment or, over real gaps, on piers — across everything lower. */
 
-const ENV_WIN   = 5;   // half-window (steps, ~30u) for the ground upper-envelope —
+const ENV_WIN   = 3;   // half-window (steps, ~18u) for the ground upper-envelope —
                        // smaller so the road hugs the ground more and rides on far
                        // less fill (a thinner, more natural profile), while...
-const GRADE_WIN  = 9;  // ...this wide easing still keeps the grade smooth, not wavy
+const GRADE_WIN  = 7;  // ...this easing still keeps the grade smooth, not wavy
+
+/* THE CEILING, and the reason it exists. The grade line above is an upper
+   envelope: it takes the highest ground in a window and rules a level line at
+   that height. Over gentle country that is exactly right. Over DUNES it is a
+   disaster — a dune field is 17m of relief on a ~220m wavelength, so the
+   envelope latches onto crest height and rules it straight across every trough,
+   and the road comes out as a viaduct on pillars marching across flat sand.
+
+   So the deck may never sit more than MAX_RISE above the ground it is actually
+   crossing. On level land nothing changes and the grade line still rules; over
+   dunes the deck is pulled down onto the sand and undulates gently with it. The
+   cap tracks crossMax, which is smooth wherever the terrain is, so it does not
+   put a kink in the profile. Bridges over water and overpass humps are applied
+   AFTER the cap and are deliberately exempt — those are the ONLY two places a
+   road is allowed to leave the ground.
+
+   The cap is measured from crossMax — the highest ground across the deck's own
+   width at THIS step — and not from envAt. envAt is a max over a +-18u window,
+   so on a dune flank (slope up to 0.29) it already sits 5m above the ground the
+   deck is actually over, and capping against it still let a quarter of every
+   corridor fly more than 4m up. crossMax is the exact terrain the deck has to
+   clear, so capping against it puts the road ON the sand and nothing pokes
+   through; measured, it takes the median rise to ~1.0 and the p95 to ~1.2. */
+const MAX_RISE  = 0.9;
 
 /* Left/right edge world position at step i (side = +1 left, -1 right). */
 function edgePos(axis,k,i,side){
@@ -269,6 +317,8 @@ function deckEdge(axis,k,i){
     sum+=envAt(axis,k,i+j)*w;wsum+=w;
   }
   let y=sum/wsum+ROAD_LIFT;
+  const cap=crossMax(axis,k,i)+ROAD_LIFT+MAX_RISE;
+  if(y>cap)y=cap;
   if(overWater(axis,k,i))y=Math.max(WATER_Y+BRIDGE_CLEAR, y);
   y+=overpassLift(axis,k,i*STEP);   // hump up and over at any overpass we're the top of
   cDeck.set(kk,y);return y;
@@ -428,8 +478,13 @@ export function roadsNear(ox,oz,size){
 export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
   const i0=Math.floor(t0/STEP)-1, i1=Math.ceil(t1/STEP)+1;
   const pos=[],uv=[],idx=[];
-  const SLAB=0.4, MAXFILL=1.5;      // thin deck edge; low embankment fills to ground up to
-                                    // MAXFILL, beyond that it's a bridge/overpass on piers
+  /* MAXFILL is how much height difference an EMBANKMENT will swallow before the
+     span is treated as a bridge and put on pillars. It was 1.5, which over any
+     rolling ground meant pillars almost immediately. A real road crossing a dip
+     is built on fill, not on a viaduct — pillars are for water and overpasses —
+     so this now comfortably exceeds MAX_RISE and the two together mean a pier
+     appears only where the deck is genuinely flying. */
+  const SLAB=0.4, MAXFILL=4.2;
   let along=0, vbase=0;
   const grp=new THREE.Group();
 
@@ -450,8 +505,16 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
     // slab on piers rather than a tall solid wall (which read as a chunky slab).
     const lg=heightAt(lx,lz), rg=heightAt(rx,rz);
     const lfill=ly-lg, rfill=ry-rg;
-    const lb = lfill<=MAXFILL ? lg-0.25 : ly-SLAB;
-    const rb = rfill<=MAXFILL ? rg-0.25 : ry-SLAB;
+    /* Is this a BRIDGE — a span over water, or the raised carriageway of an
+       overpass? Those are the only two places a road is allowed to leave the
+       ground, and the only two that get a thin slab on pillars. Everywhere
+       else the skirt is carried all the way down to the terrain however deep
+       the fill, so a crossing reads as an earth embankment. A road on a bank is
+       what the country actually looks like; a road on stilts across open sand
+       is not. */
+    const bridging = overWater(axis,k,i) || overpassLift(axis,k,i*STEP)>0.6;
+    const lb = (!bridging||lfill<=MAXFILL) ? lg-0.25 : ly-SLAB;
+    const rb = (!bridging||rfill<=MAXFILL) ? rg-0.25 : ry-SLAB;
     pos.push(lx, ly, lz);
     pos.push(rx, ry, rz);
     pos.push(lx, lb, lz);
@@ -469,9 +532,9 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
     vbase+=4;
     along+=STEP/TILE_ALONG;
 
-    // A pier goes in where the deck has risen past the embankment reach on both
-    // edges — a genuine bridge/overpass span, carried on slim pillars.
-    if(i%4===0 && lfill>MAXFILL && rfill>MAXFILL){
+    // Pillars only under a real bridge span, and only where it is genuinely
+    // flying — the deck cap above keeps everything else on the ground.
+    if(i%4===0 && bridging && lfill>MAXFILL && rfill>MAXFILL){
       const gh=Math.min(heightAt(p.x,p.z),lg,rg);
       const hgt=y-gh;
       if(hgt>MAXFILL){

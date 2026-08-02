@@ -17,12 +17,18 @@ import { t } from '../i18n.js';
 export const World = { name:'earth' };   // the active world
 let worldHemiBase=0.42;
 
-/* day/night: S.dayF is a smoothed 0..1 (0 night, 1 day); isDay is the discrete phase */
+/* day/night: S.dayF is a smoothed 0..1 (0 night, 1 day); isDay is the discrete phase
+
+   EVERY RUN STARTS AT NIGHT. A saucer is lowered out of a mothership under
+   cover of darkness — that is the premise, the arrival film is lit for it, and
+   the game's whole palette (lit windows, street lamps, the beam as the brightest
+   thing on screen) is built around the dark. Daybreak is something that happens
+   TO you a few minutes in, not the state you begin in. */
 export function dayNightUpdate(dt){
   const DAY_CYCLE=240;                                   // fixed day/night cycle length (s), independent of any time limit
   const cyc=DAY_CYCLE;
   const phase=Math.floor(S.elapsed/cyc);
-  const wantDay=(phase%2===0);                            // first half = day, then alternate
+  const wantDay=(phase%2===1);                            // first half = NIGHT, then alternate
   if(wantDay!==S.isDay){
     S.isDay=wantDay;
     banner(t(wantDay?'banner.daybreak':'banner.nightfall'));

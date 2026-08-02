@@ -70,7 +70,8 @@ export function startGame(opts){
   S.descendT=0;                                        // set by Intro.finish if a film plays
   applyWorld(S.world);
   S.crystals=0;S.missionIdx=0;S.crashReason=null;
-  S.isDay=true;S.dayF=1;S.cloak=false;S.warnLevel=0;S.hover=HOVER_BASE;S.agl=HOVER_BASE;S.beamStr=1;
+  // Every run is deployed after dark — see dayNightUpdate in world/world-config.js.
+  S.isDay=false;S.dayF=0;S.cloak=false;S.warnLevel=0;S.hover=HOVER_BASE;S.agl=HOVER_BASE;S.beamStr=1;
   resetMeteors();
   resetGeysers();
   resetLightning();

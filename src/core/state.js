@@ -14,7 +14,7 @@ export const S={
   taken:0, tally:{},
   world:'earth', energyMode:'inf', energy:1, vy:0,
   crystals:0, missionIdx:0, prevBeam:false, crashReason:null,
-  isDay:true, dayF:1, storyMode:false,
+  isDay:false, dayF:0, storyMode:false,   // runs begin at night (see dayNightUpdate)
   cloak:false, warnLevel:0, elapsed:0,
   tutorial:false,          // guided intro running — suppresses lethal hazards (see hazards/lightning.js)
   tutorialLesson:false,    // ...and still on a taught step: other objectives stay un-arrowed

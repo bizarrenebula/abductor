@@ -315,16 +315,22 @@ function makeMarker(){
   tick.rotation.x=Math.PI; tick.position.y=3.2; g.add(tick);   // ▼ pointing down at the creature
   g.visible=false; scene.add(g); marker=g; return g;
 }
-/* The first catch has to be winnable. Birds fly high and hop in long bounds, and
-   ducks sit out on the water, so neither is a fair thing to learn the beam on —
-   the lesson always targets a SHEEP, and spawns one nearby if the chunk happened
-   not to roll any. Strictly a sheep, so the on-screen hint can name it. */
-let tutSheep=null;
+/* The first catch has to be winnable, and it has to be something that is
+   actually THERE. Every run now starts in deep desert, where the only two
+   animals are the vulture and the camel — and a vulture hovers at 17 and never
+   touches the ground, which is the hardest catch in the game, not the first
+   one. So the lesson targets a CAMEL: it is the one thing on the sand that
+   stands still.
+
+   One is placed nearby if the chunk happened not to roll any. Strictly a camel,
+   so the on-screen hint can name it. */
+let tutSheep=null;                                // (the lesson animal, whatever it is)
+const LESSON_SPECIES='Camel';
 function ensureSheep(){
   let best=null,bd=1e9;
   for(const a of animals){
     if(a.visible===false||!a.parent)continue;
-    if(a.userData.name!=='Sheep')continue;        // not a bird, duck or goat
+    if(a.userData.name!==LESSON_SPECIES)continue;   // not a vulture, bird or duck
     const d=Math.hypot(a.position.x-saucer.position.x,a.position.z-saucer.position.z);
     if(d<bd){bd=d;best=a;}
   }
@@ -336,7 +342,7 @@ function ensureSheep(){
     const a=S.yaw+k*0.45, tx=saucer.position.x+Math.sin(a)*D, tz=saucer.position.z+Math.cos(a)*D;
     if(goodGround(tx,tz)){ x=tx; z=tz; break; }
   }
-  const g=buildAnimal('Sheep');
+  const g=buildAnimal(LESSON_SPECIES);
   g.position.set(x,heightAt(x,z),z);
   g.rotation.y=g.userData.face||0;
   scene.add(g); animals.push(g);
@@ -445,8 +451,8 @@ const steps=[
     say(s){
       if(S.beamLock>0.03) return 'Locked on — hold it steady!';
       if(S.beamPower>0.12) return 'Beam open — centre it on the creature.';
-      return TOUCH?'Fly over the ▼ sheep, then double-tap & HOLD to beam.'
-                  :'Fly over the ▼ sheep, then hold SPACE to beam.';
+      return TOUCH?'Fly over the ▼ camel, then double-tap & HOLD to beam.'
+                  :'Fly over the ▼ camel, then hold SPACE to beam.';
     },
     begin(s){ s.base=S.taken; s.target=null; },
     test(s){ trackMarker(s); return S.taken>s.base; },
@@ -646,7 +652,7 @@ export const Tutorial={
       const i=pickups.indexOf(tutCrystal); if(i>=0)pickups.splice(i,1);
       tutCrystal=null;
     }
-    if(tutSheep){                         // ...and the lesson sheep, if it survived
+    if(tutSheep){                         // ...and the lesson animal, if it survived
       scene.remove(tutSheep);
       const i=animals.indexOf(tutSheep); if(i>=0)animals.splice(i,1);
       tutSheep=null;

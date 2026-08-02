@@ -145,6 +145,18 @@ export function updateHuman(a,u,dt){
     : night ? (S.beamPower>0.4 && d<40)     // night: only the active beam gives you away
     : (d<34 || (S.beamPower>0.4 && d<55));  // day: they spot the ship itself
   if(notice)u.fleeT=1.8;
+  /* PARALYSED. A cloaked ship with the beam already open is not something you
+     run from: nothing announced itself, the light simply arrived, and whatever
+     is under it is too frightened to move. This cancels a panic already in
+     progress as well as preventing a new one — the case that prompted it was a
+     villager who bolted as the cloak dropped and kept running for the whole
+     1.8s of flee time while the beam had them. */
+  const held = S.cloak && (u.progress>0.001 || (S.beamPower>0.4 && d<26));
+  if(held){
+    u.fleeT=0; u.bolt=null;
+    a.position.y=heightAt(a.position.x,a.position.z);
+    return;
+  }
   if(u.fleeT>0){
     u.fleeT-=dt;
     let tx=a.position.x+dx/d*12, tz=a.position.z+dz/d*12;   // default: away

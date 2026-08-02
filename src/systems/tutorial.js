@@ -22,8 +22,10 @@ import { animals, pickups } from '../entities/registry.js';
 import { buildCrystal } from '../entities/crystals.js';
 import { buildAnimal } from '../entities/animals.js';
 import { buildHuman } from '../entities/humans.js';
+import { upgradeItems } from '../entities/upgradeItems.js';
 import { banner } from '../ui/banner.js';
 import { Special } from './special.js';
+import { Upgrades, UP_ITEMS } from './upgrades.js';
 import { mark as markWaypoint, objectiveGlow, updateGlow } from './waypoints.js';
 import { lanePoint, laneHeading } from '../world/lane.js';
 import { regionAt, WILD, URBAN } from '../world/regions.js';
@@ -322,6 +324,37 @@ function crossStep(key,task,want,line){
     end(){ if(beacon)beacon.visible=false; } };
 }
 
+/* A "go and get it" step for one ship module. The module is already out in the
+   world on the lane like every other; if it landed several legs away the step
+   brings it into this land instead — the lesson is the pickup, not the commute,
+   and it is the same module in the same run, just closer. */
+function fetchStep(key,task,line){
+  return { key:'get_'+key, task, hud:{map:true,equip:true,point:'equip'},
+    say(s){
+      if(!s.item)return line;
+      const d=Math.round(Math.hypot(saucer.position.x-s.item.position.x,
+                                    saucer.position.z-s.item.position.z));
+      return line+' — '+d+' m. Fly over it to take it aboard.';
+    },
+    begin(s){
+      s.item=upgradeItems.find(o=>o.userData.key===key)||null;
+      if(s.item){
+        const d=Math.hypot(s.item.position.x-saucer.position.x,s.item.position.z-saucer.position.z);
+        if(d>420){
+          const D=190;
+          for(let k=0;k<16;k++){
+            const a=S.yaw+k*0.4, x=saucer.position.x+Math.sin(a)*D, z=saucer.position.z+Math.cos(a)*D;
+            if(goodGround(x,z)){ s.item.position.set(x,Math.max(heightAt(x,z),0),z); break; }
+          }
+        }
+      }
+    },
+    test(s){
+      if(s.item&&s.item.parent)markWaypoint(s.item.position,'#'+UP_ITEMS[key].col.toString(16).padStart(6,'0'),18);
+      return !!Upgrades.items[key];
+    } };
+}
+
 /* ---- the reading steps ---------------------------------------------------
    The closing steps are not tasks, they are text, and they hold for a fixed ten
    seconds each. A tap-to-advance version read better on paper and worse in the
@@ -508,8 +541,14 @@ const steps=[
      another land. Nothing to beam out here worth learning on: the sand holds
      vultures, which never touch the ground, and camels, which are a long walk
      apart. The lesson is over there. */
+  /* Thrusters, here, while the flying is still the lesson. */
+  fetchStep('thrusters','Something is missing',
+    'A piece of the ship came down out on the sand'),
   crossStep('toWild','Leave the desert',WILD,
     'Green country lies that way. Fly to the beacon'),
+  /* ...the beam, before there is anything to beam. */
+  fetchStep('beam','Pick up the light',
+    'Another piece is lying in the grass'),
   { key:'beam', task:'Beam up a creature', joy:{side:'right',anim:'beam'}, hud:{},
     say(s){
       if(S.beamLock>0.03) return 'Locked on — hold it steady!';
@@ -550,14 +589,20 @@ const steps=[
      what only this land has: people. */
   crossStep('toUrban','Find the towns',URBAN,
     'Roads and rooftops that way. Fly to the beacon'),
-  /* 8 — THE CLOAK, taught on the one quarry that runs.
+  /* Modules are FETCHED, each one at the moment it becomes the thing you need
+     next: thrusters while learning to fly, the beam before there is anything to
+     beam, the cloak before the first quarry that runs. Earning the tool before
+     being taught the trick is the right order — it makes each one a thing the
+     player owns rather than a thing they were handed, and it teaches the habit
+     the whole run depends on: the ship is incomplete and its pieces are lying
+     about in the world. See fetchStep. */
+  fetchStep('cloak','Go and get the last one',
+    'The last piece is down there among the rooftops'),
+  /* AND NOW USE IT, on the one quarry that runs.
 
      Everything up to here stood still and waited to be taken. A person hears
-     the ship and bolts, and the beam cannot hold what is already moving — which
-     is the whole reason the cloak exists and the reason it is taught last,
-     here, over a town. The module is granted for the lesson; a run has to find
-     it out in the world. */
-  { key:'cloak', task:'Go quiet', hud:{map:true,point:'pull'},
+     the ship and bolts — so you arrive without being heard. */
+  { key:'cloak', task:'Go quiet', hud:{map:true,equip:true,point:'pull'},
     say(s){
       if(!s.didCloak)
         return TOUCH?'Those are people down there, and they run. HOLD the ship itself to go dark.'
@@ -566,17 +611,13 @@ const steps=[
         return 'Cloak dropped. Go dark again and stay that way while you close in.';
       return 'Invisible. Slide over someone and take them before they look up.';
     },
-    begin(s){
-      s.base=S.taken; s.didCloak=false;
-      s.hadCloak=S.upCloak; S.upCloak=true;      // lent for the lesson
-      s.target=null;
-    },
+    begin(s){ s.base=S.taken; s.didCloak=false; s.target=null; },
     test(s){
       if(S.cloak)s.didCloak=true;
       trackHuman(s);
       return s.didCloak&&S.taken>s.base;
     },
-    end(s){ if(marker)marker.visible=false; if(!s.hadCloak)S.upCloak=false; S.cloak=false; } },
+    end(){ if(marker)marker.visible=false; S.cloak=false; } },
 
   /* 8..12 — the reading steps.
 
@@ -689,7 +730,7 @@ export const Tutorial={
     // refresh the dynamic line (e.g. the beacon distance, a dwell countdown)
     build().doo.textContent=st.say(this._s);
     if(st.test(this._s,dt)){
-      if(st.end)st.end();
+      if(st.end)st.end(this._s);   // steps that lend state back need it
       this._i++;
       if(this._i>=steps.length){ this._roamPhase(); return; }
       this._begin();

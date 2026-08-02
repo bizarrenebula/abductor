@@ -76,6 +76,16 @@ import { Intro } from './systems/intro.js';
 import { renderWaypoints, clearWaypoints } from './systems/waypoints.js';
 import { FlightModel } from './systems/flight.js';
 import { resetFlightInput } from './systems/flight-input.js';
+
+/* One "you haven't got that yet" message per few seconds per module, so holding
+   the control is a single line rather than a strobe. */
+const _lockT={};
+function lockedHint(which){
+  const now=performance.now();
+  if(_lockT[which]&&now-_lockT[which]<3200)return;
+  _lockT[which]=now;
+  banner(tr('upg.locked.'+which));   // `t` is local time in animate(); tr is i18n
+}
 import { CameraRig } from './systems/camera-rig.js';
 import { FLIGHT_PROFILE } from './systems/flight-profile.js';
 import { flightInputFrom } from './systems/flight-input.js';
@@ -233,10 +243,22 @@ function animate(){
     /* ---- beam hold: pointer down or space ----
        The beam works from the very start, but a raw beam DRAINS the reactor
        every second it's open; finding the Plasma Beam module makes it free. ---- */
-    const beamWant=input.beamHold||held('beam')||Special.active;
-    const beamOn=beamWant;
-    // Opening the beam breaks cloak — you cannot feed while invisible (req 1).
-    if(beamOn&&S.cloak){S.cloak=false;beep(300,0.14,0.06);}
+    /* THE MODULES ACTUALLY GATE THE SHIP NOW. They used to cost only an extra
+       trickle of energy, which made "your ship came down incomplete" a line of
+       flavour text rather than a fact — a player who skipped the tutorial could
+       do everything on the first night. Without the tractor beam there is no
+       beam; without thrusters there is no climb; the cloak was already gated in
+       toggleCloak. Each refusal says which module is missing, throttled so
+       holding the key is one message rather than sixty a second. */
+    const beamWant=(input.beamHold||held('beam'))&&S.upHasBeam;
+    if((input.beamHold||held('beam'))&&!S.upHasBeam)lockedHint('beam');
+    const beamOn=beamWant||Special.active;   // the mass pull is its own thing
+    /* The beam used to break cloak outright — "you cannot feed while
+       invisible". That rule is gone, because it made the interesting move
+       impossible: sliding over a town unseen and taking someone before anyone
+       looks up. Cloaked feeding now works, and it PARALYSES rather than
+       panicking (see updateHuman) — nothing announced itself, the light simply
+       arrived, and you do not run from something you cannot see. */
     S.beamPower=lerp(S.beamPower,beamOn?1:0,Math.min(1,dt*7));
     if(beamOn&&!S.prevBeam)BeamSFX.start();
     if(!beamOn&&S.prevBeam)BeamSFX.stop();
@@ -285,6 +307,10 @@ function animate(){
         flight._base.y+=(S.descendY-flight._base.y)*(1-Math.exp(-dt*0.85));
         if(flight.velocity.y>0)flight.velocity.y=0;
       }
+    }
+    if(!S.upAltitude){
+      if(Math.abs(fin.verticalRaw||0)>0.02)lockedHint('alt');
+      fin.vertical=0; fin.verticalRaw=0;
     }
     flight.update(dt,fin);
     saucer.position.copy(flight.position);

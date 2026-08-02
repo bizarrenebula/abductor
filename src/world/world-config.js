@@ -24,7 +24,27 @@ let worldHemiBase=0.42;
    the game's whole palette (lit windows, street lamps, the beam as the brightest
    thing on screen) is built around the dark. Daybreak is something that happens
    TO you a few minutes in, not the state you begin in. */
+/* THE GAME IS NIGHT-ONLY.
+
+   A saucer is lowered out of a mothership under cover of darkness because that
+   is when it is least likely to be noticed — that is the premise, the arrival
+   film is lit for it, and the whole palette (lit windows, street lamps, the
+   beam as the brightest thing on screen) is built around the dark. A cycle that
+   rolled round to noon every four minutes kept undoing all of it.
+
+   The daylight code below is NOT deleted, only switched off at one point. The
+   cycle, the two sky palettes, the fog lerp and every f-weighted term in
+   applyDayNightLight still work exactly as written; they simply never see an f
+   above zero while DAY_NIGHT is false. Flip this back on and daylight returns
+   whole, which is the point of leaving it here. */
+export const DAY_NIGHT = false;
+
 export function dayNightUpdate(dt){
+  if(!DAY_NIGHT){
+    // Pinned, not lerped: there is nothing to ease toward and no banner to fire.
+    S.isDay=false; S.dayF=0;
+    return;
+  }
   const DAY_CYCLE=240;                                   // fixed day/night cycle length (s), independent of any time limit
   const cyc=DAY_CYCLE;
   const phase=Math.floor(S.elapsed/cyc);

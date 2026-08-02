@@ -28,6 +28,7 @@ import { THREE } from '../core/three.js';
 import { WATER_Y, MTN_H, RESTRICT_R } from '../core/constants.js';
 import { heightAt } from './terrain.js';
 import { regionWeights } from './regions.js';
+import { smoothstep } from '../core/math.js';
 
 /* ---------- where roads exist at all ----------
    Roads belong to the URBAN region and nowhere else. The corridor grid is still
@@ -38,7 +39,55 @@ import { regionWeights } from './regions.js';
    Everything keys off roadDist(), which returns Infinity off-network, so the
    dozens of "keep clear of the tarmac" tests scattered through the world
    builders all follow automatically without knowing why. */
-export function roadHere(x,z){ return regionWeights(x,z).urb>0.5; }
+/* How much road there is at a point, 0..1 — a WIDTH, not a yes/no.
+
+   The first version of this was a boolean and it looked exactly as bad as it
+   sounds: a full-width carriageway running at speed into the edge of the
+   desert and stopping square, mid-nowhere, with the sand carrying on. A road
+   that ends has to end like a road ends — narrowing to a track, then to a pair
+   of ruts, then to nothing. So the deck's half-width is scaled by this and the
+   last stretch tapers itself out.
+
+   The three lands get three different networks:
+
+     URBAN      the full grid. This is the region that HAS roads.
+     WILDERNESS one corridor in three, hashed on (axis,k) so it is the same
+                corridors every time — the lanes that carry on out of town
+                toward the next one, rather than a grid nobody built.
+     DESERT     none, ever.
+
+   Because a wilderness lane is the same corridor as the urban one it continues,
+   a road leaving town keeps going into the country and only gives out where the
+   sand starts. That is what stops it ending in nothing. */
+const WILD_SHARE = 0.34;      // fraction of corridors that carry on into wilderness
+export function corridorRuns(axis,k){
+  // deterministic per corridor, and stable across chunks and reloads
+  let h=Math.imul((k/ROAD_S)|0,668265263)^(axis==='x'?0x9e3779b9:0x85ebca6b);
+  h=Math.imul(h^(h>>>13),1274126177);
+  return (((h^(h>>>16))>>>0)/4294967296)<WILD_SHARE;
+}
+/* The taper. 1 in full urban, easing to 0 through the blend; in wilderness the
+   same but only for corridors that run, and capped a little narrower because a
+   country lane is not a town street. Desert is hard zero. */
+export function roadWidth(x,z,axis,k){
+  const W=regionWeights(x,z);
+  /* The sand fade has to be GRADUAL. A hard cut-off measured out at a median
+     ending width of 1.0 — every road in the world stopping at full width, which
+     is precisely the thing that looked wrong. Tapering across the blend band
+     instead means the tarmac narrows to a track, then to a pair of ruts, then to
+     nothing, the way a road actually gives out at the edge of a desert. */
+  const sand=1-smoothstep(0.10,0.40,W.des);
+  if(sand<=0)return 0;
+  const urb=smoothstep(0.22,0.58,W.urb);
+  const runs=(axis===undefined)||corridorRuns(axis,k);
+  /* 0.62, not 1: a country lane is not a town street. Roads are meant to be a
+     thread the player can follow to find somewhere, not a feature to look at,
+     so out here they are narrow enough to read as a route and no wider. */
+  const base=runs?Math.max(urb,0.62):urb;
+  return base*sand;
+}
+/* Boolean form, for the dozens of "is there tarmac here" tests. */
+export function roadHere(x,z){ return roadWidth(x,z)>0.12; }
 
 export const ROAD_S    = 300;   // spacing between parallel corridors (wider = fewer roads)
 /* The corridor grid is offset by half a spacing, so NO corridor line runs
@@ -431,6 +480,8 @@ function nearestRoad(x,z){
     const c=(axis==='x')?z:x, t=(axis==='x')?x:z;
     const k0=kAt(Math.ceil((c-MAXDEV-ROAD_HW-ROAD_K0)/ROAD_S));
     for(let k=k0;k<=c+MAXDEV+ROAD_HW;k+=ROAD_S){
+      // a corridor that does not run out here has no tarmac to be near
+      if(roadWidth(x,z,axis,k)<=0.12)continue;
       const sp=roadSample(axis,k,t);
       const d=Math.hypot(sp.x-x,sp.z-z);
       if(d<bd){bd=d;by=sp.y;}
@@ -439,13 +490,12 @@ function nearestRoad(x,z){
   return {d:bd,y:by};
 }
 export function roadHeightAt(x,z){
-  if(!roadHere(x,z))return -Infinity;      // no deck out here to ride over
   const n=nearestRoad(x,z);
-  return n.d<ROAD_HW+1.2 ? n.y : -Infinity;
+  return n.d<ROAD_HW+1.2 ? n.y : -Infinity;   // nearestRoad already skips corridors that do not run
 }
 /* Horizontal distance to the nearest carriageway centre line, or Infinity.
    Used to keep scenery off the tarmac and its verges. */
-export function roadDist(x,z){ return roadHere(x,z)?nearestRoad(x,z).d:Infinity; }
+export function roadDist(x,z){ return nearestRoad(x,z).d; }
 
 /* ---------- crossroads ----------
    The network is a grid, so an X-corridor (k=kz) and a Z-corridor (k=kx) meet
@@ -465,7 +515,8 @@ export function junctionsIn(ox,oz,size){
       const d=Math.abs(a.x-b.x);
       if(d<best){best=d;bx=(a.x+b.x)*0.5;bz=a.z;by=Math.max(a.y,b.y);ang=Math.atan2(a.fx,a.fz);}
     }
-    if(best<ROAD_HW*1.7 && roadHere(bx,bz)){
+    // a junction needs BOTH arms to actually exist here
+    if(best<ROAD_HW*1.7 && roadWidth(bx,bz,'x',kz)>0.5 && roadWidth(bx,bz,'z',kx)>0.5){
       const m=junctionMode(kx,kz);
       out.push({x:bx,y:by,z:bz,ang,overpass:m.overpass,over:m.over});   // they really meet -> a junction
     }
@@ -509,8 +560,14 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
     // Flat grade: both edges share one level, so the carriageway is level
     // across its width (no bank) and level along the flats, easing only over
     // long distances. Terrain is met by a fill skirt, gaps by piers.
-    const lx=p.x+nx*ROAD_HW, lz=p.z+nz*ROAD_HW;
-    const rx=p.x-nx*ROAD_HW, rz=p.z-nz*ROAD_HW;
+    /* The carriageway TAPERS. roadWidth is a width, not a flag, so a lane
+       leaving town narrows through the blend into a track and then into
+       nothing — instead of a full-width road stopping square in open country,
+       which is what this looked like before and was the whole complaint. */
+    const w=roadWidth(p.x,p.z,axis,k);
+    const HW=ROAD_HW*w;
+    const lx=p.x+nx*HW, lz=p.z+nz*HW;
+    const rx=p.x-nx*HW, rz=p.z-nz*HW;
     const y=deckEdge(axis,k,i);
     const ly=y, ry=y;
     // A shallow fill reaches the ground as a low embankment; once the deck sits
@@ -537,7 +594,7 @@ export function buildRoadMesh(axis,k,t0,t1,deckMat,pierMat){
        the strip's indexing stays simple; what is skipped is the pair of
        triangles joining this rib to the last, so the ribbon simply stops at the
        edge of town instead of running on across the sand. */
-    const on=roadHere(p.x,p.z);
+    const on=w>0.12;
     if(i>i0 && on && wasOn){
       const a=vbase-4, b=vbase;
       // Winding matters: with the deck wound the other way its normal points

@@ -21,9 +21,12 @@ import { heightAt, goodGround } from '../world/terrain.js';
 import { animals, pickups } from '../entities/registry.js';
 import { buildCrystal } from '../entities/crystals.js';
 import { buildAnimal } from '../entities/animals.js';
+import { buildHuman } from '../entities/humans.js';
 import { banner } from '../ui/banner.js';
 import { Special } from './special.js';
 import { mark as markWaypoint, objectiveGlow, updateGlow } from './waypoints.js';
+import { lanePoint } from '../world/lane.js';
+import { regionAt, WILD, URBAN } from '../world/regions.js';
 
 const TOUCH = TOUCH_ONLY;   // pick touch vs keyboard wording for the hints
 
@@ -271,6 +274,44 @@ function placeBeacon(x,z){
   b.position.set(x,heightAt(x,z),z); b.visible=true;
 }
 
+/* ---- crossing into a land ------------------------------------------------
+   The tutorial is a journey now, not a checklist: the ship is set down in the
+   desert, learns to fly there, crosses into the wilderness to learn the beam on
+   something that stands still, and crosses again into settled country to learn
+   the cloak on people who run. Each act is taught where its lesson belongs,
+   which is also the reason the lane exists — world/lane.js already guarantees
+   the route passes through all three (measured 40/40 seeds). */
+function nextLandPoint(want){
+  // walk out along the lane and take the first point standing in `want`
+  for(let i=0;i<14;i++){
+    const pt=lanePoint(i);
+    if(regionAt(pt.x,pt.z)===want)return pt;
+  }
+  // the lane never gets there (should not happen): sweep outward from the ship
+  for(let r=500;r<6000;r+=250)for(let k=0;k<12;k++){
+    const a=k/12*Math.PI*2;
+    const x=saucer.position.x+Math.cos(a)*r, z=saucer.position.z+Math.sin(a)*r;
+    if(regionAt(x,z)===want&&goodGround(x,z))return {x,z};
+  }
+  return null;
+}
+/* A "get there" step: a beacon on the far land, done when the ship is standing
+   in it. Shared by both crossings so the two read identically. */
+function crossStep(key,task,want,line){
+  return { key, task, joy:{side:'right',anim:'move'}, hud:{map:true},
+    say(s){
+      if(!s.pt)return line;
+      const d=Math.round(Math.hypot(saucer.position.x-s.pt.x,saucer.position.z-s.pt.z));
+      return line+' — '+d+' m.';
+    },
+    begin(s){ s.pt=nextLandPoint(want); if(s.pt)placeBeacon(s.pt.x,s.pt.z); },
+    test(s){
+      if(beacon&&beacon.visible){updateBeacon(performance.now()*0.001);markWaypoint(beacon.position,'#6cf0c4',24);}
+      return regionAt(saucer.position.x,saucer.position.z)===want;
+    },
+    end(){ if(beacon)beacon.visible=false; } };
+}
+
 /* ---- the reading steps ---------------------------------------------------
    The closing steps are not tasks, they are text, and they hold for a fixed ten
    seconds each. A tap-to-advance version read better on paper and worse in the
@@ -299,15 +340,16 @@ function makeMarker(){
 }
 /* The first catch has to be winnable, and it has to be something that is
    actually THERE. Every run now starts in deep desert, where the only two
-   animals are the vulture and the camel — and a vulture hovers at 17 and never
-   touches the ground, which is the hardest catch in the game, not the first
-   one. So the lesson targets a CAMEL: it is the one thing on the sand that
-   stands still.
+   animals are the vulture and the camel — a vulture hovers at 17 and never
+   touches the ground, and camels are a kilometre apart. So the beam lesson does
+   not happen in the desert at all: the tutorial walks the player into the
+   WILDERNESS first, and teaches it on a SHEEP, which stands still and comes in
+   flocks.
 
    One is placed nearby if the chunk happened not to roll any. Strictly a camel,
    so the on-screen hint can name it. */
 let tutSheep=null;                                // (the lesson animal, whatever it is)
-const LESSON_SPECIES='Camel';
+const LESSON_SPECIES='Sheep';
 function ensureSheep(){
   let best=null,bd=1e9;
   for(const a of animals){
@@ -331,6 +373,42 @@ function ensureSheep(){
   tutSheep=g;
   return g;
 }
+/* The cloak lesson wants a PERSON under the marker, not a sheep — they are the
+   only quarry that runs, which is the entire point of the lesson. */
+let tutHuman=null;
+function trackHuman(s){
+  const m=makeMarker();
+  const ok=a=>a&&a.parent&&a.visible!==false;
+  if(!ok(s.target)){
+    let best=null,bd=1e9;
+    for(const a of animals){
+      if(!ok(a)||!a.userData.humanKind)continue;
+      const d=Math.hypot(a.position.x-saucer.position.x,a.position.z-saucer.position.z);
+      if(d<bd){bd=d;best=a;}
+    }
+    /* Nobody about. The lesson cannot be "wait until a villager wanders past",
+       so put one on the ground a short flight away — exactly what ensureSheep
+       does for the beam step, and for the same reason. */
+    if(!best||bd>240){
+      const D=120;
+      let x=saucer.position.x+Math.sin(S.yaw)*D, z=saucer.position.z+Math.cos(S.yaw)*D;
+      for(let k=0;k<14;k++){
+        const a=S.yaw+k*0.45, tx=saucer.position.x+Math.sin(a)*D, tz=saucer.position.z+Math.cos(a)*D;
+        if(goodGround(tx,tz)){ x=tx; z=tz; break; }
+      }
+      const g=buildHuman('hiker');
+      g.position.set(x,heightAt(x,z),z);
+      g.rotation.y=g.userData.face||0;
+      scene.add(g); animals.push(g); tutHuman=g; best=g;
+    }
+    s.target=best;
+  }
+  if(s.target){ m.visible=true;
+    const bob=Math.sin(performance.now()*0.005)*0.5;
+    m.position.set(s.target.position.x,s.target.position.y+5+bob,s.target.position.z);
+  } else m.visible=false;
+}
+
 /* Keep the marker floating over the creature the lesson wants beamed. */
 function trackMarker(s){
   const m=makeMarker();
@@ -416,32 +494,18 @@ const steps=[
     begin(s){ s.minY=s.maxY=saucer.position.y; },
     test(s){ const y=saucer.position.y; if(y<s.minY)s.minY=y; if(y>s.maxY)s.maxY=y;
              return s.maxY-s.minY>=22; } },
-  { key:'nav', task:'Navigate the world', joy:{side:'right',anim:'move'}, hud:{},
-    say(s){ const d=Math.round(Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z));
-            return 'Fly to the glowing beacon — '+d+' m away.'; },
-    begin(s){
-      // Far enough that the player has to actually fly there, and on decent
-      // ground rather than mid-lake or up a cliff. Sweep the heading for a
-      // usable spot, falling back to straight ahead.
-      const D=260;
-      let bx=saucer.position.x+Math.sin(S.yaw+0.9)*D, bz=saucer.position.z+Math.cos(S.yaw+0.9)*D;
-      for(let k=0;k<14;k++){
-        const a=S.yaw+0.9+k*0.45, x=saucer.position.x+Math.sin(a)*D, z=saucer.position.z+Math.cos(a)*D;
-        if(goodGround(x,z)){ bx=x; bz=z; break; }
-      }
-      placeBeacon(bx,bz); },
-    test(s){
-      // an on-screen arrow points the way for as long as the beacon is the goal
-      updateBeacon(performance.now()*0.001);
-      markWaypoint(beacon.position,'#6cf0c4',24);
-      return Math.hypot(saucer.position.x-beacon.position.x,saucer.position.z-beacon.position.z)<24; },
-    end(){ if(beacon)beacon.visible=false; } },
+  /* 4 — OUT OF THE DESERT. The first real journey, and the first sight of
+     another land. Nothing to beam out here worth learning on: the sand holds
+     vultures, which never touch the ground, and camels, which are a long walk
+     apart. The lesson is over there. */
+  crossStep('toWild','Leave the desert',WILD,
+    'Green country lies that way. Fly to the beacon'),
   { key:'beam', task:'Beam up a creature', joy:{side:'right',anim:'beam'}, hud:{},
     say(s){
       if(S.beamLock>0.03) return 'Locked on — hold it steady!';
       if(S.beamPower>0.12) return 'Beam open — centre it on the creature.';
-      return TOUCH?'Fly over the ▼ camel, then double-tap & HOLD to beam.'
-                  :'Fly over the ▼ camel, then hold SPACE to beam.';
+      return TOUCH?'Fly over the ▼ sheep, then double-tap & HOLD to beam.'
+                  :'Fly over the ▼ sheep, then hold SPACE to beam.';
     },
     begin(s){ s.base=S.taken; s.target=null; },
     test(s){ trackMarker(s); return S.taken>s.base; },
@@ -472,6 +536,38 @@ const steps=[
     },
     begin(s){ s.used=false; Special.charge=1; },   // hand them a full charge to try it
     test(s){ if(Special.active)s.used=true; return s.used; } },
+  /* 7 — INTO SETTLED COUNTRY. The second crossing, and the last lesson needs
+     what only this land has: people. */
+  crossStep('toUrban','Find the towns',URBAN,
+    'Roads and rooftops that way. Fly to the beacon'),
+  /* 8 — THE CLOAK, taught on the one quarry that runs.
+
+     Everything up to here stood still and waited to be taken. A person hears
+     the ship and bolts, and the beam cannot hold what is already moving — which
+     is the whole reason the cloak exists and the reason it is taught last,
+     here, over a town. The module is granted for the lesson; a run has to find
+     it out in the world. */
+  { key:'cloak', task:'Go quiet', hud:{map:true,point:'pull'},
+    say(s){
+      if(!s.didCloak)
+        return TOUCH?'Those are people down there, and they run. HOLD the ship itself to go dark.'
+                    :'Those are people down there, and they run. Press C to go dark.';
+      if(!S.cloak)
+        return 'Cloak dropped. Go dark again and stay that way while you close in.';
+      return 'Invisible. Slide over someone and take them before they look up.';
+    },
+    begin(s){
+      s.base=S.taken; s.didCloak=false;
+      s.hadCloak=S.upCloak; S.upCloak=true;      // lent for the lesson
+      s.target=null;
+    },
+    test(s){
+      if(S.cloak)s.didCloak=true;
+      trackHuman(s);
+      return s.didCloak&&S.taken>s.base;
+    },
+    end(s){ if(marker)marker.visible=false; if(!s.hadCloak)S.upCloak=false; S.cloak=false; } },
+
   /* 8..12 — the reading steps.
 
      The wording here is deliberately not a manual. An earlier pass spelled the
@@ -624,6 +720,11 @@ export const Tutorial={
       scene.remove(tutCrystal);
       const i=pickups.indexOf(tutCrystal); if(i>=0)pickups.splice(i,1);
       tutCrystal=null;
+    }
+    if(tutHuman){                         // ...the lesson bystander, if uncollected
+      scene.remove(tutHuman);
+      const i=animals.indexOf(tutHuman); if(i>=0)animals.splice(i,1);
+      tutHuman=null;
     }
     if(tutSheep){                         // ...and the lesson animal, if it survived
       scene.remove(tutSheep);

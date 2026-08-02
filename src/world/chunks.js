@@ -190,7 +190,7 @@ export function buildChunk(cx,cz){
       if(w==='water'){
         if(!goodGround(wx,wz,{water:true,slope:0.6}))continue;   // shallows, not mid-lake or a steep bank
         species='Duck';
-      }else if(w==='desert'){
+      }else if(sm.wDes>0.5){
         /* THE DESERT'S ONLY WILDLIFE IS THE VULTURE. Nothing grazes on sand and
            nothing small lives on it either — a few big slow shapes turning high
            up and the occasional camel is the whole population, and that
@@ -199,6 +199,8 @@ export function buildChunk(cx,cz){
         // camels want ground a camel could stand on; vultures do not care
         species=(Math.random()<0.42&&slopeAt(wx,wz)<0.4)?'Camel':'Vulture';
       }else if(w==='mountain'||w==='canyon'||sm.h>MTN_H-4){
+        // high ground only ever occurs in the wilderness, so its bird is the
+        // wilderness bird
         if(Math.random()>0.20)continue;
         species='Bird';
       }else{
@@ -207,9 +209,16 @@ export function buildChunk(cx,cz){
         if(slopeAt(wx,wz)>0.5)continue;
         if(Math.random()>0.58-sm.wUrb*0.18)continue;
         const r=Math.random();
-        /* Each land has its own catch. WILDERNESS is flocks and the people who
-           keep them; SETTLED COUNTRY has no flocks at all, so what walks about
-           there is people, with the same birds overhead in both. */
+        /* Each land has its own catch and NOTHING crosses. The test is on the
+           region WEIGHT rather than on the terrain biome, because a biome label
+           flips at the middle of the blend while the weight is what actually
+           says which land this is — keying off the label let a vulture spawn on
+           sand that was already wilderness underneath.
+
+           WILDERNESS is flocks and the people who keep them; SETTLED COUNTRY has
+           no flocks at all, so what walks about there is people. Birds are in
+           both by design (they are the one thing that is genuinely everywhere);
+           the vulture and the camel are desert-only, the sheep wilderness-only. */
         if(sm.wUrb>0.5) species=r<0.42?'Bird':'@human';
         else            species=r<0.16?'Bird':r<0.74?'Sheep':'@human';
       }

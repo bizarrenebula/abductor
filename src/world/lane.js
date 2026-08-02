@@ -27,6 +27,7 @@
    ========================================================================= */
 import { worldSeed } from './noise.js';
 import { sample, goodGround } from './terrain.js';
+import { regionAt } from './regions.js';
 import { S } from '../core/state.js';
 
 /* Geometry of the lane. */
@@ -41,10 +42,41 @@ function hash(i,k){
   return ((h^(h>>>16))>>>0)/4294967296;
 }
 
-/* The lane's overall heading, fixed per world. Everything is laid out relative
-   to it, so a run always has a direction — "out that way" — rather than a
-   scatter with the ship in the middle of it. */
-export function laneHeading(){ return hash(0,7)*Math.PI*2; }
+/* The lane's overall heading, fixed per world — and CHOSEN, not rolled.
+
+   A random bearing out of a desert start is a coin toss on whether the run ever
+   leaves the sand. The point of laying items on a lane is that the lane is the
+   route, so the route may as well be the one that shows the player the world:
+   candidate headings are scored on how many of the three regions the lane
+   actually crosses, and the best one wins. Ties go to the candidate that spends
+   its distance most evenly between them, so a lane does not clip a corner of
+   the third region in its last hundred metres and call that a visit.
+
+   Deterministic and memoised: a run's heading is a pure function of the seed,
+   computed once, and the scoring never runs again. */
+let _head=null, _headSeed=-1;
+export function laneHeading(){
+  if(_headSeed===worldSeed&&_head!==null)return _head;
+  const N=24, PROBE=10;
+  let best=null;
+  for(let c=0;c<N;c++){
+    // start from the hashed bearing so the sweep is still seed-dependent
+    const a=hash(0,7)*Math.PI*2 + c/N*Math.PI*2;
+    const ca=Math.cos(a), sa=Math.sin(a);
+    const seen=[0,0,0];
+    for(let i=0;i<PROBE;i++){
+      const L=laneLocal(i);
+      seen[regionAt(S.spawnX+ca*L.fwd-sa*L.lat, S.spawnZ+sa*L.fwd+ca*L.lat)]++;
+    }
+    const kinds=seen.filter(v=>v>0).length;
+    // evenness: the smallest share, so a one-probe cameo scores near zero
+    const even=Math.min(...seen)/PROBE;
+    const score=kinds*10+even;
+    if(!best||score>best.score)best={a,score,kinds};
+  }
+  _head=best.a; _headSeed=worldSeed;
+  return _head;
+}
 
 /* The i-th point on the lane (i = 0 is the first thing to find), in lane space:
    `fwd` along the heading, `lat` across it. Kept separate from world space so

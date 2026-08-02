@@ -17,24 +17,25 @@ const mmCtx=mmCanvas&&mmCanvas.getContext('2d');
 const MM_RANGE=340;
 let mmSweep=0;
 
-/* ---- region wash -------------------------------------------------------
-   A translucent tint under everything else showing which of the three lands
-   the ground belongs to: yellow desert, green wilderness, blue urban. It is
-   painted from the region WEIGHTS rather than the dominant label, so a border
-   comes out as a gradient on the map exactly as it is underfoot.
+/* ---- the land you are in, as a background tint -------------------------
+   Yellow desert, green wilderness, blue urban. A flat tint rather than a
+   per-texel wash: a region is ~6km across and the map reaches 340m, so a
+   painted wash was one flat colour nine times in ten anyway — it cost ~800
+   noise samples a refresh to say what one sample says.
 
-   Rendered into a tiny offscreen canvas and scaled up: at 28x28 the whole wash
-   is 784 noise samples, and the browser's bilinear upscale does the smoothing
-   for free. It is refreshed a few times a second and only after the ship has
-   actually moved — regions are kilometres across, so there is nothing to see
-   at 60Hz. The buffer is world-axis-aligned and drawn under a rotation, which
-   is what keeps it registered with the heading-up markers. */
-const RGN_N=28;
-const rgCan=document.createElement('canvas'); rgCan.width=rgCan.height=RGN_N;
-const rgCtx=rgCan.getContext('2d');
-const rgImg=rgCtx.createImageData(RGN_N,RGN_N);
+   The one sample is taken as WEIGHTS, not as a label, so crossing a border
+   fades the map from one colour to the next over the width of the blend instead
+   of snapping. What lies beyond the map is the rim's job, below. */
 const RGN_COL={des:[236,196,62], wild:[58,196,84], urb:[70,140,240]};
-let rgX=1e9, rgZ=1e9, rgT=0;
+const RGN_KEY=['wild','des','urb'];
+const rgbCss=(c,al)=>'rgba('+(c[0]|0)+','+(c[1]|0)+','+(c[2]|0)+','+al+')';
+const _tint=[0,0,0];
+function regionTint(sx,sz){
+  const W=regionWeights(sx,sz);
+  for(let i=0;i<3;i++)
+    _tint[i]=RGN_COL.des[i]*W.des+RGN_COL.wild[i]*W.wild+RGN_COL.urb[i]*W.urb;
+  return _tint;
+}
 
 /* ---- the rim: which lands are around you ------------------------------
    A region is ~6km across and the map reaches 340m, so the wash almost always
@@ -75,8 +76,6 @@ function refreshNeighbours(sx,sz,dt){
   }
   nbr=[0,1,2].filter(r=>r!==here&&best[r]).map(r=>({region:r,d:best[r].d,a:best[r].a}));
 }
-const RGN_KEY=['wild','des','urb'];
-const rgbCss=(c,al)=>'rgba('+c[0]+','+c[1]+','+c[2]+','+al+')';
 function refreshRegionWash(sx,sz,dt){
   rgT-=dt;
   if(rgT>0 && Math.abs(sx-rgX)<10 && Math.abs(sz-rgZ)<10)return;
@@ -103,15 +102,8 @@ export function drawMinimap(dt){
   mmCtx.clearRect(0,0,W,H);
   mmCtx.save();mmCtx.beginPath();mmCtx.arc(cx,cy,R,0,7);mmCtx.clip();
   mmCtx.fillStyle='rgba(6,16,12,0.5)';mmCtx.fillRect(0,0,W,H);
-  {
-    const sx0=saucer.position.x, sz0=saucer.position.z;
-    refreshRegionWash(sx0,sz0,dt);
-    mmCtx.save();
-    mmCtx.translate(cx,cy); mmCtx.rotate(S.yaw);
-    mmCtx.globalAlpha=0.46; mmCtx.imageSmoothingEnabled=true;
-    mmCtx.drawImage(rgCan,-R,-R,R*2,R*2);
-    mmCtx.restore(); mmCtx.globalAlpha=1;
-  }
+  mmCtx.fillStyle=rgbCss(regionTint(saucer.position.x,saucer.position.z),0.30);
+  mmCtx.fillRect(0,0,W,H);
   mmCtx.strokeStyle='rgba(143,232,184,0.14)';mmCtx.lineWidth=1;
   for(let i=1;i<=2;i++){mmCtx.beginPath();mmCtx.arc(cx,cy,R*i/2,0,7);mmCtx.stroke();}
   mmSweep+=dt*1.6;
@@ -206,12 +198,13 @@ export function drawMinimap(dt){
      scenery markers but under the ship. */
   {
     refreshNeighbours(sx,sz,dt);
+    /* The border belongs to the NEIGHBOURS — the land you are in is already the
+       background tint, so painting it round the rim as well would only compete
+       with the two colours that carry new information. What is left of the ring
+       is a dim neutral track for the caps to sit in. */
     const RIM=5.5;
-    const hcol=RGN_COL[RGN_KEY[here]];
-    if(hcol){
-      mmCtx.strokeStyle=rgbCss(hcol,0.72); mmCtx.lineWidth=RIM;
-      mmCtx.beginPath();mmCtx.arc(cx,cy,R-RIM/2,0,7);mmCtx.stroke();
-    }
+    mmCtx.strokeStyle='rgba(143,232,184,0.13)'; mmCtx.lineWidth=RIM;
+    mmCtx.beginPath();mmCtx.arc(cx,cy,R-RIM/2,0,7);mmCtx.stroke();
     // Each neighbour's cap: a token tick when it is far, a third of the ring
     // when its border is on the map. Squared so the opening-up accelerates as
     // you actually get there rather than creeping the whole way.

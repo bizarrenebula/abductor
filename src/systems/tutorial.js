@@ -402,10 +402,17 @@ const steps=[
     begin(s){ s.acc=0; s.last=saucer.position.clone(); },
     test(s){ s.acc+=Math.hypot(saucer.position.x-s.last.x,saucer.position.z-s.last.z);
              s.last.copy(saucer.position); return s.acc>=55; } },
-  // 3 — ALTITUDE. On touch this is the two halves together: nose up, then thrust.
-  { key:'alt', task:'Change altitude', joy:{side:'left',anim:'alt'}, hud:{},
-    say:()=>TOUCH?'Nose UP on the LEFT, then push forward on the RIGHT to climb.'
-                 :'Hold SHIFT to climb, CTRL to dive.',
+  /* 3 — ALTITUDE, and the only place the lift slider is ever mentioned. It is
+     an invisible control — a strip down the seam between the two thumb halves —
+     so it has to be taught once, early, before anything else needs height.
+     Climbing used to mean pitching up on the left and thrusting on the right, a
+     two-thumb negotiation for something you want while already doing something
+     else; the slider is a third finger that composes with both. */
+  { key:'alt', task:'Up and down', hud:{},
+    say:()=>TOUCH?'Slide a finger up or down the MIDDLE of the screen, between the two '+
+                  'sticks. It works while you fly — build speed, then slide up to climb '+
+                  'along it. The ship is heavy: give it a moment to answer.'
+                 :'Hold SHIFT to climb, CTRL to dive. The ship is heavy — give it a moment.',
     begin(s){ s.minY=s.maxY=saucer.position.y; },
     test(s){ const y=saucer.position.y; if(y<s.minY)s.minY=y; if(y>s.maxY)s.maxY=y;
              return s.maxY-s.minY>=22; } },

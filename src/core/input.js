@@ -155,6 +155,35 @@ function clearAxes(h){
 // Small deadzone + linear response so the stick answers almost immediately.
 function dz(v){ const d=0.06, a=Math.abs(v); return a<d?0:Math.sign(v)*((a-d)/(1-d)); }
 
+/* ---- the lift slider ------------------------------------------------------
+   A thin strip down the seam between the two joystick halves that drives
+   ALTITUDE directly. It exists because climbing was previously only reachable
+   through the flight model's facing frame — pitch the nose up with the left
+   thumb, then push forward with the right — which is correct physics and a
+   two-thumb negotiation for something the player wants to do while already
+   doing something else.
+
+   It is its own pointer, claimed before either half sees the press, so it
+   composes with whatever the thumbs are already holding: build speed on the
+   right stick, then slide up here and the ship climbs along the vector it
+   already has rather than stopping to change attitude.
+
+   Rate control, not position: the value is displacement from wherever the
+   finger landed, over LIFT_TRAVEL, clamped. So a short strip still reaches full
+   deflection and there is no absolute zero to hunt for. */
+const LIFT_W = 56;        // px wide — a strip, not a lane; must not eat stick presses
+const LIFT_TRAVEL = 90;   // px of drag for full deflection
+let liftPtr=null, liftY0=0;
+function inLiftStrip(x){ return Math.abs(x-innerWidth/2)<=LIFT_W/2; }
+let liftEl=null;
+function liftDOM(){ if(liftEl===null)liftEl=document.getElementById('liftSlider'); return liftEl; }
+function showLift(on,v){
+  const el=liftDOM(); if(!el)return;
+  el.classList.toggle('on',!!on);
+  const k=el.querySelector('.lift-knob');
+  if(k)k.style.transform='translate(-50%,-50%) translateY('+(-(v||0)*38)+'px)';
+}
+
 // per-half state; `ids` holds the active pointer ids that started in that half.
 // The right half also tracks a double-tap so it can open the beam (see below).
 const half={
@@ -196,6 +225,14 @@ renderer.domElement.addEventListener('pointerdown',e=>{
     return;
   }
   if(e.pointerType==='mouse')return;                        // desktop otherwise flies by keyboard
+  /* The lift strip gets first refusal on anything landing in the seam, and the
+     pointer never reaches a joystick half — otherwise a slide up here would
+     also be read as a stick deflection by whichever side of centre it began. */
+  if(liftPtr===null&&inLiftStrip(e.clientX)){
+    liftPtr=e.pointerId; liftY0=e.clientY; input.tClimb=0;
+    showLift(true,0);
+    return;
+  }
   const h=e.clientX<innerWidth/2?'L':'R', H=half[h], now=performance.now();
   pos.set(e.pointerId,{x:e.clientX,y:e.clientY});
   ptrHalf.set(e.pointerId,h);
@@ -214,6 +251,12 @@ renderer.domElement.addEventListener('pointerdown',e=>{
 });
 
 addEventListener('pointermove',e=>{
+  if(e.pointerId===liftPtr){
+    // up on screen is -y, and up is climb
+    const v=Math.max(-1,Math.min(1,(liftY0-e.clientY)/LIFT_TRAVEL));
+    input.tClimb=v; showLift(true,v);
+    return;
+  }
   if(e.pointerId===shipPtr){                               // track travel for the spin flick
     shipMoved=Math.max(shipMoved,Math.hypot(e.clientX-shipSX,e.clientY-shipSY));
   }
@@ -234,6 +277,7 @@ addEventListener('pointermove',e=>{
 },{passive:true});
 
 function endPtr(e){
+  if(e.pointerId===liftPtr){ liftPtr=null; input.tClimb=0; showLift(false,0); return; }
   if(e.pointerId===shipPtr){                               // released a press that began on the ship
     const dx=e.clientX-shipSX, dy=e.clientY-shipSY;
     const dtS=Math.max(0.05,(performance.now()-shipT0)/1000);

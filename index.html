@@ -139,6 +139,16 @@
     box-shadow:0 0 18px rgba(143,232,184,.55),inset 0 0 10px rgba(0,0,0,.35)}
   /* (the "double-tap to beam" joystick reminder was removed — the tutorial
      teaches the beam now, so the sticks stay clean while flying) */
+
+  /* ---------- lift slider ----------
+     There is deliberately NO visual. The strip down the seam between the two
+     joystick halves drives altitude (see core/input.js), and drawing it turned
+     a control you feel into a control you look at — a lit bar down the middle
+     of the screen in a game whose whole subject is a dark landscape. The
+     tutorial teaches it once; after that the seam is just something your thumb
+     knows. The element stays only so input.js has somewhere to hang state. */
+  #liftSlider{display:none}
+
   /* zoom slider, top-right under the pause button */
   #zoomCtl{top:68px;right:16px;display:flex;align-items:center;gap:8px;pointer-events:auto;
     padding:6px 10px}
@@ -634,6 +644,9 @@
 <!-- twin virtual joysticks: dynamic origin, one per screen half (touch only) -->
 <div id="joyL" class="joy"><div class="joy-base"></div><div class="joy-knob"></div></div>
 <div id="joyR" class="joy"><div class="joy-base"></div><div class="joy-knob"></div></div>
+<!-- lift slider: drag anywhere on the centre seam to climb or dive, alongside
+     whatever the thumbs are already doing. Invisible by design — see the CSS. -->
+<div id="liftSlider"><div class="lift-knob"></div></div>
 <div id="pop"></div>
 <div id="banner"></div>
 <!-- cheerful ship-upgrade achievement toast: what it grants + how to use it -->

@@ -75,6 +75,7 @@ import { Tutorial } from './systems/tutorial.js';
 import { Intro } from './systems/intro.js';
 import { renderWaypoints, clearWaypoints } from './systems/waypoints.js';
 import { FlightModel } from './systems/flight.js';
+import { resetFlightInput } from './systems/flight-input.js';
 import { CameraRig } from './systems/camera-rig.js';
 import { FLIGHT_PROFILE } from './systems/flight-profile.js';
 import { flightInputFrom } from './systems/flight-input.js';
@@ -247,7 +248,7 @@ function animate(){
        spawn pose. Gameplay speed modifiers (engine upgrade, beam slowdown, night,
        speed buff) fold into acceleration; the profile's maxSpeed stays the hard
        cap, so e.g. beaming cruises slower but the top speed is unchanged. */
-    if(prevState!=='playing'){ flight.reset(saucer.position); flight.yaw=S.yaw; camRig.reset(); }
+    if(prevState!=='playing'){ flight.reset(saucer.position); flight.yaw=S.yaw; camRig.reset(); resetFlightInput(); }
     const fin=flightInputFrom(input,held,dt);
     const speedMult=(S.upSpeed||1)*(beamOn?BEAM_MOVE:1)*(buff==='speed'?1.6:1)*(World.name==='moon'?1.4:1)*(1.2-0.35*S.dayF);
     flight.f.acceleration=ACCEL_BASE*speedMult;
@@ -276,7 +277,9 @@ function animate(){
        cancels it outright: the instant the player reaches for the controls they
        own the ship, and a scripted animation that fights them would feel broken. */
     if(S.descendT>0){
-      if(Math.abs(fin.vertical||0)>0.02||Math.abs(fin.pitchDelta||0)>0.004){ S.descendT=0; }
+      // RAW, not the smoothed value: the eased command coasts for about a
+      // second after the finger lifts and would cancel the arrival by itself.
+      if(Math.abs(fin.verticalRaw||0)>0.02||Math.abs(fin.pitchDelta||0)>0.004){ S.descendT=0; }
       else{
         S.descendT=Math.max(0,S.descendT-dt);
         flight._base.y+=(S.descendY-flight._base.y)*(1-Math.exp(-dt*0.85));

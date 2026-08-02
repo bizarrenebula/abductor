@@ -43,16 +43,20 @@ export function applyDayNightLight(){
   // drama comes from the directional key against dark fill, not a flat flood)
   // night floor pulled down so the world past the ship's light pool reads as dark
   // (the day value is unchanged: 0.42+1.38 == the old 0.62+1.18 at f=1).
-  hemi.intensity=worldHemiBase*(env.usePost?1.02:1.48)*(0.42+1.38*f);
+  hemi.intensity=worldHemiBase*(env.usePost?1.02:1.48)*(0.42+1.10*f);
   // warm sky fill by day; keep the world's cool night tint
   if(wc){_nightHemi.setHex(wc.hemi[0]);_dayHemi.setHex(World.name==='mars'?0xcaa080:0xbfd4e0);
     hemi.color.copy(_nightHemi).lerp(_dayHemi,f);}
   // the sun itself is the daytime story: warm, directional, strong-but-not-blinding
   const baseSun=(wc?wc.sun[1]:0.7);
-  sun.intensity=baseSun*(0.35+1.35*f);
+  sun.intensity=baseSun*(0.35+1.05*f);
   sun.color.setRGB(lerp(0.62,1.0,f),lerp(0.75,0.95,f),lerp(1.0,0.82,f));  // cool moonlight → warm sun
   // gentle exposure lift only — avoids the "brightness maxed" look
-  renderer.toneMappingExposure=(env.usePost?1.08:1.18)*(0.84+0.24*f);   // headroom so saturated ground doesn't clip
+  /* Day is deliberately NOT a full stop brighter than night. This is a night
+     game that happens to have a daytime; a blown-out noon washes the ground
+     colours flat and leaves the beam — the brightest thing on screen by design —
+     with nothing to be brighter than. Pulled from 0.24 to 0.15. */
+  renderer.toneMappingExposure=(env.usePost?1.08:1.18)*(0.84+0.15*f);
   // FOG = the sky's horizon colour (wc.fog matches sky[2]) so distant terrain
   // dissolves seamlessly into the sky — no hard chunk edge, a soft fog-of-war
   // reveal as you move. Only a slight lift by day. Density eases with the light.
@@ -84,14 +88,14 @@ export function applyDayNightLight(){
    its sky is black whether or not the sun is up — the ground lights, the stars
    stay out, and that reads as exactly the airless place it is. */
 export const WORLD_CFG={
-  earth:{sky:['#010203','#040a0d','#0a1416'],skyDay:['#12385f','#3a72a2','#93bbd0'],
-    fog:0x0a1416,fogDay:0x93bbd0,hemi:[0x264a5a,0.42],sun:[0x8fb2c8,0.7],
+  earth:{sky:['#010203','#040a0d','#0a1416'],skyDay:['#0c2643','#27506f','#6d8fa4'],
+    fog:0x0a1416,fogDay:0x6d8fa4,hemi:[0x264a5a,0.42],sun:[0x8fb2c8,0.7],
     water:true,stars:0.7,moonTint:0xffffff,label:'Earth'},
   moon:{sky:['#000000','#010203','#040608'],skyDay:['#000000','#010203','#060a10'],
     fog:0x040608,fogDay:0x090e14,hemi:[0x40454e,0.35],sun:[0xdfe8f4,0.95],
     water:false,stars:1.0,moonTint:0x7fa8d8,label:'Moon'},
-  mars:{sky:['#0a0303','#150705','#221008'],skyDay:['#3a2418','#6d4726','#bd8f63'],
-    fog:0x221008,fogDay:0xbd8f63,hemi:[0x4e2c20,0.45],sun:[0xd8926a,0.75],
+  mars:{sky:['#0a0303','#150705','#221008'],skyDay:['#2c1b12','#54371d','#96704c'],
+    fog:0x221008,fogDay:0x96704c,hemi:[0x4e2c20,0.45],sun:[0xd8926a,0.75],
     water:false,stars:0.5,moonTint:0xd8b090,label:'Mars'}
 };
 

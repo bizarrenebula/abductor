@@ -100,10 +100,17 @@ export const Story={
       const x=S.spawnX+Math.cos(ang)*d,z=S.spawnZ+Math.sin(ang)*d;
       const sm=sample(x,z);
       if(avoidWater&&sm.biome==='water')continue;
-      if(sm.h>28)continue;
+      /* Reject the terrain that is actually unusable, not a height. The old
+         test was h>28, which was fine when the ground topped out around 30 —
+         but the desert now runs to ~34 at a dune crest and the run STARTS on
+         one, so in the desert this rejected most of the map and fell through to
+         a fallback measured from the world origin instead of from the ship. */
+      if(sm.biome==='mountain'||sm.biome==='canyon')continue;
+      if(sm.h>40)continue;
       return {x,z};
     }
-    return {x:minD,z:0};
+    // last resort: straight ahead of the ship, never (0,0)-relative
+    return {x:S.spawnX+minD, z:S.spawnZ};
   },
   scatter(n,minD,maxD){
     const out=[];

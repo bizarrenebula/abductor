@@ -8,7 +8,7 @@ import { HOVER_BASE } from '../core/constants.js';
 import { env, HAS_TOUCH, TOUCH_ONLY } from '../core/env.js';
 import { input, resetInputTouch, ACTIONS, binds, keyLabel, beginCapture, cancelCapture, resetBinds,
          AXES, FUNCS, touchMap, touchInv, setTouchMap, setTouchInv, resetTouch } from '../core/input.js';
-import { reseed } from '../world/noise.js';
+import { reseed, worldSeed } from '../world/noise.js';
 import { pickSpawn, pickSignSpot } from '../world/spawn.js';
 import { applyWorld, World, WORLD_CFG } from '../world/world-config.js';
 import { clearWorld, updateChunks } from '../world/chunks.js';
@@ -211,8 +211,26 @@ function renderObjectives(){
     items.innerHTML='';
   }
 }
+/* The seed, on the pause card. Every feature of this world — terrain, regions,
+   roads, settlements, farmland, monuments, the landing site — is a pure function
+   of it, so quoting it reproduces the world exactly. Clicking copies a ?seed=
+   link, which is the form worth pasting into a bug report. */
+function showSeed(){
+  const el=document.getElementById('seedLine');
+  if(!el)return;
+  el.textContent='SEED '+worldSeed;
+  if(el.dataset.wired)return;
+  el.dataset.wired='1';
+  el.addEventListener('click',()=>{
+    const url=location.origin+location.pathname+'?seed='+worldSeed;
+    try{ navigator.clipboard.writeText(url);
+         el.textContent='LINK COPIED';
+         setTimeout(()=>{el.textContent='SEED '+worldSeed;},1200); }
+    catch(e){ el.textContent=url; }
+  });
+}
 export function pauseGame(){ if(S.state!=='playing')return; S.state='paused'; BeamSFX.stop();S.prevBeam=false;
-  renderObjectives(); pauseScreen.classList.remove('hidden'); }
+  renderObjectives(); showSeed(); pauseScreen.classList.remove('hidden'); }
 function resumeGame(){ if(S.state!=='paused')return; S.state='playing'; pauseScreen.classList.add('hidden'); }
 function toMenu(){ pauseScreen.classList.add('hidden'); overScreen.classList.add('hidden');
   startScreen.classList.remove('hidden'); hud.classList.remove('on'); S.state='menu';

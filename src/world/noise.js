@@ -35,8 +35,27 @@ export let nElev,nHill,nMtn,nRiver,nTemp,nMoist,nCanyon,nWx,nRegion,nDune;
 /* The run's seed, exported so systems that need a stable per-cell decision
    (settlements) can hash against it instead of sampling a noise field. */
 export let worldSeed=0;
+
+/* Everything in this world is a pure function of the seed — terrain, regions,
+   roads, settlements, farmland, monuments, the landing site. That makes a world
+   perfectly reproducible, which is worth nothing unless the seed can be named,
+   so ?seed=NNNNNN pins it. Used for bug reports ("it happens on seed 481923"),
+   for A/B-ing a tuning change against the same ground twice, and eventually for
+   a shared daily/seasonal world.
+
+   While the parameter is present it pins EVERY reseed, not just the first —
+   reseed() runs once at boot for the menu backdrop before a run ever starts, so
+   consuming it on first use handed the pinned world to the menu and gave the
+   actual run a random one. Pinned means pinned: restart and you land on the
+   same ground, which is the whole point when you are chasing a bug. */
+let forcedSeed=null;
+try{
+  const q=new URLSearchParams(location.search).get('seed');
+  if(q!=null&&q!==''&&isFinite(+q))forcedSeed=(Math.abs(+q)|0)%1000000;
+}catch(e){}
+
 export function reseed(){
-  const s=(Math.random()*1e6)|0;
+  const s=forcedSeed!=null?forcedSeed:(Math.random()*1e6)|0;
   worldSeed=s;
   nElev=makeNoise(s+1); nHill=makeNoise(s+2); nMtn=makeNoise(s+3);
   nRiver=makeNoise(s+4); nTemp=makeNoise(s+5); nMoist=makeNoise(s+6);

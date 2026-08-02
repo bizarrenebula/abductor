@@ -130,6 +130,18 @@ export function sampleAlien(x,z){
   return {h,biome:World.name,r,g,b,biomeId};
 }
 export function sample(x,z){return World.name==='earth'?sampleEarth(x,z):sampleAlien(x,z);}
+
+/* NOT CACHED, and that is a measured decision. heightAt looks like the obvious
+   thing to memoise — it is the hottest function here, and slopeAt alone calls it
+   five times — but a direct-mapped 2^16 cache keyed on the exact coordinates
+   made the same workload measurably SLOWER (240ms -> 260ms over a 200x200 slope
+   sweep) and never once hit. Counting unique (x,z) pairs across a chunk build's
+   worth of calls gives a repeat rate of ZERO: slopeAt probes four neighbours at
+   +-4 on a grid whose step does not divide 4, the mesher walks distinct
+   vertices, and every placement test rings a distinct footprint. The repetition
+   people assume is here is real but lives one level up, in the road router,
+   where roads.js already memoises cellCost, candH, crossMax, envAt and deckEdge.
+   Leave it alone. */
 export const heightAt=(x,z)=>sample(x,z).h;
 
 /* Steepness at a point: the biggest height change over `d` units, as rise/run.

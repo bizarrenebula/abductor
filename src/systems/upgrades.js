@@ -27,6 +27,7 @@ import { banner } from '../ui/banner.js';
 import { showAchievement, hideAchievement } from '../ui/achievement.js';
 import { beep } from '../audio/music.js';
 import { t } from '../i18n.js';
+import { ModuleIcons } from './moduleIcons.js';
 
 /* Collect-ladder tiers: cumulative point cost + the beam-width granted. Only
    meaningful once the BEAM module is installed (see apply/hud). */
@@ -56,9 +57,9 @@ const fillEl = document.getElementById('upgFill');
 const nextEl = document.getElementById('upgNext');
 const pipEls = {};
 ITEM_KEYS.forEach(k=>{ pipEls[k]=document.getElementById('upgPip_'+k); });
-const equipPanel = document.getElementById('hEquip');
-const eqRows = {};
-CRUCIAL.forEach(k=>{ eqRows[k]=document.getElementById('eqRow_'+k); });
+/* The crucial three no longer have a DOM row. They are three glyphs over the
+   ship, shown for a moment when one is installed or when one is used — or when
+   the player reaches for one they have not found. See systems/moduleIcons.js. */
 
 function freshItems(){ const o={}; ITEM_KEYS.forEach(k=>o[k]=false); return o; }
 
@@ -106,7 +107,8 @@ export const Upgrades={
     this.checkpoint();
     this.apply();
     this.announce({title:'upg.t.'+key,guide:'upg.g.'+key});
-    this.hud();
+    this.hud();                       // ...which relights the glyph, and then:
+    ModuleIcons.ping(key,'got');      // show the row, with this one pulsing
   },
 
   /* Recompute the live capability state from installed modules + beam tier. */
@@ -139,15 +141,11 @@ export const Upgrades={
   },
 
   /* Live HUD:
-       - the equipment CHECKLIST while any crucial module is missing (hidden
-         once all three are aboard);
+       - the three module glyphs over the ship (which are only ever SHOWN by an
+         event — this just keeps their lit/unlit state true);
        - the beam-width ladder panel, shown only once you own the beam. */
   hud(){
-    const allGot=CRUCIAL.every(k=>this.items[k]);
-    if(equipPanel){
-      equipPanel.style.display=allGot?'none':'';
-      CRUCIAL.forEach(k=>{ if(eqRows[k])eqRows[k].classList.toggle('got',!!this.items[k]); });
-    }
+    ModuleIcons.sync(this.items);
     if(panel){
       panel.style.display=this.items.beam?'':'none';
       const cur=UP_TIERS[this.tier];

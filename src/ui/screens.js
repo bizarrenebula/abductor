@@ -31,6 +31,7 @@ import { saucer } from '../systems/saucer.js';
 import { Special } from '../systems/special.js';
 import { resetBuffs } from '../systems/buffs.js';
 import { Upgrades } from '../systems/upgrades.js';
+import { ModuleIcons } from '../systems/moduleIcons.js';
 import { spawnUpgradeItems, clearUpgradeItems } from '../entities/upgradeItems.js';
 import { CropCircles } from '../systems/cropcircles.js';
 import { resetDestruction } from '../systems/destruction.js';
@@ -118,6 +119,7 @@ export function startGame(opts){
   // Ship upgrades: keep them through a "run it back" after a crash, otherwise
   // start grounded. Then scatter whichever field parts aren't installed yet.
   if(keepUpgrades)Upgrades.restore(); else Upgrades.reset();
+  ModuleIcons.reset();        // ...and nothing left showing over the ship
   spawnUpgradeItems();
   CropCircles.reset();
   Clouds.spawnField(saucer.position.x,saucer.position.z);

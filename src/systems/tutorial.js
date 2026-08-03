@@ -96,15 +96,16 @@ function build(){
   #tutJoy.engaged .tut-half.on{opacity:.3}
   #tutJoy.engaged .tut-stick.on{opacity:.34}
 
-  /* HUD staging: the map and the equipment checklist stay out of the way while
-     the player learns to fly, then are revealed (and explained) at the end. */
+  /* HUD staging: the minimap stays out of the way while the player learns to
+     fly, then is revealed (and explained) at the end. The equipment checklist
+     used to be staged alongside it; it no longer exists as a panel, and the
+     three glyphs that replaced it stage themselves — they are only ever on
+     screen in response to something the player just did. */
   body.tut-no-map #minimap{display:none!important}
-  body.tut-no-equip #hEquip{display:none!important}
   /* a soft ring drawing the eye to whatever was just revealed */
   @keyframes tutReveal{0%{box-shadow:0 0 0 0 rgba(143,232,184,.55)}
     70%{box-shadow:0 0 0 16px rgba(143,232,184,0)} 100%{box-shadow:0 0 0 0 rgba(143,232,184,0)}}
   body.tut-point-map #minimap{border-radius:50%;animation:tutReveal 1.6s ease-out 3}
-  body.tut-point-equip #hEquip{border-radius:10px;animation:tutReveal 1.6s ease-out 3}
   /* the PULL button keeps pulsing until the player actually uses it */
   body.tut-point-pull #spBtn{animation:tutReveal 1.6s ease-out infinite}
   #tutJoy .tut-base{position:absolute;inset:0;border-radius:50%;
@@ -220,21 +221,17 @@ function showModal(eyebrow,title,body,buttons){
 function hideModal(){ if(dom)dom.modal.classList.remove('on'); }
 
 /* ---- HUD staging ----------------------------------------------------------
-   During the flying lessons the minimap and the equipment checklist are hidden
-   so the player has nothing to read but the task. They are revealed one at a
-   time at the end, each with its own explanation. `point` pulses a highlight
-   ring around whichever was just revealed. */
-function hud({map=false,equip=false,point=null}={}){
+   During the flying lessons the minimap is hidden so the player has nothing to
+   read but the task; it is revealed at the end with its own explanation.
+   `point` pulses a highlight ring around whatever was just revealed. */
+function hud({map=false,point=null}={}){
   const b=document.body.classList;
   b.toggle('tut-no-map',!map);
-  b.toggle('tut-no-equip',!equip);
   b.toggle('tut-point-map',point==='map');
-  b.toggle('tut-point-equip',point==='equip');
   b.toggle('tut-point-pull',point==='pull');
 }
 function hudRestore(){
-  document.body.classList.remove('tut-no-map','tut-no-equip',
-    'tut-point-map','tut-point-equip','tut-point-pull');
+  document.body.classList.remove('tut-no-map','tut-point-map','tut-point-pull');
 }
 
 /* ---- world beacon (the navigation target) --------------------------------- */
@@ -334,7 +331,7 @@ function crossStep(key,task,want,line){
    brings it into this land instead — the lesson is the pickup, not the commute,
    and it is the same module in the same run, just closer. */
 function fetchStep(key,task,line){
-  return { key:'get_'+key, task, hud:{map:true,equip:true,point:'equip'},
+  return { key:'get_'+key, task, hud:{map:true},
     say(s){
       if(!s.item)return line+'.';
       const d=Math.round(Math.hypot(saucer.position.x-s.item.position.x,
@@ -541,7 +538,7 @@ const steps=[
   fetchStep('thrusters','Something is missing',
     'A piece of the ship came down out on the sand'),
   /* ...and only NOW altitude, with the thrusters aboard. */
-  { key:'alt', task:'Up and down', hud:{equip:true},
+  { key:'alt', task:'Up and down', hud:{},
     /* SHORT. The long version wrapped to five lines and collided with the
        achievement toast and the PULL button — three things stacked in the same
        band of screen. A hint card is read at a glance while flying; anything
@@ -615,7 +612,7 @@ const steps=[
      the ship and bolts — so you arrive without being heard. */
   /* No point: here — this step used to pulse the PULL button while teaching the
      cloak, a leftover from when it followed the pull lesson directly. */
-  { key:'cloak', task:'Go quiet', hud:{map:true,equip:true},
+  { key:'cloak', task:'Go quiet', hud:{map:true},
     say(s){
       if(!s.didCloak)
         return TOUCH?'Those are people down there, and they run. HOLD the ship itself to go dark.'
@@ -659,13 +656,13 @@ const steps=[
                    'to run. One of them widens as you close on it. Follow that one.'+CLOCK(s); },
     begin:dwellBegin, test:dwellTest },
   // 11 — ship upgrades + the full HUD.
-  { key:'upgrades', task:'You came down incomplete', hud:{map:true,equip:true,point:'equip'},
+  { key:'upgrades', task:'You came down incomplete', hud:{map:true},
     say(s){ return 'Three pieces of this ship fell somewhere else — thrust, a '+
-                   'harder light, a way to not be seen. The checklist knows which '+
-                   'are still missing. Everything you take aboard widens the beam.'+CLOCK(s); },
+                   'harder light, a way to not be seen. Reach for one and its mark '+
+                   'shows over the hull: lit if you have it, grey if you do not.'+CLOCK(s); },
     begin:dwellBegin, test:dwellTest },
   // 12 — HULL. Saved for last: the hand-off line, the moment training ends.
-  { key:'hull', task:'Nothing down there is soft', hud:{map:true,equip:true},
+  { key:'hull', task:'Nothing down there is soft', hud:{map:true},
     say(s){ return 'Ground, timber, stone, steel, and worse things that fall out '+
                    'of the sky without warning. None of it is armed while you are '+
                    'learning. After this it is.'+CLOCK(s); },
@@ -773,7 +770,7 @@ export const Tutorial={
     this.hint.classList.remove('on');
     showJoyDemo(null);
     S.tutorialLesson=false;        // free flight — show every objective again
-    hud({map:true,equip:true});     // full HUD, no highlight rings
+    hud({map:true});                // full HUD, no highlight rings
     banner('TRAINING COMPLETE — THE VALLEY IS YOURS');
     this._roam=BANNER_HOLD;        // just long enough to read the banner
   },

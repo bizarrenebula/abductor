@@ -36,6 +36,7 @@ import { buff, updateBuff } from './systems/buffs.js';
 import { applyCloakVisual } from './systems/cloak.js';
 import { updateCollision } from './systems/collision.js';
 import { Special } from './systems/special.js';
+import { ModuleIcons } from './systems/moduleIcons.js';
 import { CropCircles } from './systems/cropcircles.js';
 import { Clouds } from './systems/clouds.js';
 import { Fireflies } from './systems/fireflies.js';
@@ -251,8 +252,10 @@ function animate(){
        beam; without thrusters there is no climb; the cloak was already gated in
        toggleCloak. Each refusal says which module is missing, throttled so
        holding the key is one message rather than sixty a second. */
-    const beamWant=(input.beamHold||held('beam'))&&S.upHasBeam;
-    if((input.beamHold||held('beam'))&&!S.upHasBeam)lockedHint('beam');
+    const beamTry=input.beamHold||held('beam');
+    const beamWant=beamTry&&S.upHasBeam;
+    if(beamTry)ModuleIcons.ping('beam','try');   // used or refused: say which module this is
+    if(beamTry&&!S.upHasBeam)lockedHint('beam');
     const beamOn=beamWant||Special.active;   // the mass pull is its own thing
     /* The beam used to break cloak outright — "you cannot feed while
        invisible". That rule is gone, because it made the interesting move
@@ -320,6 +323,7 @@ function animate(){
        the ground and for convenience — not a licence to leave the deck.
 
        Do not "fix" this by gating pitch or forward as well. */
+    if(Math.abs(fin.verticalRaw||0)>0.02)ModuleIcons.ping('thrusters','try');
     if(!S.upAltitude){
       if(Math.abs(fin.verticalRaw||0)>0.02)lockedHint('alt');
       fin.vertical=0; fin.verticalRaw=0;
@@ -414,6 +418,9 @@ function animate(){
     glowLight.distance=lerp(100,150,_night);
     // (border-light blink + lid glow are driven centrally by updateSaucer)
     updateEnergyBar(dt,S.energyMode==='drain'&&(bp>0.05||S.cloak||S.energy<0.28));
+    // The module glyphs sit above the bar. Fed the ship's ground speed, because
+    // the reveal shortens the faster you fly (see moduleIcons.js).
+    ModuleIcons.update(dt,Math.hypot(flight.velocity.x,flight.velocity.z));
 
     /* ---- world ---- */
     updateChunks(saucer.position.x,saucer.position.z);
@@ -429,7 +436,12 @@ function animate(){
     updateAbduction(dt,WEATHER[weather.cur].mult,beamOn&&bp>0.5);
     setBeamMultHUD(WEATHER[weather.cur].mult*S.beamStr);   // weather x altitude
     updateBuff(dt);
-    Special.update(dt,input.spHeld||held('pull'),Tutorial.pullTaught());
+    /* The mass pull IS the beam, used all at once, so a reach for it lights the
+       beam glyph — including the reach that does nothing because the beam is
+       still lying out in the grass. */
+    const pullTry=input.spHeld||held('pull');
+    if(pullTry)ModuleIcons.ping('beam','try');
+    Special.update(dt,pullTry,Tutorial.pullTaught());
     updateCrystals(dt,beamOn&&bp>0.5);
     updateProps(dt,beamOn&&bp>0.5);
     updateWindmills(dt);
@@ -537,6 +549,7 @@ function animate(){
     glowLight.position.set(saucer.position.x,saucer.position.y-1.5,saucer.position.z);
     glowLight.intensity=Math.max(0,glowLight.intensity-dt*3);       // pool collapses as it falls
     updateEnergyBar(dt,false);
+    ModuleIcons.update(dt,0);                // crashing: hides itself on !playing
     updateProps(dt,false);updateCrystals(dt,false);updateAnimals(dt);
     camera.position.lerp(_v.set(saucer.position.x+camOffset.x,saucer.position.y+camOffset.y,saucer.position.z+camOffset.z),Math.min(1,dt*2.4));
     camera.lookAt(saucer.position.x+camLook.x,saucer.position.y+camLook.y,saucer.position.z+camLook.z);

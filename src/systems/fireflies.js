@@ -8,6 +8,7 @@ import { THREE } from '../core/three.js';
 import { env } from '../core/env.js';
 import { scene } from '../core/engine.js';
 import { S } from '../core/state.js';
+import { regionWeights } from '../world/regions.js';
 import { saucer } from './saucer.js';
 import { heightAt } from '../world/terrain.js';
 
@@ -47,9 +48,16 @@ export const Fireflies={
   },
   update(dt){
     if(!this.pts)return;
+    /* Fireflies are a WILDERNESS thing. They were everywhere, which put warm
+       amber sparks over dunes and over car parks — the two places on this map
+       where damp meadow insects have no business being. Faded on the region
+       weight rather than switched on the label, so they thin out across a border
+       instead of vanishing at a line. */
     const night=1-S.dayF;
-    this.pts.material.opacity=night;
-    if(night<0.03){this.pts.visible=false;return;}
+    const wild=regionWeights(saucer.position.x,saucer.position.z).wild;
+    const amt=night*Math.max(0,Math.min(1,(wild-0.25)/0.35));
+    this.pts.material.opacity=amt;
+    if(amt<0.03){this.pts.visible=false;return;}
     this.pts.visible=true;
     const t=performance.now()*0.001, sx=saucer.position.x, sz=saucer.position.z;
     const pos=this.pts.geometry.attributes.position.array;

@@ -7,6 +7,7 @@ import { heightAt } from '../world/terrain.js';
 import { beep } from '../audio/music.js';
 import { animals } from '../entities/registry.js';
 import { saucer } from './saucer.js';
+import { S } from '../core/state.js';
 import { spBtn } from '../ui/dom.js';
 import { t } from '../i18n.js';
 
@@ -35,11 +36,16 @@ export const Special={
     }else{
       this.charge=Math.min(1,this.charge+dt/60);
     }
-    // The PULL button sits at a fixed spot above the centre of the right half
-    // (positioned in CSS). It shows only while the special is fully charged and
-    // idle; press-and-hold fires the pull, which starts draining the charge —
-    // dropping it below full — so the button hides while it (re)charges.
-    const show=avail&&this.charge>=1&&!this.active;
+    /* The PULL button sits on the minimap's line, bottom-right (positioned in
+       CSS). It shows only while the special is fully charged and idle;
+       press-and-hold fires the pull, which starts draining the charge —
+       dropping it below full — so the button hides while it (re)charges.
+
+       And it stays OFFLINE until the tractor beam is aboard. A mass pull drags
+       every creature nearby into the beam; with no beam there is nothing for
+       them to arrive in, so offering the button before the module is found
+       advertises a control that cannot do anything. */
+    const show=avail&&S.upHasBeam&&this.charge>=1&&!this.active;
     if(show)spBtn.textContent=t('hud.pull');
     spBtn.classList.toggle('show',show);
   }

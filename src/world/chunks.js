@@ -14,7 +14,7 @@ import { disposeDeep } from '../core/dispose.js';
 import { World } from './world-config.js';
 import { sample, goodGround, slopeAt } from './terrain.js';
 import { TEX, grassTex, sandTex, rockTex, snowTex } from './textures.js';
-import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, roadHere, junctionsIn } from './roads.js';
+import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, roadHere, roadWidth, junctionsIn } from './roads.js';
 import { animals, pickups, props, buildings, vehicles, shelters, structures } from '../entities/registry.js';
 import { spawnSettlementParts, clearSettlementCache, inSettlement } from './settlements.js';
 import { spawnFieldParts, clearFieldCache, inField } from './fields.js';
@@ -395,7 +395,12 @@ export function buildChunk(cx,cz){
           // Street lighting is an URBAN thing. Outside town there is no deck to
           // light anyway (see roadHere in world/roads.js), and a lit verge in
           // open desert was the single most town-like thing in the wilderness.
-          if(!roadHere(lx,lz))continue;
+          /* roadHere() with no corridor returns the OPTIMISTIC width — it
+             assumes the corridor runs — so a lamp on a wilderness corridor that
+             does not actually carry tarmac still passed it, which is how lamps
+             ended up standing in open country with no road beside them. Ask
+             about THIS corridor. */
+          if(roadWidth(lx,lz,c.axis,c.k)<=0.12)continue;
           if((lx-S.spawnX)**2+(lz-S.spawnZ)**2<SPAWN_CLEAR*SPAWN_CLEAR)continue;   // never on the landing site
           const lamp=streetLamp();
           lamp.position.set(lx,sm2.h,lz);                                // base sits on the ground at the edge

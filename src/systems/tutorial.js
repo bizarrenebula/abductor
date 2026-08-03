@@ -336,10 +336,10 @@ function crossStep(key,task,want,line){
 function fetchStep(key,task,line){
   return { key:'get_'+key, task, hud:{map:true,equip:true,point:'equip'},
     say(s){
-      if(!s.item)return line;
+      if(!s.item)return line+'.';
       const d=Math.round(Math.hypot(saucer.position.x-s.item.position.x,
                                     saucer.position.z-s.item.position.z));
-      return line+' — '+d+' m. Fly over it to take it aboard.';
+      return line+' — '+d+' m. Fly low over it.';
     },
     begin(s){
       s.item=upgradeItems.find(o=>o.userData.key===key)||null;
@@ -523,8 +523,8 @@ const steps=[
       return s.yawOK&&s.pitchOK; } },
   // 2 — MOVE (right half).
   { key:'move', task:'Take the controls', joy:{side:'right',anim:'move'}, hud:{},
-    say:()=>TOUCH?'Touch anywhere on the RIGHT half and drag to fly.'
-                 :'Fly with W A S D. Explore a little.',
+    say:()=>TOUCH?'Drag the RIGHT half to fly.'
+                 :'Fly with W A S D.',
     begin(s){ s.acc=0; s.last=saucer.position.clone(); },
     test(s){ s.acc+=Math.hypot(saucer.position.x-s.last.x,saucer.position.z-s.last.z);
              s.last.copy(saucer.position); return s.acc>=55; } },
@@ -542,10 +542,12 @@ const steps=[
     'A piece of the ship came down out on the sand'),
   /* ...and only NOW altitude, with the thrusters aboard. */
   { key:'alt', task:'Up and down', hud:{equip:true},
-    say:()=>TOUCH?'Slide a finger up or down the MIDDLE of the screen, between the two '+
-                  'sticks. It works while you fly — build speed, then slide up to climb '+
-                  'along it. The ship is heavy: give it a moment to answer.'
-                 :'Hold SHIFT to climb, CTRL to dive. The ship is heavy — give it a moment.',
+    /* SHORT. The long version wrapped to five lines and collided with the
+       achievement toast and the PULL button — three things stacked in the same
+       band of screen. A hint card is read at a glance while flying; anything
+       that needs a paragraph belongs in the reading steps at the end. */
+    say:()=>TOUCH?'Slide up or down the middle to change altitude.'
+                 :'SHIFT climbs, CTRL dives.',
     begin(s){ s.minY=s.maxY=saucer.position.y; },
     test(s){ const y=saucer.position.y; if(y<s.minY)s.minY=y; if(y>s.maxY)s.maxY=y;
              return s.maxY-s.minY>=22; } },
@@ -562,8 +564,8 @@ const steps=[
     say(s){
       if(S.beamLock>0.03) return 'Locked on — hold it steady!';
       if(S.beamPower>0.12) return 'Beam open — centre it on the creature.';
-      return TOUCH?'Fly over the ▼ sheep, then double-tap & HOLD to beam.'
-                  :'Fly over the ▼ sheep, then hold SPACE to beam.';
+      return TOUCH?'Over the ▼ sheep — double-tap & HOLD.'
+                  :'Over the ▼ sheep — hold SPACE.';
     },
     begin(s){ s.base=S.taken; s.target=null; },
     test(s){ trackMarker(s); return S.taken>s.base; },
@@ -589,8 +591,8 @@ const steps=[
     say(s){
       if(Special.active) return 'Holding — everything nearby is being dragged in!';
       if(Special.charge<1) return 'Recharging… it refills as you fly and abduct.';
-      return TOUCH?'Press and HOLD the glowing PULL button — it drags every creature nearby to you.'
-                  :'Press and hold Q — it drags every creature nearby to you.';
+      return TOUCH?'Hold PULL — it drags every creature nearby to you.'
+                  :'Hold Q — it drags every creature nearby to you.';
     },
     begin(s){ s.used=false; Special.charge=1; },   // hand them a full charge to try it
     test(s){ if(Special.active)s.used=true; return s.used; } },

@@ -1,9 +1,10 @@
 /* =========================================================================
    TUTORIAL — an optional, short guided intro played in the real open world.
-   Offered on Play; if taken it walks the player through ten steps — look, move,
-   altitude, navigate, beam, crystals, mass pull, radar, upgrades, and finally the
-   crash warning that hands them over to real play — then offers Keep exploring /
-   Restart tutorial / Main menu. Crashes are disabled for the whole run (see the
+   Offered on Play; if taken it walks the player through seventeen steps as a
+   journey across all three lands — look and fly in the desert, cross to the
+   wilderness for the beam, cross again to the towns for the cloak, then five
+   short reading steps on the HUD — and finally offers Keep exploring / Restart
+   tutorial / Main menu. Crashes are disabled for the whole run (see the
    S.tutorial guards in collision, main, meteors, geysers and lightning).
    Entirely self-contained: it builds its own DOM (start prompt, HUD hint card,
    joystick guide, choice modal) plus a world beacon, creature marker and a
@@ -629,43 +630,42 @@ const steps=[
     },
     end(){ if(marker)marker.visible=false; S.cloak=false; } },
 
-  /* 8..12 — the reading steps.
+  /* 13..17 — the reading steps.
 
-     The wording here is deliberately not a manual. An earlier pass spelled the
-     world out — "DESERT: dunes, cacti, vultures" — and read like a wiki page
-     stapled to the front of a game about a silent hostile sky. What a player
-     needs before their first flight is not an inventory, it is a reason to go
-     and look. So these say what the world FEELS like and leave what it contains
-     to be found. The instrument steps stay concrete enough to use. */
-  // 8 — the MAP is revealed, once flying is second nature.
-  { key:'map', task:'Something is listening', hud:{map:true,point:'map'},
-    say(s){ return 'Bottom-left. You are the arrow at its heart, and it feels '+
-                   'what the dark is holding — crystals, and pieces of your own '+
-                   'ship that came down elsewhere.'+CLOCK(s); },
+     ONE SHORT SENTENCE EACH. An earlier pass wrote these as atmosphere — "there
+     is country that sleeps, and country that watches back" — which reads well
+     and teaches nothing. These five are the only steps the player cannot work
+     out by doing, so they are the five that must be plain: say the fact, name
+     the thing, get out of the way. Atmosphere belongs in the world, not in the
+     hint card the player is waiting to dismiss.
+
+     Titles are plain for the same reason: the card shows the title and the line
+     together, so an evocative title costs a line of reading before the useful
+     one starts. */
+  // 13 — the MAP is revealed, once flying is second nature.
+  { key:'map', task:'Your map', hud:{map:true,point:'map'},
+    say(s){ return 'Bottom-left: you are the arrow, and it marks crystals and '+
+                   'ship parts near you.'+CLOCK(s); },
     begin:dwellBegin, test:dwellTest },
-  /* 9 — THE THREE LANDS, named as little as possible. */
-  { key:'biomes', task:'This world is not one place', hud:{map:true,point:'map'},
-    say(s){ return 'There is country that sleeps, and country that watches back, '+
-                   'and between them a long stretch of ground that has forgotten '+
-                   'it was ever alive. Each keeps different things. You will know '+
-                   'them when you arrive.'+CLOCK(s); },
+  // 14 — the three lands, and what they are worth.
+  { key:'biomes', task:'Three lands', hud:{map:true,point:'map'},
+    say(s){ return 'Wilderness is the easiest hunting, towns are harder, desert '+
+                   'is the hardest.'+CLOCK(s); },
     begin:dwellBegin, test:dwellTest },
-  { key:'compass', task:'Reading the dial', hud:{map:true,point:'map'},
-    say(s){ return 'Colour bleeds in at the rim — the lands you have not reached, '+
-                   'lying in the direction they truly lie, with the distance still '+
-                   'to run. One of them widens as you close on it. Follow that one.'+CLOCK(s); },
+  // 15 — the coloured rim that says which land lies where.
+  { key:'compass', task:'Map edges', hud:{map:true,point:'map'},
+    say(s){ return 'The coloured edges show which land lies which way, and how '+
+                   'far.'+CLOCK(s); },
     begin:dwellBegin, test:dwellTest },
-  // 11 — ship upgrades + the full HUD.
-  { key:'upgrades', task:'You came down incomplete', hud:{map:true},
-    say(s){ return 'Three pieces of this ship fell somewhere else — thrust, a '+
-                   'harder light, a way to not be seen. Reach for one you have not '+
-                   'found and its mark shows grey over the hull.'+CLOCK(s); },
+  // 16 — the three modules and how the ship reports them.
+  { key:'upgrades', task:'Missing parts', hud:{map:true},
+    say(s){ return 'Reach for a part you have not found and its grey mark shows '+
+                   'above the ship.'+CLOCK(s); },
     begin:dwellBegin, test:dwellTest },
-  // 12 — HULL. Saved for last: the hand-off line, the moment training ends.
-  { key:'hull', task:'Nothing down there is soft', hud:{map:true},
-    say(s){ return 'Ground, timber, stone, steel, and worse things that fall out '+
-                   'of the sky without warning. None of it is armed while you are '+
-                   'learning. After this it is.'+CLOCK(s); },
+  // 17 — HULL. Saved for last: the hand-off line, the moment training ends.
+  { key:'hull', task:'Crashes are real now', hud:{map:true},
+    say(s){ return 'Nothing has been able to hurt you so far; after this, hitting '+
+                   'anything will.'+CLOCK(s); },
     begin:dwellBegin, test:dwellTest },
 ];
 

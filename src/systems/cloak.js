@@ -11,7 +11,7 @@ import { ModuleIcons } from './moduleIcons.js';
 import { t } from '../i18n.js';
 
 export function toggleCloak(){
-  ModuleIcons.ping('cloak','try');   // every reach for it shows the glyph, lit or not
+  ModuleIcons.ping('cloak','try');   // shows the grey glyph only while it is unfound
   // Cloak is the summit of the upgrade ladder — locked until earned (req).
   if(!S.upCloak&&!S.cloak){beep(160,0.2,0.08);banner(t('upg.locked.cloak'));return;}
   if(S.energyMode==='drain'&&S.energy<0.06&&!S.cloak){beep(160,0.2,0.08);return;}  // no juice

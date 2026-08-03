@@ -254,7 +254,7 @@ function animate(){
        holding the key is one message rather than sixty a second. */
     const beamTry=input.beamHold||held('beam');
     const beamWant=beamTry&&S.upHasBeam;
-    if(beamTry)ModuleIcons.ping('beam','try');   // used or refused: say which module this is
+    if(beamTry)ModuleIcons.ping('beam','try');   // no-op once the beam is aboard
     if(beamTry&&!S.upHasBeam)lockedHint('beam');
     const beamOn=beamWant||Special.active;   // the mass pull is its own thing
     /* The beam used to break cloak outright — "you cannot feed while
@@ -436,9 +436,10 @@ function animate(){
     updateAbduction(dt,WEATHER[weather.cur].mult,beamOn&&bp>0.5);
     setBeamMultHUD(WEATHER[weather.cur].mult*S.beamStr);   // weather x altitude
     updateBuff(dt);
-    /* The mass pull IS the beam, used all at once, so a reach for it lights the
-       beam glyph — including the reach that does nothing because the beam is
-       still lying out in the grass. */
+    /* The mass pull IS the beam, used all at once, so the reach that does
+       nothing because the beam is still lying out in the grass shows the beam
+       glyph. Once the beam is aboard this says nothing, like every other
+       working control. */
     const pullTry=input.spHeld||held('pull');
     if(pullTry)ModuleIcons.ping('beam','try');
     Special.update(dt,pullTry,Tutorial.pullTaught());

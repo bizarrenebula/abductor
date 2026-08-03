@@ -11,14 +11,18 @@
    float over the saucer and are shown only at the two moments they mean
    anything:
 
-     - a module is installed  — here is what you just gained, and what is left
-     - a module is USED, or an attempt is made to use one that is missing —
-       here is why nothing happened
+     - a module is installed — here is what you just gained, and what is left
+     - a module you have NOT got is reached for — here is why nothing happened
 
-   The second case is the useful one. Pressing the beam with no beam module used
-   to produce a line of text; now the beam glyph appears greyed out, which says
-   the same thing in the place the player is already looking and in a language
-   that needs no reading.
+   Using a module you own shows nothing at all. That is deliberate and it is the
+   whole discipline of this thing: a working control is not a question, so
+   answering it would put the row on screen for the length of every abduction,
+   which is the permanent panel again by another route.
+
+   The second case is the one that earns the feature. Pressing the beam with no
+   beam module used to produce a line of text; now the beam glyph appears greyed
+   out, which says the same thing in the place the player is already looking and
+   in a language that needs no reading.
 
    Greyed = still lying out there in the world. Lit = aboard. Lit is a SOFT
    glow, not a blaze: this is ship state, not an alarm.
@@ -161,16 +165,23 @@ let fade=0;      // 0..1 current opacity envelope
 
 export const ModuleIcons={
   /* Something happened involving `key`. `kind` is 'got' for an installation
-     (longer, and the glyph itself pulses) or 'try' for a use or a refused use.
+     (longer, and the glyph itself pulses) or 'try' for an attempt to use one.
+
+     A 'try' on a module you ALREADY OWN shows nothing. Using the beam is not a
+     question, and answering it anyway put the row on screen for the whole of
+     every abduction — which is the permanent panel this replaced, wearing a
+     different hat. The row only ever answers a question the player actually
+     has: what did I just gain, or why did nothing happen.
 
      Safe to call every frame while a control is held: the hold is a maximum,
-     not an accumulator, so holding the beam keeps the row up for as long as the
-     beam is open and no longer. */
+     not an accumulator, so a held control keeps the row up while the control is
+     held and no longer. */
   ping(key,kind){
     if(S.state!=='playing')return;
+    const c=cells.find(c=>c.key===key);
+    if(kind!=='got'&&(!c||c.got))return;      // owned, or unknown: nothing to say
     const want=kind==='got'?HOLD_GOT:HOLD_TRY;
     if(want>hold)hold=want;
-    const c=cells.find(c=>c.key===key);
     if(c&&kind==='got')c.pulse=1;
   },
 
@@ -212,4 +223,9 @@ export const ModuleIcons={
 
   /* A fresh run: nothing shown, nothing held over from the last one. */
   reset(){ hold=0; fade=0; row.visible=false; for(const c of cells)c.pulse=0; },
+
+  /* Is the row on screen? Nothing in the game asks — the reveal rules are the
+     harness's whole subject, and "did pressing this put the icons up?" is not
+     answerable from the outside without it. */
+  shown(){ return row.visible; },
 };

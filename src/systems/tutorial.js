@@ -658,8 +658,8 @@ const steps=[
   // 11 — ship upgrades + the full HUD.
   { key:'upgrades', task:'You came down incomplete', hud:{map:true},
     say(s){ return 'Three pieces of this ship fell somewhere else — thrust, a '+
-                   'harder light, a way to not be seen. Reach for one and its mark '+
-                   'shows over the hull: lit if you have it, grey if you do not.'+CLOCK(s); },
+                   'harder light, a way to not be seen. Reach for one you have not '+
+                   'found and its mark shows grey over the hull.'+CLOCK(s); },
     begin:dwellBegin, test:dwellTest },
   // 12 — HULL. Saved for last: the hand-off line, the moment training ends.
   { key:'hull', task:'Nothing down there is soft', hud:{map:true},

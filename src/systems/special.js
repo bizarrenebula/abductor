@@ -44,7 +44,12 @@ export const Special={
        And it stays OFFLINE until the tractor beam is aboard. A mass pull drags
        every creature nearby into the beam; with no beam there is nothing for
        them to arrive in, so offering the button before the module is found
-       advertises a control that cannot do anything. */
+       advertises a control that cannot do anything.
+
+       `avail` is the second half of that: during the guided run it is false
+       until the mass-pull lesson comes up, so the player beams one sheep the
+       ordinary way before being shown the button that does it wholesale. See
+       Tutorial.pullTaught(), which main.js passes in. */
     const show=avail&&S.upHasBeam&&this.charge>=1&&!this.active;
     if(show)spBtn.textContent=t('hud.pull');
     spBtn.classList.toggle('show',show);

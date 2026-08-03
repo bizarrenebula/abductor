@@ -429,7 +429,7 @@ function animate(){
     updateAbduction(dt,WEATHER[weather.cur].mult,beamOn&&bp>0.5);
     setBeamMultHUD(WEATHER[weather.cur].mult*S.beamStr);   // weather x altitude
     updateBuff(dt);
-    Special.update(dt,input.spHeld||held('pull'));
+    Special.update(dt,input.spHeld||held('pull'),Tutorial.pullTaught());
     updateCrystals(dt,beamOn&&bp>0.5);
     updateProps(dt,beamOn&&bp>0.5);
     updateWindmills(dt);

@@ -613,7 +613,9 @@ const steps=[
 
      Everything up to here stood still and waited to be taken. A person hears
      the ship and bolts — so you arrive without being heard. */
-  { key:'cloak', task:'Go quiet', hud:{map:true,equip:true,point:'pull'},
+  /* No point: here — this step used to pulse the PULL button while teaching the
+     cloak, a leftover from when it followed the pull lesson directly. */
+  { key:'cloak', task:'Go quiet', hud:{map:true,equip:true},
     say(s){
       if(!s.didCloak)
         return TOUCH?'Those are people down there, and they run. HOLD the ship itself to go dark.'
@@ -670,6 +672,9 @@ const steps=[
     begin:dwellBegin, test:dwellTest },
 ];
 
+/* Where the mass-pull lesson sits in the running order. See pullTaught(). */
+const PULL_STEP=steps.findIndex(s=>s.key==='pull');
+
 /* ---- controller ----------------------------------------------------------- */
 export const Tutorial={
   active:false,
@@ -681,6 +686,20 @@ export const Tutorial={
      the tutorial or drop the player into Story mode without an import cycle. */
   replayRun:null,
   toMenu:null,
+
+  /* Is the PULL button allowed on screen yet?
+
+     Owning the beam is not enough. The mass pull is the beam used all at once,
+     and a player who has never opened the beam on a single sheep has no idea
+     what "everything nearby is dragged in" means — the button is a mystery
+     control offering a trick for a tool they have not used. So during the
+     guided run it stays off screen until its own lesson comes up, which is
+     after the sheep. One ordinary abduction, THEN the party trick.
+
+     Outside the tutorial there is no lesson to wait for, so the answer is yes
+     and special.js's own S.upHasBeam test is the whole gate. Read from main.js
+     rather than imported by special.js, which would close an import cycle. */
+  pullTaught(){ return !this.active || this._i>=PULL_STEP; },
 
   /* Offer the tutorial from the Play button. onYes / onSkip start the game. */
   prompt(onYes,onSkip){

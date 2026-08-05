@@ -603,7 +603,7 @@ const steps=[
        band of screen. A hint card is read at a glance while flying; anything
        that needs a paragraph belongs in the reading steps at the end. */
     say:()=>TOUCH?'Slide up or down the middle to change altitude.'
-                 :'SHIFT climbs, CTRL dives.',
+                 :'SPACE climbs, SHIFT dives.',
     begin(s){ s.minY=s.maxY=saucer.position.y; },
     test(s){ const y=saucer.position.y; if(y<s.minY)s.minY=y; if(y>s.maxY)s.maxY=y;
              return s.maxY-s.minY>=22; } },
@@ -621,7 +621,7 @@ const steps=[
       if(S.beamLock>0.03) return 'Locked on — hold it steady!';
       if(S.beamPower>0.12) return 'Beam open — centre it on the creature.';
       return TOUCH?'Over the ▼ sheep — double-tap & HOLD.'
-                  :'Over the ▼ sheep — hold SPACE.';
+                  :'Over the ▼ sheep — hold LEFT CLICK.';
     },
     begin(s){ s.base=S.taken; s.target=null; },
     test(s){ trackMarker(s); return S.taken>s.base; },
@@ -648,7 +648,7 @@ const steps=[
       if(Special.active) return 'Holding — everything nearby is being dragged in!';
       if(Special.charge<1) return 'Recharging… it refills as you fly and abduct.';
       return TOUCH?'Hold PULL — it drags every creature nearby to you.'
-                  :'Hold Q — it drags every creature nearby to you.';
+                  :'Hold RIGHT CLICK — it drags every creature nearby to you.';
     },
     begin(s){ s.used=false; Special.charge=1; },   // hand them a full charge to try it
     test(s){ if(Special.active)s.used=true; return s.used; } },

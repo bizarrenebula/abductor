@@ -2,7 +2,7 @@
    SPECIAL — the "Great Pull": when charged and held, drags every nearby
    creature toward the ship. Charge builds from abductions and idle time.
    ========================================================================= */
-import { WATER_Y } from '../core/constants.js';
+import { WATER_Y, POWER_MIN } from '../core/constants.js';
 import { heightAt } from '../world/terrain.js';
 import { beep } from '../audio/music.js';
 import { animals } from '../entities/registry.js';
@@ -23,7 +23,12 @@ export const Special={
        because there was nothing to press.
        It also cancels a pull in progress: losing the beam mid-pull should stop
        the pull, not leave it running until the key is released. */
-    const usable=avail&&S.upHasBeam;
+    /* ...and the reactor has to be able to hold it up. The mass pull is one of
+       the two things energy is FOR, so a flat ship simply cannot fire it — the
+       button goes dark and a pull already running cuts out. Not a death, just
+       a tool offline until there are crystals aboard. */
+    const powered=S.energyMode!=='drain'||S.energy>=POWER_MIN;
+    const usable=avail&&S.upHasBeam&&powered;
     if(this.active){ if(!held||!usable||this.charge<=0)this.active=false; }
     else if(held&&usable&&this.charge>=1){this.active=true;beep(196,0.4,0.09);}
     if(this.active){

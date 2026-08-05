@@ -75,7 +75,7 @@ const _v=new THREE.Vector3();
 import { Tutorial } from './systems/tutorial.js';
 import { Intro } from './systems/intro.js';
 import { renderWaypoints, clearWaypoints } from './systems/waypoints.js';
-import { HULL_DROP, FLY_CLEAR } from './core/constants.js';
+import { HULL_DROP, FLY_CLEAR, POWER_MIN } from './core/constants.js';
 import { FlightModel } from './systems/flight.js';
 import { resetFlightInput } from './systems/flight-input.js';
 
@@ -345,7 +345,6 @@ function animate(){
     S.yaw=flight.yaw;
     S.pitch=flight.pitch;                             // nose angle (read by the tutorial)
     S.vel.x=flight.velocity.x; S.vel.z=flight.velocity.z;
-    const moveMag=Math.min(1,Math.hypot(fin.forward,fin.strafe));
     const climbing=Math.abs(fin.vertical)>0.01;
     if(climbing||Math.abs(flight.velocity.y)>0.4)altHudT=0.8; else altHudT=Math.max(0,altHudT-dt);
     const gh=Math.max(heightAt(saucer.position.x,saucer.position.z),
@@ -422,22 +421,13 @@ function animate(){
     // BEFORE the bar, which reads their state — the other order showed the bar
     // one frame behind the glyphs and one frame after they went.
     ModuleIcons.update(dt,Math.hypot(flight.velocity.x,flight.velocity.z));
-    /* THE BAR RIDES WITH THE GLYPHS.
-
-       The reactor and the missing modules are one subject: while the ship is
-       incomplete it is bleeding, and the glyphs come up at exactly the moments
-       that matters — a part collected, or a part reached for and not there. So
-       the bar comes up with them and answers the question they raise.
-
-       Once all three are aboard the reactor is effectively infinite (nothing
-       draws but the cloak, see the drain rule below), so a gauge that cannot
-       move is noise. From then on it appears only while cloaked — which is the
-       only time it is spending anything — plus the low-energy case, because a
-       reactor emptied by a long cloak still has to be able to warn you. */
-    const complete=S.upHasBeam&&S.upAltitude&&S.upCloak;
-    updateEnergyBar(dt,S.energyMode==='drain'&&(
-      complete ? (S.cloak||S.energy<0.28)
-               : (ModuleIcons.shown()||S.cloak||bp>0.05||S.energy<0.28)));
+    /* THE BAR IS UP WHEN THE ANSWER MATTERS: while either power is actually
+       running, while the reactor is low enough that the next one might not
+       start, and alongside the module glyphs — the reactor and the missing
+       modules are one subject, and the glyphs already appear at exactly the
+       moments a player is thinking about what the ship can and cannot do. */
+    updateEnergyBar(dt,S.energyMode==='drain'&&
+      (S.cloak||Special.active||S.energy<0.28||ModuleIcons.shown()));
 
     /* ---- world ---- */
     updateChunks(saucer.position.x,saucer.position.z);
@@ -474,32 +464,24 @@ function animate(){
 
     /* ---- energy ---- */
     if(S.energyMode==='drain'){
-      /* AN INCOMPLETE SHIP LEAKS; A COMPLETE ONE ONLY PAYS FOR INVISIBILITY.
+      /* ENERGY IS WHAT THE CLOAK AND THE MASS PULL RUN ON. NOTHING ELSE.
 
-         The old rule charged per missing module — a raw beam cost energy, raw
-         thrusters cost energy — which meant the reactor got cheaper one module
-         at a time and nobody could feel the difference. The rule now has one
-         switch in it, and it is the switch the whole run is about:
+         Flying is free, the ordinary beam is free, and an empty reactor is not
+         fatal — it just means the two best tools are offline until you find
+         crystals. That is the whole design: running out has to be a LOSS OF
+         CAPABILITY the player wants to fix, not a death that ends the run. A
+         reactor that kills you makes a player hoard energy and never use the
+         powers; one that switches the powers off makes them go looking for
+         more.
 
-           incomplete  everything draws. Idle, flying, beaming, mass pull, and
-                       the cloak if you somehow have it. The ship is broken and
-                       it is bleeding, so finding the parts is urgent.
-           complete    ONLY the cloak. Fly, beam and pull as long as you like;
-                       the one thing that still costs is being invisible, which
-                       is also the one thing that trivialises everything else.
+         The ordinary beam staying free is what makes the recovery possible —
+         it is the tool you refuel WITH, so gating it on energy would strand a
+         flat ship with no way back. Two earlier rules charged for flying and
+         for beaming; both are gone, because both punished the player for the
+         act of digging themselves out.
 
-         drainAlt scales it: a higher hover, and a beam projected that much
-         further, both cost more. */
-      const complete=S.upHasBeam&&S.upAltitude&&S.upCloak;
-      const cloakDr=S.cloak?1/55:0;
-      const dr=(complete
-        ? cloakDr
-        : 1/160                              // just being switched on
-          + moveMag/220                      // flying
-          + (beamOn?1/55:0)                  // beaming
-          + (Special.active?1/45:0)          // mass pull
-          + cloakDr
-        )*drainAlt;
+         drainAlt scales it: a power projected from a higher hover costs more. */
+      const dr=((S.cloak?1/55:0)+(Special.active?1/45:0))*drainAlt;
       S.energy=Math.max(0,S.energy-dr*dt);
       // tiered low-energy warnings (fire once per threshold as it drops)
       const lvl=S.energy<0.10?3:S.energy<0.25?2:S.energy<0.50?1:0;
@@ -509,13 +491,9 @@ function animate(){
         else if(lvl===2){banner(tr('banner.energy25'));beep(330,0.3,0.08);}
         else if(lvl===3){banner(tr('banner.energy10'));beep(220,0.4,0.1);setTimeout(()=>beep(180,0.4,0.1),260);}
       }else if(lvl<S.warnLevel){S.warnLevel=lvl;}   // re-arm after refuelling
-      if(S.cloak&&S.energy<0.02)S.cloak=false;       // forced decloak when empty
-      if(S.energy<=0&&!S.tutorial){
-        S.state='crashing';S.vy=0;S.crashReason='energy';S.cloak=false;
-        BeamSFX.stop();S.prevBeam=false;
-        Music.set('off');
-        beep(110,0.8,0.1);setTimeout(()=>beep(70,1.2,0.1),300);
-      }
+      /* Flat: drop the cloak and keep it down. Special.update makes its own
+         check, so the mass pull cuts out here too. The ship flies on. */
+      if(S.cloak&&S.energy<POWER_MIN)S.cloak=false;
     }
     applyCloakVisual();
 

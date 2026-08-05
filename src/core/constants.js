@@ -172,3 +172,15 @@ export const RESTRICT_R = 210;
    dirt and "down" was a way to crash. */
 export const HULL_DROP  = 1.5;   // centre -> underside
 export const FLY_CLEAR  = 6.0;   // underside -> ground, minimum
+
+/* ---- reactor -------------------------------------------------------------
+   Energy powers exactly two things: the cloak and the mass pull. Below this
+   the reactor cannot hold either up — the cloak drops and will not re-engage,
+   and Special refuses to fire. Flying and the ordinary beam never consult it,
+   so a flat ship can always go and find crystals, which is the only way back.
+
+   One constant because three files ask the same question (main.js's drain,
+   systems/cloak.js's toggle, systems/special.js's usable test) and a
+   disagreement between them would read as a bug: a cloak you can engage and
+   that drops again half a second later. */
+export const POWER_MIN = 0.06;

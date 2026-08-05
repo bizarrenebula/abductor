@@ -48,20 +48,37 @@ const SHIP_SLOP=12;                // px of travel that cancels a pending cloak 
    Every keyboard action maps through `binds` (action id -> lowercased e.key), so
    the player can remap any of them in Settings. Defaults match the on-screen
    hints; overrides persist in localStorage. main.js reads inputs via held(). */
+/* THE TWO BEAMS ARE ON THE MOUSE, THE ALTITUDE IS UNDER THE THUMBS.
+
+   Left button opens the beam, right button fires the mass pull. Both are aimed
+   controls — you hold them while lining the ship up over something — so they
+   belong on the hand that is already aiming. Q in particular was a reach away
+   from WASD for the one action that needs the ship held steady.
+
+   That frees Space, which is where a flight game's "up" lives, with Shift under
+   it for down. Both are on the left hand, next to the movement keys, instead of
+   the old Shift/Ctrl pair that put climbing and diving on the same finger.
+
+   `beam` and `pull` keep their rows in the rebind list with no default, so a
+   player who wants a key for either can still set one; they just are not the
+   primary control any more. Cloak stays on C. */
 export const ACTIONS=[
   {id:'forward',def:'w'},       {id:'back',def:'s'},
   {id:'strafeL',def:'a'},       {id:'strafeR',def:'d'},
-  {id:'ascend',def:'shift'},    {id:'descend',def:'control'},
+  {id:'ascend',def:' '},        {id:'descend',def:'shift'},
   {id:'turnL',def:'arrowleft'}, {id:'turnR',def:'arrowright'},   // optional keyboard yaw (mouse is primary)
-  {id:'beam',def:' '},          {id:'pull',def:'q'},   {id:'cloak',def:'c'},
+  {id:'beam',def:''},           {id:'pull',def:''},    {id:'cloak',def:'c'},
 ];
 const BIND_DEF={}; ACTIONS.forEach(a=>BIND_DEF[a.id]=a.def);
 export const binds=Object.assign({},BIND_DEF);
-// 'abductor.binds2' — bumped from the old key so the new WASD/Shift/Ctrl scheme
-// is not shadowed by a player's stored pre-mouse-look bindings.
-try{ const s=JSON.parse(localStorage.getItem('abductor.binds2')||'{}');
+/* 'abductor.binds3' — bumped again. A stored set from the old scheme would
+   shadow the new defaults entirely, so a returning player would keep Shift/Ctrl
+   altitude and a Q that no longer has a button behind it, and would have no way
+   of knowing the scheme had changed. Same reason the key was bumped from the
+   pre-mouse-look one. */
+try{ const s=JSON.parse(localStorage.getItem('abductor.binds3')||'{}');
   for(const a of ACTIONS) if(typeof s[a.id]==='string') binds[a.id]=s[a.id]; }catch(e){}
-export function saveBinds(){ try{localStorage.setItem('abductor.binds2',JSON.stringify(binds));}catch(e){} }
+export function saveBinds(){ try{localStorage.setItem('abductor.binds3',JSON.stringify(binds));}catch(e){} }
 export function setBind(id,key){
   for(const a of ACTIONS) if(a.id!==id && binds[a.id]===key) binds[a.id]='';   // one key -> one action
   binds[id]=key; saveBinds();
@@ -328,12 +345,13 @@ addEventListener('pointercancel',endPtr);
    mouse-look simply does not engage, which is a far better outcome than a hard
    error on the first click. */
 const PC_MOUSE = !TOUCH_ONLY;
-let locked=false, pcCloakTimer=0, pcCloakT0=0;
+let locked=false;
 const MOUSE_SENS=0.0022;                 // radians per pixel, before the model's turnRate
-function cancelPcCloak(){ if(pcCloakTimer){clearTimeout(pcCloakTimer);pcCloakTimer=0;} pcCloakT0=0; }
 document.addEventListener('pointerlockchange',()=>{
   locked=document.pointerLockElement===renderer.domElement;
-  if(!locked){ input.beamHold=false; cancelPcCloak(); }
+  // Losing the pointer must release both, or the beam stays open behind the
+  // pause menu with nothing left to send the mouseup.
+  if(!locked){ input.beamHold=false; input.spHeld=false; }
 });
 renderer.domElement.addEventListener('mousedown',e=>{
   if(!PC_MOUSE)return;                       // synthetic event behind a touch
@@ -343,17 +361,13 @@ renderer.domElement.addEventListener('mousedown',e=>{
     if(el.requestPointerLock)el.requestPointerLock();
     return;
   }
-  if(e.button===0){ input.beamHold=true; }
-  else if(e.button===2){
-    if(!S.upCloak&&!S.cloak){ toggleCloak(); return; }               // locked: just flash the message
-    pcCloakT0=performance.now();
-    pcCloakTimer=setTimeout(()=>{ pcCloakTimer=0; pcCloakT0=0; toggleCloak(); },CLOAK_HOLD_MS);
-  }
+  if(e.button===0)      input.beamHold=true;   // beam
+  else if(e.button===2) input.spHeld=true;     // mass pull (Special gates it)
 });
 addEventListener('mouseup',e=>{
   if(!PC_MOUSE)return;
-  if(e.button===0)input.beamHold=false;
-  else if(e.button===2)cancelPcCloak();
+  if(e.button===0)      input.beamHold=false;
+  else if(e.button===2) input.spHeld=false;
 });
 renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('mousemove',e=>{
@@ -362,11 +376,11 @@ document.addEventListener('mousemove',e=>{
   input.mDY+=e.movementY*MOUSE_SENS;
 });
 
-/* Feed the hold-to-cloak progress ring the HUD reads (touch saucer-hold OR RMB). */
+/* Feed the hold-to-cloak progress ring the HUD reads. Touch only now — the PC's
+   right button is the mass pull, and cloak on a keyboard is a tap on C with no
+   hold to visualise. */
 setInterval(()=>{
-  let p=0;
-  if(cloakPtr!=null&&cloakTimer)p=(performance.now()-cloakT0)/CLOAK_HOLD_MS;
-  if(pcCloakTimer&&pcCloakT0)p=Math.max(p,(performance.now()-pcCloakT0)/CLOAK_HOLD_MS);
+  const p=(cloakPtr!=null&&cloakTimer)?(performance.now()-cloakT0)/CLOAK_HOLD_MS:0;
   input.cloakProg=Math.min(1,p);
 },33);
 
@@ -392,7 +406,7 @@ if(angleSlider){
 export function resetInputTouch(){
   input.tFwd=input.tStrafe=input.tTurn=input.tClimb=0;
   input.lookStickX=input.lookStickY=input.mDX=input.mDY=0;
-  input.beamHold=false;input.spHeld=false;input.cloakProg=0;input.spinKick=0;shipPtr=null;cancelPcCloak();
+  input.beamHold=false;input.spHeld=false;input.cloakProg=0;input.spinKick=0;shipPtr=null;
   half.L.ids.length=0;half.R.ids.length=0;
   half.L.beamPtr=null;half.L.lastWasTap=false;half.R.beamPtr=null;half.R.lastWasTap=false;
   ptrHalf.clear();pos.clear();cancelCloakHold();

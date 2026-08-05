@@ -12,7 +12,9 @@ export const S={
   beamPower:0,
   beamLock:0,               // 0..1 strongest in-progress abduction lock (drives the beam FX)
   taken:0, tally:{},
-  world:'earth', energyMode:'inf', energy:1, vy:0,
+  // Reactor defaults to DRAINABLE — see the rule in main.js: an incomplete ship
+  // leaks, a complete one only pays for the cloak. Infinite is the opt-out.
+  world:'earth', energyMode:'drain', energy:1, vy:0,
   crystals:0, missionIdx:0, prevBeam:false, crashReason:null,
   isDay:false, dayF:0, storyMode:false,   // runs begin at night (see dayNightUpdate)
   cloak:false, warnLevel:0, elapsed:0,

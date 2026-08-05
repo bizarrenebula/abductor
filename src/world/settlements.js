@@ -274,6 +274,7 @@ export function spawnSettlementParts(ox,oz,size,place){
       b.rotation.y=Math.atan2(-rx*side,-rz*side)+(hash(s.cx,s.cz,900+i)-0.5)*0.5;
       b.scale.multiplyScalar(0.86+hash(s.cx,s.cz,1300+i)*0.42);
       b.userData.solid=false;                            // scenery: nothing to crash into
+      b.userData.shelter=true;                           // ...but somewhere to run into
       made.push(b);
       place(b,x,z,4);
     }

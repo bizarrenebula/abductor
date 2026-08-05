@@ -417,7 +417,11 @@ function animate(){
     glowLight.intensity=(0.9+4.2*_night)+0.12*Math.sin(t*2.3);
     glowLight.distance=lerp(100,150,_night);
     // (border-light blink + lid glow are driven centrally by updateSaucer)
-    updateEnergyBar(dt,S.energyMode==='drain'&&(bp>0.05||S.cloak||S.energy<0.28));
+    /* The bar shows when the reactor is actually being spent, or is low enough
+       to worry about. On a complete ship beaming is free, so a beam alone no
+       longer raises a gauge that is not going to move. */
+    updateEnergyBar(dt,S.energyMode==='drain'
+      &&(S.cloak||S.energy<0.28||(bp>0.05&&!(S.upHasBeam&&S.upAltitude&&S.upCloak))));
     // The module glyphs sit above the bar. Fed the ship's ground speed, because
     // the reveal shortens the faster you fly (see moduleIcons.js).
     ModuleIcons.update(dt,Math.hypot(flight.velocity.x,flight.velocity.z));
@@ -457,14 +461,32 @@ function animate(){
 
     /* ---- energy ---- */
     if(S.energyMode==='drain'){
-      const im=moveMag;
-      // The beam and the thrusters draw from this same reactor. A RAW beam and RAW
-      // thrusters are thirsty; collecting the Plasma Beam / Nuclear Thrusters module
-      // makes each one free. drainAlt scales the whole rate: a higher hover, and a
-      // beam projected that much further, both cost the reactor more.
-      const beamDr=beamOn&&!S.upHasBeam?1/55:0;
-      const altDr =climbing&&!S.upAltitude?1/70:0;
-      const dr=(1/160+beamDr+altDr+(Special.active?1/45:0)+im/220+(S.cloak?1/55:0))*drainAlt;
+      /* AN INCOMPLETE SHIP LEAKS; A COMPLETE ONE ONLY PAYS FOR INVISIBILITY.
+
+         The old rule charged per missing module — a raw beam cost energy, raw
+         thrusters cost energy — which meant the reactor got cheaper one module
+         at a time and nobody could feel the difference. The rule now has one
+         switch in it, and it is the switch the whole run is about:
+
+           incomplete  everything draws. Idle, flying, beaming, mass pull, and
+                       the cloak if you somehow have it. The ship is broken and
+                       it is bleeding, so finding the parts is urgent.
+           complete    ONLY the cloak. Fly, beam and pull as long as you like;
+                       the one thing that still costs is being invisible, which
+                       is also the one thing that trivialises everything else.
+
+         drainAlt scales it: a higher hover, and a beam projected that much
+         further, both cost more. */
+      const complete=S.upHasBeam&&S.upAltitude&&S.upCloak;
+      const cloakDr=S.cloak?1/55:0;
+      const dr=(complete
+        ? cloakDr
+        : 1/160                              // just being switched on
+          + moveMag/220                      // flying
+          + (beamOn?1/55:0)                  // beaming
+          + (Special.active?1/45:0)          // mass pull
+          + cloakDr
+        )*drainAlt;
       S.energy=Math.max(0,S.energy-dr*dt);
       // tiered low-energy warnings (fire once per threshold as it drops)
       const lvl=S.energy<0.10?3:S.energy<0.25?2:S.energy<0.50?1:0;

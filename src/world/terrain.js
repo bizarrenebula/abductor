@@ -176,3 +176,22 @@ export function goodGround(x,z,opts){
   if(slopeAt(x,z)>(o.slope!=null?o.slope:0.5))return false;   // no cliff edges
   return true;
 }
+
+/* Can a PERSON stand here, and walk here?
+
+   Deliberately narrower than goodGround and deliberately its own function,
+   because it is asked at two quite different moments: once when deciding where
+   to put someone, and then every frame while they are running away. Those two
+   answers have to agree, or a villager spawns on legal ground and then flees
+   straight into a lake — which is exactly what used to happen.
+
+   No water at all (they do not swim), no mountain and no canyon (they do not
+   climb), and nothing steeper than a hill you could walk up. Kept cheap: this
+   runs per fleeing NPC per frame. */
+export function walkableGround(x,z){
+  const sm=sample(x,z);
+  if(sm.biome==='water'||sm.biome==='mountain'||sm.biome==='canyon')return false;
+  if(sm.h<=WATER_Y+0.2)return false;         // the shallows are still water
+  if(sm.h>MTN_H-4)return false;              // high ground, whatever it is labelled
+  return slopeAt(x,z,2)<=0.55;
+}

@@ -6,7 +6,7 @@ import { THREE } from '../core/three.js';
 import { OBJ_SCALE, COLLECT_SCALE, ASSETS } from '../core/constants.js';
 import { mat, part, glowMat, measureSolid } from '../core/mesh.js';
 import { S } from '../core/state.js';
-import { heightAt } from '../world/terrain.js';
+import { heightAt, walkableGround } from '../world/terrain.js';
 import { LOADED, spawnModel } from '../assets.js';
 import { shelters, buildings } from './registry.js';
 import { saucer } from '../systems/saucer.js';
@@ -177,8 +177,25 @@ export function updateHuman(a,u,dt){
       if(best){tx=best.x;tz=best.z;}
     }
     const mx=tx-a.position.x,mz=tz-a.position.z,ml=Math.hypot(mx,mz)||1;
-    a.position.x+=mx/ml*u.speed*dt;
-    a.position.z+=mz/ml*u.speed*dt;
+    const step=u.speed*dt;
+    const sx2=mx/ml*step, sz2=mz/ml*step;
+    /* PANIC DOES NOT MAKE PEOPLE AMPHIBIOUS. The flee target is chosen without
+       consulting the ground, so a straight run at it walked villagers into
+       lakes and up mountainsides — which looked worse than not fleeing at all,
+       because they kept going.
+
+       Try the whole step; if it lands somewhere a person cannot go, try each
+       axis on its own, which slides them ALONG a shoreline or a cliff foot
+       instead of stopping dead against it. If neither component works they are
+       cornered, so they stay put and keep facing away — nothing to do but be
+       taken, which is a fair outcome for running into a dead end. */
+    let nx=a.position.x+sx2, nz=a.position.z+sz2;
+    if(!walkableGround(nx,nz)){
+      if(walkableGround(a.position.x+sx2,a.position.z))      nz=a.position.z;
+      else if(walkableGround(a.position.x,a.position.z+sz2)) nx=a.position.x;
+      else { nx=a.position.x; nz=a.position.z; }
+    }
+    a.position.x=nx; a.position.z=nz;
     a.position.y=heightAt(a.position.x,a.position.z)+Math.abs(Math.sin(performance.now()*0.018))*0.14;
     a.rotation.y=Math.atan2(mx,mz);
     if(best&&bd<2.4){u.hidden=7+Math.random()*4;a.visible=false;u.progress=0;}

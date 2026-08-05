@@ -12,11 +12,11 @@ import { S } from '../core/state.js';
 import { SPAWN_CLEAR } from './spawn.js';
 import { disposeDeep } from '../core/dispose.js';
 import { World } from './world-config.js';
-import { sample, goodGround, slopeAt } from './terrain.js';
+import { sample, goodGround, slopeAt, walkableGround } from './terrain.js';
 import { TEX, grassTex, sandTex, rockTex, snowTex } from './textures.js';
-import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, roadHere, roadWidth, junctionsIn } from './roads.js';
+import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, roadWidth, junctionsIn } from './roads.js';
 import { animals, pickups, props, buildings, vehicles, shelters, structures } from '../entities/registry.js';
-import { spawnSettlementParts, clearSettlementCache, inSettlement } from './settlements.js';
+import { spawnSettlementParts, clearSettlementCache, inSettlement, settlementsNear } from './settlements.js';
 import { spawnFieldParts, clearFieldCache, inField } from './fields.js';
 import { monumentsNear, clearMonumentCache, inMonument, sphinxPos } from './monuments.js';
 import { buildAnimal } from '../entities/animals.js';
@@ -129,8 +129,12 @@ export function buildChunk(cx,cz){
   /* A town owns its ground: nothing else — no tree, animal, crystal, barn,
      billboard or station — is placed inside one. Roads and their traffic are
      the deliberate exception, so the street through the middle stays live. */
-  const clearSpot=(x,z,r)=>{
-    if(inSettlement(x,z,r+4))return false;
+  /* `inTown` opts out of the settlement test, and ONLY the village's own
+     residents may use it — everything else in the world stays outside the
+     footprint. Without it a village could not be populated at all: the rule
+     that keeps trees out of the high street kept the villagers out too. */
+  const clearSpot=(x,z,r,inTown)=>{
+    if(!inTown&&inSettlement(x,z,r+4))return false;
     if(inField(x,z,r+1))return false;              // nothing grows in the crop
     if(inMonument(x,z,r+2))return false;           // nor out of the masonry
     // ...and so does the landing site: collision.js only looks 24 units out, so
@@ -145,14 +149,53 @@ export function buildChunk(cx,cz){
   // SPAWN_DENSITY thins every population uniformly (never below one attempt).
   const dens=n=>Math.max(1,Math.round(n*SPAWN_DENSITY));
 
+  /* PEOPLE LIVE SOMEWHERE. Every NPC in the world comes from here, and every
+     caller passes the thing they came out of — a village, a farmhouse, a desert
+     camp, a filling station. There is no spawner that puts a person in open
+     country any more.
+
+     That is not only a plausibility fix. A frightened human runs for the
+     nearest shelter (see humans.js), so one dropped in the middle of nowhere
+     had nothing to run to and jogged toward the horizon until the chunk
+     unloaded. Anchoring them to a building means the flee behaviour has
+     somewhere to send them, which is what it was written for. */
+  const populate=(cx,cz,spread,n,kind,list,bag,tweak,inTown)=>{
+    for(let i=0;i<n;i++){
+      const hx=cx+(Math.random()-0.5)*spread, hz=cz+(Math.random()-0.5)*spread;
+      if(!walkableGround(hx,hz))continue;      // same test their feet obey once alive
+      if(roadDist(hx,hz)<ROAD_HW+1.5)continue; // not standing in the carriageway
+      if(!clearSpot(hx,hz,1.6,inTown))continue;
+      const hu=buildHuman(kind);
+      hu.position.set(hx,sample(hx,hz).h,hz);
+      hu.rotation.y=hu.userData.face;
+      if(tweak)tweak(hu);
+      scene.add(hu);list.push(hu);bag.push(hu);mark(hx,hz,1.4);
+    }
+  };
+
   /* Villages and cities go down FIRST, claiming their footprints, so every
      scenery pass below naturally routes around them (rather than a lone barn's
      approach of deleting the trees it landed on). They stream per chunk but are
      positioned globally — see world/settlements.js. */
-  const st=[], mons=[];
+  const st=[], mons=[], sh=[];
   if(World.name==='earth'){
-    for(const o of spawnSettlementParts(ox,oz,CHUNK,(obj,x,z,r)=>{ mark(x,z,r); })){
+    for(const o of spawnSettlementParts(ox,oz,CHUNK,(obj,x,z,r)=>{
+      mark(x,z,r);
+      // Every house is somewhere to run to. Villages had no shelters at all
+      // before, which is why a village had no people: there was nowhere for
+      // them to go, so nothing put them there.
+      if(obj.userData.shelter){ const s={x,z}; shelters.push(s); sh.push(s); }
+    })){
       scene.add(o); st.push(o); structures.push(o);
+    }
+    /* THE PEOPLE WHO LIVE IN THEM. Settlements used to be empty streets — every
+       NPC in town was one of the scattered wanderers from the animal table, so
+       deleting those emptied the towns entirely. A village is now populated
+       from its own centre, which is also the only place `inTown` is granted. */
+    for(const s of settlementsNear(ox,oz,CHUNK)){
+      if(s.x<ox||s.x>=ox+CHUNK||s.z<oz||s.z>=oz+CHUNK)continue;   // one chunk owns it
+      populate(s.x,s.z,s.r*1.5,dens(4+((Math.random()*4)|0)),'villager',
+               animals,spawned,null,true);
     }
     // Farmland goes down with them — two batched meshes per chunk, and clearSpot
     // then keeps every later pass out of the crop.
@@ -219,16 +262,17 @@ export function buildChunk(cx,cz){
            no flocks at all, so what walks about there is people. Birds are in
            both by design (they are the one thing that is genuinely everywhere);
            the vulture and the camel are desert-only, the sheep wilderness-only. */
-        if(sm.wUrb>0.5) species=r<0.42?'Bird':'@human';
-        else            species=r<0.16?'Bird':r<0.74?'Sheep':'@human';
+        /* NO PEOPLE IN THIS TABLE. A person standing alone in open country with
+           nothing around them for half a kilometre is not a person, it is a
+           prop — and the flee behaviour makes it worse, because they run for
+           the nearest shelter and there is not one. Everybody now spawns at
+           something they could plausibly have come out of: a village, a farm,
+           a desert camp or a filling station. See the spawners below. */
+        if(sm.wUrb>0.5) species=r<0.55?'Bird':null;
+        else            species=r<0.16?'Bird':r<0.82?'Sheep':null;
+        if(!species)continue;
       }
-      /* '@human' is not a species in the animal table — villagers and hikers are
-         built by humans.js but live in the same `animals` list and are abducted
-         the same way, so the spawn table can name one wherever it wants a
-         person. */
-      a=species==='@human'
-        ? buildHuman(sm.wUrb>0.5?'hiker':'villager')
-        : buildAnimal(species);
+      a=buildAnimal(species);
       // Ground animals keep clear of solids so they don't spawn inside a tree.
       if(!a.userData.fly && !clearSpot(wx,wz,2.2))continue;
       a.position.set(wx, a.userData.fly?Math.max(sm.h,WATER_Y)+a.userData.hover
@@ -305,7 +349,7 @@ export function buildChunk(cx,cz){
       pr.splice(i,1);
     }
   };
-  const bl=mons,sh=[];
+  const bl=mons;
 
   /* The Area 51 sign: one per world. WHERE it stands was decided by
      world/spawn.js before the world streamed, because the ship's opening heading
@@ -337,24 +381,9 @@ export function buildChunk(cx,cz){
       clearPropsNear(wx,wz,10);mark(wx,wz,10);
       scene.add(b);bl.push(b);buildings.push(b);
       const shel={x:wx,z:wz};shelters.push(shel);sh.push(shel);
-      const nh=1+((Math.random()*2)|0);
-      for(let h=0;h<nh;h++){
-        const hx=wx+(Math.random()-0.5)*18, hz=wz+(Math.random()-0.5)*18;
-        const sm2=sample(hx,hz);
-        if(sm2.biome==='water'||sm2.biome==='mountain'||sm2.biome==='canyon')continue;
-        if(!clearSpot(hx,hz,1.6))continue;
-        const hu=buildHuman(kind==='barn'?'villager':'hiker');
-        hu.position.set(hx,sm2.h,hz);hu.rotation.y=hu.userData.face;
-        scene.add(hu);animals.push(hu);spawned.push(hu);mark(hx,hz,1.4);
-      }
-    }
-  }else if(World.name==='earth'&&Math.random()<0.1){
-    const wx=ox+Math.random()*CHUNK, wz=oz+Math.random()*CHUNK;
-    const sm=sample(wx,wz);
-    if((sm.biome==='plains'||sm.biome==='forest')&&roadDist(wx,wz)>ROAD_HW+3&&clearSpot(wx,wz,1.6)){
-      const hu=buildHuman('hiker');
-      hu.position.set(wx,sm.h,wz);
-      scene.add(hu);animals.push(hu);spawned.push(hu);mark(wx,wz,1.4);
+      populate(wx,wz,18,1+((Math.random()*2)|0),
+               kind==='barn'?'villager':kind==='camp'?'villager':'hiker',
+               animals,spawned);
     }
   }
   /* ---- roads: deck geometry, then roadside population (Earth only) ---- */
@@ -417,7 +446,7 @@ export function buildChunk(cx,cz){
         const sx=sp.x+sp.fz*off*side, sz=sp.z-sp.fx*off*side;
         const sm2=sample(sx,sz);
         if(sm2.biome!=='water'&&sm2.biome!=='mountain'&&sm2.biome!=='canyon'&&sm2.h>WATER_Y+1
-           &&roadHere(sx,sz)                      // filling stations are urban only
+           &&roadWidth(sx,sz,c.axis,c.k)>0.12     // urban only, and on THIS corridor
            &&!inRestricted(sx,sz,12)&&clearSpot(sx,sz,12)&&flatEnough(sx,sz,9)){
           const st=buildStation();
           clearPropsNear(sx,sz,13);mark(sx,sz,11);
@@ -425,17 +454,9 @@ export function buildChunk(cx,cz){
           st.rotation.y=Math.atan2(-sp.fz*side,sp.fx*side);   // forecourt toward the road
           scene.add(st);bl.push(st);buildings.push(st);
           const shel={x:sx,z:sz};shelters.push(shel);sh.push(shel);
-          const nh=2+((Math.random()*2)|0);
-          for(let h=0;h<nh;h++){
-            const hx=sx+(Math.random()-0.5)*12, hz=sz+(Math.random()-0.5)*12;
-            const sm3=sample(hx,hz);
-            if(sm3.biome==='water'||sm3.biome==='mountain'||sm3.biome==='canyon')continue;
-            if(!clearSpot(hx,hz,1.6))continue;
-            const hu=buildHuman('villager');
-            hu.userData.scatter=1;
-            hu.position.set(hx,sm3.h,hz);hu.rotation.y=hu.userData.face;
-            scene.add(hu);animals.push(hu);spawned.push(hu);mark(hx,hz,1.4);
-          }
+          // forecourt crowd: they SCATTER rather than file into the shop
+          populate(sx,sz,12,2+((Math.random()*2)|0),'villager',animals,spawned,
+                   hu=>{ hu.userData.scatter=1; });
         }
       }
       // a roadside billboard — tall, solid crash hazard beside the tarmac
@@ -449,7 +470,14 @@ export function buildChunk(cx,cz){
           // in a canyon, on a mountain, or where the road bridges/embanks above it
           if(sm2.biome!=='water'&&sm2.biome!=='mountain'&&sm2.biome!=='canyon'
              &&sm2.h>WATER_Y+1&&Math.abs(sp.y-sm2.h)<2.5
-             &&roadHere(bx,bz)
+             /* THIS corridor's width, not roadHere's. roadHere() asks the
+                axis-agnostic question, which returns the widest the road could
+                be anywhere along that axis — so a hoarding passed the test on
+                stretches where this particular corridor had already tapered to
+                nothing, and ended up standing alone in open country facing a
+                road that was not there. Same defect that put street lamps in
+                empty fields. */
+             &&roadWidth(bx,bz,c.axis,c.k)>0.12
              &&!inRestricted(bx,bz,5)&&clearSpot(bx,bz,5)&&flatEnough(bx,bz,5)){
             const bb=buildBillboard();
             clearPropsNear(bx,bz,5);mark(bx,bz,4);
@@ -464,9 +492,9 @@ export function buildChunk(cx,cz){
       for(let i=0;i<VEH_PER_CHUNK;i++){
         if(Math.random()<1-(1-0.45)*SPAWN_DENSITY)continue;   // ~55% take, thinned by SPAWN_DENSITY
         const t=t0+Math.random()*(t1-t0);
-        // no deck out here means no traffic on it
+        // no deck out here means no traffic on it — again, THIS corridor's width
         const at=roadSample(c.axis,c.k,t);
-        if(!roadHere(at.x,at.z))continue;
+        if(roadWidth(at.x,at.z,c.axis,c.k)<=0.12)continue;
         const roll=Math.random();
         const kind=roll<0.45?'car1':roll<0.8?'car2':'bus1';
         const v=buildVehicle(kind);

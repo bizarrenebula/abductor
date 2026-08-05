@@ -29,7 +29,7 @@ import { Special } from './special.js';
 import { Upgrades, UP_ITEMS } from './upgrades.js';
 import { mark as markWaypoint, objectiveGlow, updateGlow } from './waypoints.js';
 import { lanePoint, laneHeading } from '../world/lane.js';
-import { regionAt, WILD, URBAN } from '../world/regions.js';
+import { regionAt, regionWeights, WILD, URBAN } from '../world/regions.js';
 
 const TOUCH = TOUCH_ONLY;   // pick touch vs keyboard wording for the hints
 
@@ -327,10 +327,47 @@ function crossStep(key,task,want,line){
     end(){ if(beacon)beacon.visible=false; } };
 }
 
+/* DEEP INTO THE LAND, not just over its border.
+
+   A crossing step completes the moment the ship ENTERS the next region, so the
+   ship is always standing on the boundary when the next step begins — and the
+   old fetch step then put the module 190m ahead of that. The player crossed
+   into the wilderness and picked the beam up while the desert was still behind
+   them, which makes the trip a formality and the land a doorway rather than a
+   place.
+
+   So a module is placed where its land is most itself: sweep forward along the
+   lane heading through a distance band and keep the candidate with the highest
+   region weight. Weight, not the biome label — the label flips at the middle of
+   the blend, so a point can read 'plains' while still being mostly desert
+   underneath, which is exactly the border we are trying to get away from. */
+function landCentre(want,minD,maxD){
+  const base=laneHeading();
+  let best=null,bw=-1;
+  for(let r=minD;r<=maxD;r+=45){
+    for(let k=0;k<12;k++){
+      const step=Math.ceil(k/2)*(k%2?1:-1);          // 0, +1, -1, +2 ... off the lane
+      const a=base+step*0.35;
+      const x=saucer.position.x+Math.cos(a)*r, z=saucer.position.z+Math.sin(a)*r;
+      if(regionAt(x,z)!==want)continue;
+      if(!goodGround(x,z))continue;
+      const W=regionWeights(x,z);
+      const w=want===WILD?W.wild:want===URBAN?W.urb:W.des;
+      /* >=, not >. The weight saturates at 1.0 well before the band's far end,
+         so a strict > kept the FIRST fully-inside point — 220m from a border
+         the ship is already standing on. Since the sweep runs outward, letting
+         ties win pushes the module to the deepest point that is still properly
+         inside the land, which is what "the middle of the biome" means. */
+      if(w>=bw){bw=w;best={x,z,w};}
+    }
+  }
+  return best;
+}
+
 /* A "go and get it" step for one ship module. The module is already out in the
-   world on the lane like every other; if it landed several legs away the step
-   brings it into this land instead — the lesson is the pickup, not the commute,
-   and it is the same module in the same run, just closer. */
+   world on the lane like every other; this drags it into the heart of the land
+   the lesson belongs to — the same module in the same run, somewhere that reads
+   as arriving rather than as stopping at the gate. */
 function fetchStep(key,task,line){
   return { key:'get_'+key, task, hud:{map:true},
     say(s){
@@ -342,14 +379,10 @@ function fetchStep(key,task,line){
     begin(s){
       s.item=upgradeItems.find(o=>o.userData.key===key)||null;
       if(s.item){
-        const d=Math.hypot(s.item.position.x-saucer.position.x,s.item.position.z-saucer.position.z);
-        if(d>420){
-          const D=190;
-          for(let k=0;k<16;k++){
-            const a=S.yaw+k*0.4, x=saucer.position.x+Math.sin(a)*D, z=saucer.position.z+Math.cos(a)*D;
-            if(goodGround(x,z)){ s.item.position.set(x,Math.max(heightAt(x,z),0),z); break; }
-          }
-        }
+        const want=regionAt(saucer.position.x,saucer.position.z);
+        const c=landCentre(want,220,620)
+             || landCentre(want,150,900);            // thin land: take what there is
+        if(c)s.item.position.set(c.x,Math.max(heightAt(c.x,c.z),0),c.z);
       }
     },
     test(s){
@@ -422,24 +455,47 @@ function ensureSheep(){
 /* The cloak lesson wants a PERSON under the marker, not a sheep — they are the
    only quarry that runs, which is the entire point of the lesson. */
 let tutHuman=null;
+/* THE QUARRY HAS TO BE A FLIGHT AWAY.
+
+   The cloak module and the person to practise it on used to be dropped within a
+   hundred metres of each other, so the lesson read: pick up the cloak, turn
+   round, go dark, take the villager standing right there. Nothing was learned,
+   because the cloak was never actually DOING anything — you were invisible for
+   two seconds over open ground.
+
+   The point of the module is that you can cross country nobody wants you in.
+   So the target sits between MIN and MAX metres from where the cloak was
+   collected: far enough that the flight is the lesson, near enough that it is
+   still one leg and not a second expedition. */
+const HUNT_MIN=300, HUNT_MAX=500;
 function trackHuman(s){
   const m=makeMarker();
   const ok=a=>a&&a.parent&&a.visible!==false;
   if(!ok(s.target)){
+    // measured from where the step began — i.e. where the cloak was picked up
+    const ox=s.fromX!=null?s.fromX:saucer.position.x;
+    const oz=s.fromZ!=null?s.fromZ:saucer.position.z;
+    /* Prefer a REAL villager standing in the band. Everyone lives beside a
+       building now, so a person that far out is a person outside their own
+       house — which is a better thing to sneak up on than one conjured for the
+       occasion. */
     let best=null,bd=1e9;
     for(const a of animals){
       if(!ok(a)||!a.userData.humanKind)continue;
-      const d=Math.hypot(a.position.x-saucer.position.x,a.position.z-saucer.position.z);
+      const d=Math.hypot(a.position.x-ox,a.position.z-oz);
+      if(d<HUNT_MIN||d>HUNT_MAX)continue;
       if(d<bd){bd=d;best=a;}
     }
-    /* Nobody about. The lesson cannot be "wait until a villager wanders past",
-       so put one on the ground a short flight away — exactly what ensureSheep
-       does for the beam step, and for the same reason. */
-    if(!best||bd>240){
-      const D=120;
-      let x=saucer.position.x+Math.sin(S.yaw)*D, z=saucer.position.z+Math.cos(S.yaw)*D;
-      for(let k=0;k<14;k++){
-        const a=S.yaw+k*0.45, tx=saucer.position.x+Math.sin(a)*D, tz=saucer.position.z+Math.cos(a)*D;
+    if(!best){
+      // Nobody out there. Place one, at the far end of the band, on the lane so
+      // the flight continues the run's direction rather than doubling back.
+      const D=(HUNT_MIN+HUNT_MAX)/2;
+      const base=laneHeading();
+      let x=ox+Math.cos(base)*D, z=oz+Math.sin(base)*D;
+      for(let k=0;k<16;k++){
+        const step=Math.ceil(k/2)*(k%2?1:-1);
+        const a=base+step*0.3;
+        const tx=ox+Math.cos(a)*D, tz=oz+Math.sin(a)*D;
         if(goodGround(tx,tz)){ x=tx; z=tz; break; }
       }
       const g=buildHuman('hiker');
@@ -452,6 +508,8 @@ function trackHuman(s){
   if(s.target){ m.visible=true;
     const bob=Math.sin(performance.now()*0.005)*0.5;
     m.position.set(s.target.position.x,s.target.position.y+5+bob,s.target.position.z);
+    // ...and put them on the map, so the flight over is navigable rather than a hunt
+    markWaypoint(m.position,'#ffe28a',20);
   } else m.visible=false;
 }
 
@@ -607,22 +665,32 @@ const steps=[
      about in the world. See fetchStep. */
   fetchStep('cloak','Go and get the last one',
     'The last piece is down there among the rooftops'),
-  /* AND NOW USE IT, on the one quarry that runs.
+  /* AND NOW USE IT, on the one quarry that runs — a few hundred metres away.
 
-     Everything up to here stood still and waited to be taken. A person hears
-     the ship and bolts — so you arrive without being heard. */
-  /* No point: here — this step used to pulse the PULL button while teaching the
-     cloak, a leftover from when it followed the pull lesson directly. */
+     Everything up to here stood still and waited to be taken. A person sees the
+     ship and runs for the nearest door, so the trick is to arrive without being
+     seen — and that only means anything if there is ground to cross while
+     invisible. See trackHuman: the target sits 300-500m from where the cloak
+     was picked up.
+
+     No point: here — this step used to pulse the PULL button, a leftover from
+     when it followed the pull lesson directly. */
   { key:'cloak', task:'Go quiet', hud:{map:true},
     say(s){
+      const d=s.target?Math.round(Math.hypot(saucer.position.x-s.target.position.x,
+                                             saucer.position.z-s.target.position.z)):0;
       if(!s.didCloak)
-        return TOUCH?'Those are people down there, and they run. HOLD the ship itself to go dark.'
-                    :'Those are people down there, and they run. Press C to go dark.';
+        return (TOUCH?'HOLD the ship itself to go dark':'Press C to go dark')
+               +(d?', then fly to the ▼ — '+d+' m.':'.');
       if(!S.cloak)
         return 'Cloak dropped. Go dark again and stay that way while you close in.';
-      return 'Invisible. Slide over someone and take them before they look up.';
+      return d>60?'Invisible. Close on the ▼ — '+d+' m.'
+                 :'Invisible. Slide over them and take them before they look up.';
     },
-    begin(s){ s.base=S.taken; s.didCloak=false; s.target=null; },
+    begin(s){
+      s.base=S.taken; s.didCloak=false; s.target=null;
+      s.fromX=saucer.position.x; s.fromZ=saucer.position.z;   // where the cloak was collected
+    },
     test(s){
       if(S.cloak)s.didCloak=true;
       trackHuman(s);

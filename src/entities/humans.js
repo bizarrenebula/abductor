@@ -130,6 +130,16 @@ export function buildHuman(kind){
   u.biome='plains';u.baseS=0.9*OBJ_SCALE;u.hopTimer=99;u.hop=null;u.progress=0;u.abducting=0;u.face=Math.random()*6.28;
   return g;
 }
+/* How far a person can see a saucer, and how long the panic outlasts losing
+   sight of it. FLEE_T is re-armed every frame the ship is still in view, so it
+   is not "how long they run" — it is how long they keep going after the ship
+   has gone, which is what stops a village emptying itself over the horizon. */
+const SIGHT=52, SIGHT_BEAM=78, FLEE_T=1.8;
+/* How far they will go to find a door. Everyone now spawns beside a building
+   (see world/chunks.js populate), so this only has to cover the walk from the
+   edge of a settlement back into it. */
+const SHELTER_RANGE=120;
+
 export function updateHuman(a,u,dt){
   if(u.hidden>0){
     u.hidden-=dt;
@@ -138,13 +148,25 @@ export function updateHuman(a,u,dt){
   }
   const dx=a.position.x-saucer.position.x,dz=a.position.z-saucer.position.z;
   const d=Math.hypot(dx,dz)||0.001;
-  const night=S.dayF<0.5;
-  // Cloaked = fully invisible: humans never notice the ship and go on with their
-  // idle. Only a decloaked ship (cloak drops the instant the beam opens) is seen.
-  const notice = S.cloak ? false
-    : night ? (S.beamPower>0.4 && d<40)     // night: only the active beam gives you away
-    : (d<34 || (S.beamPower>0.4 && d<55));  // day: they spot the ship itself
-  if(notice)u.fleeT=1.8;
+  /* THEY RUN ON SIGHT.
+
+     The old night rule was "only the active beam gives you away", which meant a
+     dark ship could hang directly over a village and nobody so much as looked
+     up — people only reacted once the light was already on them, by which point
+     running was pointless. Since runs are night-only now, that rule was the
+     only one in force, and it made the cloak worth nothing: there was nothing
+     to hide FROM.
+
+     SIGHT is the radius that makes the choice real. Far enough that a careless
+     approach loses the catch, close enough that they are not fleeing a dot on
+     the horizon — a saucer 50m up and 50m out is a large object filling a good
+     part of the sky. An open beam carries further because it is a searchlight.
+
+     Cloaked, none of this applies: they never notice, which is the whole point
+     of the module and the reason the urban land is the one worth being careful
+     in. */
+  const notice = S.cloak ? false : (d<SIGHT || (S.beamPower>0.4 && d<SIGHT_BEAM));
+  if(notice)u.fleeT=FLEE_T;
   /* PARALYSED. A cloaked ship with the beam already open is not something you
      run from: nothing announced itself, the light simply arrived, and whatever
      is under it is too frightened to move. This cancels a panic already in
@@ -159,22 +181,28 @@ export function updateHuman(a,u,dt){
   }
   if(u.fleeT>0){
     u.fleeT-=dt;
-    let tx=a.position.x+dx/d*12, tz=a.position.z+dz/d*12;   // default: away
-    let best=null,bd=70;
-    // Forecourt NPCs panic and scatter instead of filing into a shelter: each
-    // keeps a fixed random deflection so a group bursts apart rather than
-    // running as one column. u.bolt is re-rolled each time panic starts.
-    if(u.scatter){
+    /* EVERYONE MAKES FOR A DOOR. Head for the nearest shelter — that is what a
+       person does, and it is what makes the chase readable: the player can see
+       where they are going and cut them off, rather than watching a random
+       vector.
+
+       Scattering is now only the FALLBACK, for the case where there is no door
+       within reach. It used to be the forecourt crowd's fixed behaviour, which
+       meant a group beside a filling station ran away from the one building
+       they could have hidden in. The random deflection per person survives
+       here, so a cornered group still bursts apart instead of forming a column. */
+    let tx,tz;
+    let best=null,bd=SHELTER_RANGE;
+    for(const s of shelters){
+      const sx=s.x-a.position.x,sz2=s.z-a.position.z;
+      const sd=Math.hypot(sx,sz2);
+      if(sd<bd){bd=sd;best=s;}
+    }
+    if(best){ tx=best.x; tz=best.z; }
+    else{
       if(u.bolt==null)u.bolt=(Math.random()*2-1)*1.5;
-      const ang=Math.atan2(dx,dz)+u.bolt;
+      const ang=Math.atan2(dx,dz)+u.bolt;                  // away from the ship, off-axis
       tx=a.position.x+Math.sin(ang)*14; tz=a.position.z+Math.cos(ang)*14;
-    }else{
-      for(const s of shelters){
-        const sx=s.x-a.position.x,sz2=s.z-a.position.z;
-        const sd=Math.hypot(sx,sz2);
-        if(sd<bd){bd=sd;best=s;}
-      }
-      if(best){tx=best.x;tz=best.z;}
     }
     const mx=tx-a.position.x,mz=tz-a.position.z,ml=Math.hypot(mx,mz)||1;
     const step=u.speed*dt;
@@ -190,7 +218,13 @@ export function updateHuman(a,u,dt){
        cornered, so they stay put and keep facing away — nothing to do but be
        taken, which is a fair outcome for running into a dead end. */
     let nx=a.position.x+sx2, nz=a.position.z+sz2;
-    if(!walkableGround(nx,nz)){
+    /* ...but only while they are standing somewhere legal to begin with. A
+       person on ground this test rejects — a dune flank, a slope that steepened
+       under them, anywhere placed by a laxer gate than this one — would find
+       every candidate step rejected too and freeze on the spot for ever. Being
+       stuck is worse than being briefly somewhere odd, and walking is how they
+       get out of it, so from bad ground any step is allowed. */
+    if(walkableGround(a.position.x,a.position.z)&&!walkableGround(nx,nz)){
       if(walkableGround(a.position.x+sx2,a.position.z))      nz=a.position.z;
       else if(walkableGround(a.position.x,a.position.z+sz2)) nx=a.position.x;
       else { nx=a.position.x; nz=a.position.z; }

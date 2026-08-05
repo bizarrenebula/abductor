@@ -454,9 +454,8 @@ export function buildChunk(cx,cz){
           st.rotation.y=Math.atan2(-sp.fz*side,sp.fx*side);   // forecourt toward the road
           scene.add(st);bl.push(st);buildings.push(st);
           const shel={x:sx,z:sz};shelters.push(shel);sh.push(shel);
-          // forecourt crowd: they SCATTER rather than file into the shop
-          populate(sx,sz,12,2+((Math.random()*2)|0),'villager',animals,spawned,
-                   hu=>{ hu.userData.scatter=1; });
+          // the forecourt crowd — who now run into the shop like everyone else
+          populate(sx,sz,12,2+((Math.random()*2)|0),'villager',animals,spawned);
         }
       }
       // a roadside billboard — tall, solid crash hazard beside the tarmac

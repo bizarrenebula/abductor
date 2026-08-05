@@ -417,14 +417,27 @@ function animate(){
     glowLight.intensity=(0.9+4.2*_night)+0.12*Math.sin(t*2.3);
     glowLight.distance=lerp(100,150,_night);
     // (border-light blink + lid glow are driven centrally by updateSaucer)
-    /* The bar shows when the reactor is actually being spent, or is low enough
-       to worry about. On a complete ship beaming is free, so a beam alone no
-       longer raises a gauge that is not going to move. */
-    updateEnergyBar(dt,S.energyMode==='drain'
-      &&(S.cloak||S.energy<0.28||(bp>0.05&&!(S.upHasBeam&&S.upAltitude&&S.upCloak))));
     // The module glyphs sit above the bar. Fed the ship's ground speed, because
-    // the reveal shortens the faster you fly (see moduleIcons.js).
+    // the reveal shortens the faster you fly (see moduleIcons.js). Updated
+    // BEFORE the bar, which reads their state — the other order showed the bar
+    // one frame behind the glyphs and one frame after they went.
     ModuleIcons.update(dt,Math.hypot(flight.velocity.x,flight.velocity.z));
+    /* THE BAR RIDES WITH THE GLYPHS.
+
+       The reactor and the missing modules are one subject: while the ship is
+       incomplete it is bleeding, and the glyphs come up at exactly the moments
+       that matters — a part collected, or a part reached for and not there. So
+       the bar comes up with them and answers the question they raise.
+
+       Once all three are aboard the reactor is effectively infinite (nothing
+       draws but the cloak, see the drain rule below), so a gauge that cannot
+       move is noise. From then on it appears only while cloaked — which is the
+       only time it is spending anything — plus the low-energy case, because a
+       reactor emptied by a long cloak still has to be able to warn you. */
+    const complete=S.upHasBeam&&S.upAltitude&&S.upCloak;
+    updateEnergyBar(dt,S.energyMode==='drain'&&(
+      complete ? (S.cloak||S.energy<0.28)
+               : (ModuleIcons.shown()||S.cloak||bp>0.05||S.energy<0.28)));
 
     /* ---- world ---- */
     updateChunks(saucer.position.x,saucer.position.z);

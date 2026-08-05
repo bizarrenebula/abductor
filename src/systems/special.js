@@ -15,8 +15,17 @@ export const Special={
   charge:1,active:false,RADIUS:70,
   gainAnimal(){this.charge=Math.min(1,this.charge+1/20);},
   update(dt,held,avail=true){
-    if(this.active){ if(!held||this.charge<=0)this.active=false; }
-    else if(held&&this.charge>=1){this.active=true;beep(196,0.4,0.09);}
+    /* USABLE gates the PULL ITSELF, not just the button.
+       `avail` and S.upHasBeam used to reach only the display code at the bottom
+       of this function, so hiding the button hid the button and nothing else —
+       on a PC the Q keybind fired a full mass pull with no beam module aboard
+       and before the lesson that explains it. Touch was accidentally safe
+       because there was nothing to press.
+       It also cancels a pull in progress: losing the beam mid-pull should stop
+       the pull, not leave it running until the key is released. */
+    const usable=avail&&S.upHasBeam;
+    if(this.active){ if(!held||!usable||this.charge<=0)this.active=false; }
+    else if(held&&usable&&this.charge>=1){this.active=true;beep(196,0.4,0.09);}
     if(this.active){
       this.charge=Math.max(0,this.charge-dt/3.5);
       const sx=saucer.position.x,sz=saucer.position.z;
@@ -50,7 +59,7 @@ export const Special={
        until the mass-pull lesson comes up, so the player beams one sheep the
        ordinary way before being shown the button that does it wholesale. See
        Tutorial.pullTaught(), which main.js passes in. */
-    const show=avail&&S.upHasBeam&&this.charge>=1&&!this.active;
+    const show=usable&&this.charge>=1&&!this.active;
     if(show)spBtn.textContent=t('hud.pull');
     spBtn.classList.toggle('show',show);
   }

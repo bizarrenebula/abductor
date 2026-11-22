@@ -13,3 +13,7 @@ export const shelters=[];    // {x,z} points humans flee toward
    that list, and settlements are pass-through for now. Kept as its own list so
    the ambience can still hear a town (see main.js updateAmbCtx). */
 export const structures=[];
+/* Ground kept clear of generated scenery: {x, z, r}. Wanderer mode reserves
+   its save points and escape point here before any chunk is built, so no tree
+   grows through a waystation barn and no village sits on the bunker. */
+export const reserved=[];

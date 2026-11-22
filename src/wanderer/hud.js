@@ -50,6 +50,9 @@ body.wander #wHud{display:block}
 #wFire.cool{opacity:.55}
 #wHide{right:126px;bottom:58px;width:64px;height:64px;display:none;font-size:11px}
 #wHide.on{display:block}
+#wTrek{position:absolute;left:50%;top:44px;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;
+  color:rgba(220,255,240,.8);white-space:nowrap;text-shadow:0 1px 3px #000}
+#wTrek .d{color:#ffc870}#wTrek .s{color:#7dffbe}
 #wHint{position:absolute;left:50%;top:50%;transform:translate(-50%,28px);font-size:12px;letter-spacing:.14em;
   color:rgba(220,255,240,.85);text-shadow:0 1px 3px #000;white-space:nowrap}
 #wDark{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.35) 20%,rgba(0,0,0,.85) 100%);opacity:0;transition:opacity .4s}
@@ -64,6 +67,7 @@ root.innerHTML=`
 <div id="wCross"></div>
 <div id="wCover">EXPOSED</div>
 <div id="wHint"></div>
+<div id="wTrek"></div>
 <div id="wLock"><div class="lbl">BEAM LOCK</div><div id="wLockBar"><div id="wLockFill"></div></div></div>
 <div id="wCell"><div class="lbl">PULSE CELL</div><div id="wCellBar"><div id="wCellFill"></div></div></div>
 <button id="wHide">HIDE</button>
@@ -72,7 +76,7 @@ document.body.appendChild(root);
 
 const $=id=>document.getElementById(id);
 const el={cross:$('wCross'),cover:$('wCover'),hint:$('wHint'),lock:$('wLock'),lockFill:$('wLockFill'),lockV:$('wLockV'),
-  cell:$('wCell'),cellFill:$('wCellFill'),fire:$('wFire'),hide:$('wHide'),dark:$('wDark')};
+  cell:$('wCell'),trek:$('wTrek'),cellFill:$('wCellFill'),fire:$('wFire'),hide:$('wHide'),dark:$('wDark')};
 if(!TOUCH_ONLY)el.fire.style.display='none';
 wireButtons(el.fire,el.hide);
 
@@ -101,6 +105,12 @@ export function drawWanderHUD(s){
   el.dark.classList.toggle('on',!!s.inBarn);
   el.hide.classList.toggle('on',!!(s.nearShelter||s.inBarn));
   el.hide.textContent=s.inBarn?t('w.btn.leave'):t('w.btn.hide');
+  if(s.trek){
+    const km=v=>v>=1000?(v/1000).toFixed(1)+' km':Math.round(v/10)*10+' m';
+    const tx='<span class="d">'+t('w.hud.escape')+' '+km(s.trek.dest)+'</span>'
+      +(s.trek.save!=null?' · <span class="s">'+t('w.hud.save',{n:s.trek.saves+1,total:s.trek.total})+' '+km(s.trek.save)+'</span>':'');
+    if(tx!==last.tx){ el.trek.innerHTML=tx; last.tx=tx; }
+  }
   let hint='';
   if(!TOUCH_ONLY&&!s.locked)hint=t('w.hint.click');
   else if(s.inBarn)hint=TOUCH_ONLY?'':t('w.hint.leave');

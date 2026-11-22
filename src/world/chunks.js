@@ -15,7 +15,7 @@ import { World } from './world-config.js';
 import { sample, goodGround, slopeAt, walkableGround } from './terrain.js';
 import { TEX, grassTex, sandTex, rockTex, snowTex } from './textures.js';
 import { ROAD_HW, STEP, roadsNear, roadSample, buildRoadMesh, clearRoadCache, roadTex, junctionTex, roadDist, roadWidth, junctionsIn } from './roads.js';
-import { animals, pickups, props, buildings, vehicles, shelters, structures } from '../entities/registry.js';
+import { animals, pickups, props, buildings, vehicles, shelters, structures, reserved } from '../entities/registry.js';
 import { spawnSettlementParts, clearSettlementCache, inSettlement, settlementsNear } from './settlements.js';
 import { spawnFieldParts, clearFieldCache, inField } from './fields.js';
 import { monumentsNear, clearMonumentCache, inMonument, sphinxPos } from './monuments.js';
@@ -141,6 +141,7 @@ export function buildChunk(cx,cz){
     // an empty disc here means the arrival cannot end on a lamp post.
     const sdx=x-S.spawnX, sdz=z-S.spawnZ;
     if(sdx*sdx+sdz*sdz<SPAWN_CLEAR*SPAWN_CLEAR)return false;
+    for(const q of reserved){const dx=q.x-x,dz=q.z-z; if(dx*dx+dz*dz<(q.r+r)*(q.r+r))return false;}
     for(const p of placed){const dx=p.x-x,dz=p.z-z; if(dx*dx+dz*dz<(p.r+r)*(p.r+r))return false;}
     return true; };
   const mark=(x,z,r)=>placed.push({x,z,r});

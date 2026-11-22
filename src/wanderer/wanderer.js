@@ -23,6 +23,8 @@ import { AI, startSaucers, stopSaucers, updateSaucers, liftHeld } from './saucer
 import { GUN, updateGun, showGun, clearShots } from './gun.js';
 import { showWanderHUD, drawWanderHUD } from './hud.js';
 import { specV } from '../ui/dom.js';
+import { Trek, planTrek, buildTrek, clearTrek, updateTrek, trekDistances, respawnSpot, saveReachedFX } from './trek.js';
+import { banner } from '../ui/banner.js';
 import { t } from '../i18n.js';
 
 let running=false, wasLocked=false;
@@ -50,6 +52,7 @@ export const Wanderer={
     // S.yaw faces the ship's nose (+Z rotated); the camera looks down -Z, so turn it round.
     resetPlayer(S.spawnX,S.spawnZ,S.yaw+Math.PI);
     P.takenT=0;
+    this.won=false;
     startSaucers();
     clearShots();
     showGun(true);
@@ -60,6 +63,7 @@ export const Wanderer={
     if(!running)return;
     running=false;
     stopSaucers();
+    clearTrek();
     clearShots();
     showGun(false);
     showWanderHUD(false);
@@ -79,6 +83,14 @@ export const Wanderer={
     P.lift+=(AI.playerLock-P.lift)*Math.min(1,dt*5);
     updateGun(dt,W_IN.fire);
 
+    // ---- the trek: save points and the escape door ----
+    const ev=updateTrek(dt,time,P);
+    if(ev==='won')this.won=true;
+    else if(ev!=null){
+      saveReachedFX(ev);
+      if(S.energyMode==='drain')S.energy=1;          // a save point refills the cell
+    }
+
     beam.visible=disc.visible=false; sparks.visible=false;
     // a small pool of light around you, so the night is walkable
     const night=1-S.dayF;
@@ -92,8 +104,32 @@ export const Wanderer={
       cover:P.cover, revealed:P.revealT>0, lock:AI.playerLock,
       nearShelter:!!P.nearShelter, inBarn:!!P.inBarn,
       locked:!!document.pointerLockElement,
+      trek:trekDistances(P),
     });
   },
+
+  /* for the end card */
+  stats(){
+    const d=trekDistances(P);
+    return {saves:d.saves,total:d.total,time:S.elapsed-Trek.startT,
+      walked:Math.max(0,Trek.routeLen-d.dest)};
+  },
+
+  /* ---- one "run it back" from the last save point ---- */
+  canRespawn(){ return running&&Trek.lives>0; },
+  respawn(){
+    Trek.lives--;
+    const sp=respawnSpot();
+    resetPlayer(sp.x,sp.z,P.yaw);
+    if(sp.shelter)P.inBarn=sp.shelter;              // you come to inside the barn
+    P.takenT=0; P.lift=0;
+    startSaucers();                                  // they lose track of you
+    if(S.energyMode==='drain')S.energy=Math.max(S.energy,0.6);
+    S.state='playing';
+    banner(t(Trek.last>=0?'w.banner.respawn':'w.banner.respawnStart'));
+  },
+  /* plan + build the route; called by startGame before the first chunk */
+  plan(){ planTrek(); buildTrek(); },
 
   afterAnimals(dt){ liftHeld(dt); },
 

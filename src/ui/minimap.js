@@ -163,6 +163,7 @@ export function drawMinimap(dt){
   }
 
   // Wanderer mode: the AI saucers, in red — bright and pulsing while beaming.
+  if(S.wanderer)for(const pn of threats.pins)plot(pn.x,pn.z,pn.col,pn.big?3.6:2.6,pn.big);
   if(S.wanderer)for(let i=0;i<threats.n;i++){
     const th=threats.list[i];
     plot(th.x,th.z,th.stunned?'#ff9a8a':'#ff4a3a',th.beaming?3.6:2.8,th.beaming);

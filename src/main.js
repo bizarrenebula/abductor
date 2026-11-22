@@ -266,8 +266,9 @@ function animate(){
     applyDayNightLight();
     Ambience.setLevel(1);
     updateAmbCtx(dt); Ambience.update(dt,ambCtx);
-    clearWaypoints();
-    if(Wanderer.abducted()){ S.state='taken'; S.takenT=2.2; BeamSFX.set(1); }
+    renderWaypoints(camera,saucer.position);       // the arrows to the next save point and the escape
+    if(Wanderer.won){ endGame('escaped'); }
+    else if(Wanderer.abducted()){ S.state='taken'; S.takenT=2.2; BeamSFX.set(1); }
   } else if(S.state==='taken'){
     // wanderer: the lock completed — drawn up into the beam, then the card
     Wanderer.taken(dt,t);
@@ -275,7 +276,8 @@ function animate(){
     dayNightUpdate(dt); applyDayNightLight();
     Ambience.setLevel(0.5); updateAmbCtx(dt); Ambience.update(dt,ambCtx);
     S.takenT-=dt;
-    if(S.takenT<=0)endGame('abducted');
+    clearWaypoints();
+    if(S.takenT<=0){ if(Wanderer.canRespawn())Wanderer.respawn(); else endGame('abducted'); }
   } else if(S.state==='playing'){
     perfGuard(dt);
     /* ---- beam hold: pointer down or space ----

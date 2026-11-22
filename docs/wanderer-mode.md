@@ -90,6 +90,14 @@ This adapts `docs/awareness.md` to the new viewpoint.
 
 - The escape destination sits at the end of the **lane**
   (`world/lane.js`), about 5 km out and marked on the minimap.
+- **Built:** the route follows the lane for about 5 km (5.0–5.7 km depending
+  on the seed). The escape point is a concrete bunker with a radio mast and an
+  amber beacon; reaching its door wins. Four save points sit evenly along the
+  route, each with a tall green beacon, a minimap marker and a screen arrow.
+  A save point is the space under a bridge when a road crosses within 150 m of
+  that stretch, otherwise a waystation barn built on level ground. Their ground
+  is reserved before the world is generated, so scenery never grows into them.
+  Saving refills the pulse cell.
 - **Save points** are spaced along the lane. Each one is a hiding place: a barn,
   an enterable building, or the space under a bridge. They're marked on the
   minimap and get a distinct glow so you can tell them from ordinary cover.

@@ -118,6 +118,9 @@ export function startGame(opts){
   S.safeYaw=S.yaw;
   saucer.position.set(sp.x,40,sp.z);
   saucer.rotation.y=S.yaw;
+  // Wanderer: lay out the trek BEFORE the first chunk, so its save points'
+  // ground is reserved and nothing generated grows into them.
+  if(S.wanderer)Wanderer.plan();
   updateChunks(sp.x,sp.z);
   // Ship upgrades: keep them through a "run it back" after a crash, otherwise
   // start grounded. Then scatter whichever field parts aren't installed yet.
@@ -178,6 +181,7 @@ export function respawn(){
 export function endGame(reason){
   S.state='over';
   const wasWanderer=Wanderer.active;
+  const wanderStats=wasWanderer?Wanderer.stats():null;
   Wanderer.stop();
   BeamSFX.stop();S.prevBeam=false;
   hud.classList.remove('on');
@@ -197,9 +201,18 @@ export function endGame(reason){
     :reason==='impact'?t('over.msg.impact')
     :(reason==='crash'||reason==='energy')?t('over.msg.crash'):msg;
   if(wasWanderer){
-    bk.innerHTML='<div class="bk"><span>'+t('w.over.repels',{n:S.repels||0})+'</span><span>'+S.score+' pts</span></div>';
-    document.getElementById('overMsg').textContent=reason==='abducted'?t('w.over.abducted'):t('w.over.end');
+    const tr=wanderStats;
+    const mm=Math.floor(tr.time/60), ss=String(Math.floor(tr.time%60)).padStart(2,'0');
+    bk.innerHTML='<div class="bk"><span>'+t('w.over.repels',{n:S.repels||0})+'</span><span>'+S.score+' pts</span></div>'
+      +'<div class="bk"><span>'+t('w.over.saves',{n:tr.saves,total:tr.total})+'</span><span>'+mm+':'+ss+'</span></div>'
+      +'<div class="bk"><span>'+t('w.over.walked')+'</span><span>'+(tr.walked/1000).toFixed(2)+' km</span></div>';
+    document.getElementById('overMsg').textContent=reason==='abducted'?t('w.over.abducted')
+      :reason==='escaped'?t('w.over.escaped'):t('w.over.end');
   }
+  const ey=document.querySelector('#overScreen .eyebrow');
+  if(ey)ey.textContent=(wasWanderer&&reason==='escaped')?t('w.over.eyeWin'):t('eyebrow.complete');
+  const h1=document.querySelector('#overScreen h1');
+  if(h1)h1.innerHTML=!wasWanderer?t('over.title'):reason==='escaped'?t('w.over.titleWin'):reason==='abducted'?t('w.over.titleTaken'):t('over.title');
   overScreen.classList.remove('hidden');
 }
 // Play offers the guided tutorial first; either choice starts the game, and

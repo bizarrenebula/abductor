@@ -10,7 +10,9 @@
 
 /* One entry per live AI saucer: {x, y, z, beaming, stunned}. Entries are
    reused in place, `n` is how many are live. */
-export const threats={list:[],n:0};
+export const threats={list:[],n:0,
+  /* Route markers for the minimap, written by trek.js: {x, z, col, big}. */
+  pins:[]};
 
 /* Nearest live saucer to a ground point, as {d, x, z}, or d=Infinity. Stunned
    or retreating ships still count: a person does not stop being afraid of a

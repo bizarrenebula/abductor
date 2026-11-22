@@ -71,9 +71,11 @@ This adapts `docs/awareness.md` to the new viewpoint.
 
 - The escape destination sits at the end of the **lane**
   (`world/lane.js`), about 5 km out and marked on the minimap.
-- **Checkpoints** are spaced along the lane. Reaching one saves progress.
-  Abduction offers one "run it back" from the last checkpoint. A second
-  abduction ends the run.
+- **Save points** are spaced along the lane. Each one is a hiding place: a barn,
+  an enterable building, or the space under a bridge. They're marked on the
+  minimap and get a distinct glow so you can tell them from ordinary cover.
+  Reaching one saves progress. Abduction offers one "run it back" from the last
+  save point. A second abduction ends the run.
 - Reaching the destination wins the run.
 
 ## Scoring and progression
@@ -82,8 +84,9 @@ This adapts `docs/awareness.md` to the new viewpoint.
   a saucer off scores, whether it was beaming an animal, a villager or you.
 - **Missions** are optional, rewritten for defence (for example, "repel 5
   saucers" or "reach the next checkpoint before dusk"). They pay points.
-- **Points are spent on upgrades** for the wanderer and the gun, for example a
-  wider pulse, faster recharge, a larger energy cell or a sprint boost. Field
+- **Points are spent on upgrades only at save points.** While you're inside one
+  (fully hidden), a shop opens. Upgrades for the wanderer and the gun include a
+  wider pulse, faster recharge, a larger energy cell and a sprint boost. Field
   parts on the map can also grant upgrades.
 
 ## Kept systems

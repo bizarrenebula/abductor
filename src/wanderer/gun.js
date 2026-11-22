@@ -24,6 +24,7 @@ import { updateHand, handEmitPos, showHand, handPrana } from './hand.js';
 import { AI } from './saucers.js';
 import { addHeat, HEAT_GAIN } from './heat.js';
 import { UP } from './shop.js';
+import { questEvent } from './quests.js';
 import { beep } from '../audio/music.js';
 import { sweep, noiseBurst } from '../audio/sfx.js';
 import { spawnPop } from '../ui/pop.js';
@@ -124,6 +125,9 @@ export function updateGun(dt,fireHeld){
       if(r){
         S.score+=REPEL_PTS; S.repels=(S.repels||0)+1;
         addHeat(HEAT_GAIN.repel+(r.saved?HEAT_GAIN.save:0));   // fighting back gets you noticed
+        questEvent('repel');
+        if(r.saved)questEvent('save',{kind:r.kind});
+        if(r.self)questEvent('selfdefence');
         scoreV.textContent=S.score;
         specV.textContent=t('w.hud.repels',{n:S.repels});
         _p.set(hit.x,hit.y,hit.z);
@@ -148,7 +152,7 @@ export function updateGun(dt,fireHeld){
     const p=pickups[i];
     const dx=p.position.x-P.x, dz=p.position.z-P.z;
     if(dx*dx+dz*dz>CRYSTAL_REACH*CRYSTAL_REACH||Math.abs(p.position.y-P.y)>4)continue;
-    S.energy=Math.min(1,S.energy+CRYSTAL_GAIN); S.crystals=(S.crystals||0)+1; handPrana();
+    S.energy=Math.min(1,S.energy+CRYSTAL_GAIN); S.crystals=(S.crystals||0)+1; handPrana(); questEvent('crystal');
     popAt(p.position,'+'+Math.round(CRYSTAL_GAIN*100)+'%',t('w.pop.cell'));
     beep(1046,0.1,0.05); setTimeout(()=>beep(1568,0.14,0.05),90);
     scene.remove(p); pickups.splice(i,1);

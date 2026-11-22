@@ -19,9 +19,19 @@ import { t } from '../i18n.js';
 
 const css=`
 body.wander #zoomCtl,body.wander #angleCtl,body.wander #cloakRing,body.wander #altScale,
-body.wander #spBtn,body.wander #hMission,body.wander #hUpgrade,body.wander #hBuff,
+body.wander #spBtn,body.wander #hUpgrade,body.wander #hBuff,
 body.wander #hTarget,body.wander #hClock,body.wander #hStory{display:none!important}
 @media (pointer:coarse){body.wander #minimap{left:auto;bottom:auto;right:14px;top:66px}}
+/* the shared HUD hides every panel by default (index.html); on foot the
+   points and the side quest are worth showing */
+body.wander #hScore,body.wander #hMission{display:block!important}
+@media (pointer:coarse){
+  body.wander #hMission{top:84px;bottom:auto;left:12px;max-width:50vw}
+  /* phone: the score sits top-left and the minimap top-right, so the cover and
+     trek lines drop below them instead of colliding at the top */
+  body.wander #wCover{top:190px;font-size:11px;letter-spacing:.16em}
+  body.wander #wTrek{top:218px;font-size:10px;letter-spacing:.08em}
+}
 #wHud{position:fixed;inset:0;pointer-events:none;z-index:12;display:none;font-family:inherit}
 body.wander #wHud{display:block}
 #wCross{position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px}

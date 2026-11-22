@@ -26,6 +26,7 @@
 import { banner } from '../ui/banner.js';
 import { beep } from '../audio/music.js';
 import { t } from '../i18n.js';
+import { questEvent } from './quests.js';
 
 export const H={heat:0, stage:0, peak:0};
 
@@ -52,6 +53,7 @@ export function updateHeat(dt,cover,night,beamNear){
     banner(t('w.heat.up'+st));
     beep(196,0.25,0.07); setTimeout(()=>beep(147,0.35,0.07),220);
   }
+  if(st!==H.stage)questEvent('heat',{from:H.stage,to:st});
   H.stage=st;
 }
 

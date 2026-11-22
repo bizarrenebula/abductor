@@ -145,15 +145,35 @@ the final score. Upgrades last the whole run, through a respawn:
 | Firm Footing | 40 / 80 | a beam locks onto you ×0.78 as fast |
 | Second Wind | 120 | one more run-it-back |
 
+## Side quests
+
+**Built** (`src/wanderer/quests.js`): optional defence contracts, one at a
+time, in a rolling chain. Each pays points into the score and the shop
+wallet. After the last one the chain comes round again with goals and
+rewards ×1.5 (then ×2, …). A timed quest that runs out is just replaced.
+
+| quest | goal | reward |
+|---|---|---|
+| Drive off saucers | 3 | 30 |
+| Pull animals out of a beam | 2 | 40 |
+| Gather crystals | 3 | 25 |
+| Save a person from a beam | 1 | 50 |
+| Reach the next save point in 4:00 | 1 | 40 |
+| Hit the saucer that has you in its beam | 1 | 40 |
+| Drive off two saucers within 8 s | 1 | 50 |
+| Get HUNTED, then shake them back to QUIET | 1 | 50 |
+
 ## Kept systems
 
 - **Day/night:** at night beams are easier to spot from far off, and cover is
   more effective.
 - **Weather:** limits how far you can see. It also limits how far saucers can
   see.
-- **Hazards:** lightning and geysers can stagger or hurt the wanderer.
 
-## Not in v1
+## Not in Wanderer mode
+
+- Hazards (lightning, geysers, meteors): dropped for this mode.
+- Translations: the mode's text is English only.
 
 - Moon and Mars.
 - Destroying saucers.

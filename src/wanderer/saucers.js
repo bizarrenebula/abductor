@@ -179,11 +179,12 @@ export function shipsForHit(){ return ships; }
 export function stunShip(s){
   if(s.state==='stunned'||s.state==='retreat'||s.state==='leave')return false;
   const wasHolding=s.state==='beam'&&s.prog>0.05;
+  const kind=s.kind;                                   // what it had: 'animal' | 'human' | 'player'
   releaseTarget(s);
   s.state='stunned'; s.stunT=STUN_T; s.aggro=true;
   const rt=tune.retreat();
   s.timer=rt[0]+Math.random()*(rt[1]-rt[0]);           // how long it stays away (shorter at high heat)
-  return {saved:wasHolding};
+  return {saved:wasHolding&&kind!=='player', self:wasHolding&&kind==='player', kind};
 }
 
 /* ---- per frame ---- */

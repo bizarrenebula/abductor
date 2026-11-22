@@ -28,6 +28,7 @@ import { banner } from '../ui/banner.js';
 import { H, updateHeat, resetHeat } from './heat.js';
 import { UP, resetShop, openShop, closeShop, shopIsOpen, shopButton, onBuy } from './shop.js';
 import { saveAt } from './trek.js';
+import { Q, resetQuests, updateQuests, drawQuest, questEvent } from './quests.js';
 import { shotCost } from './gun.js';
 import { keys } from '../core/input.js';
 import { t } from '../i18n.js';
@@ -60,6 +61,7 @@ export const Wanderer={
     this.won=false;
     resetHeat();
     resetShop(); onBuy.wind=()=>{ Trek.lives++; };
+    resetQuests();
     atSave=-1;
     startSaucers();
     clearShots();
@@ -100,8 +102,12 @@ export const Wanderer={
     if(ev==='won')this.won=true;
     else if(ev!=null){
       saveReachedFX(ev);
+      questEvent('savepoint');
       if(S.energyMode==='drain')S.energy=1;          // a save point refills the cell
     }
+    // ---- side quests ----
+    updateQuests(dt); drawQuest();
+
     // ---- the shop: open on arriving at a save point, close on leaving it ----
     const at=saveAt(P);
     if(at>=0&&atSave<0)openShop();
@@ -133,7 +139,7 @@ export const Wanderer={
   /* for the end card */
   stats(){
     const d=trekDistances(P);
-    return {saves:d.saves,total:d.total,time:S.elapsed-Trek.startT,
+    return {saves:d.saves,total:d.total,time:S.elapsed-Trek.startT,quests:Q.done,questPts:Q.earned,
       walked:Math.max(0,Trek.routeLen-d.dest)};
   },
 

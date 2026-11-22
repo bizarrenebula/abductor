@@ -205,7 +205,8 @@ export function endGame(reason){
     const mm=Math.floor(tr.time/60), ss=String(Math.floor(tr.time%60)).padStart(2,'0');
     bk.innerHTML='<div class="bk"><span>'+t('w.over.repels',{n:S.repels||0})+'</span><span>'+S.score+' pts</span></div>'
       +'<div class="bk"><span>'+t('w.over.saves',{n:tr.saves,total:tr.total})+'</span><span>'+mm+':'+ss+'</span></div>'
-      +'<div class="bk"><span>'+t('w.over.walked')+'</span><span>'+(tr.walked/1000).toFixed(2)+' km</span></div>';
+      +'<div class="bk"><span>'+t('w.over.walked')+'</span><span>'+(tr.walked/1000).toFixed(2)+' km</span></div>'
+      +'<div class="bk"><span>'+t('w.over.quests',{n:tr.quests})+'</span><span>+'+tr.questPts+' pts</span></div>';
     document.getElementById('overMsg').textContent=reason==='abducted'?t('w.over.abducted')
       :reason==='escaped'?t('w.over.escaped'):t('w.over.end');
   }

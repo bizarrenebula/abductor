@@ -23,6 +23,7 @@ import { shipsForHit, stunShip } from './saucers.js';
 import { updateHand, handEmitPos, showHand, handPrana } from './hand.js';
 import { AI } from './saucers.js';
 import { addHeat, HEAT_GAIN } from './heat.js';
+import { UP } from './shop.js';
 import { beep } from '../audio/music.js';
 import { sweep, noiseBurst } from '../audio/sfx.js';
 import { spawnPop } from '../ui/pop.js';
@@ -31,10 +32,14 @@ import { scoreV, specV } from '../ui/dom.js';
 import { t } from '../i18n.js';
 
 export const GUN={cool:0, empty:false};
-const COST=0.11;            // ~9 shots on a full cell
-const COOLDOWN=0.42;
+const COST_BASE=0.11;       // ~9 shots on a full cell (fewer per shot with the Cell upgrade)
+const COOLDOWN_BASE=0.42;
 const SPEED=150, LIFE=1.3;
-const HIT_R=7.5;            // generous: a saucer is a big disc, and it moves
+const HIT_R_BASE=7.5;       // generous: a saucer is a big disc, and it moves
+/* upgrade-scaled, read live (shop.js) */
+export const shotCost=()=>COST_BASE*Math.pow(0.75,UP.cell);
+const cooldown=()=>COOLDOWN_BASE*Math.pow(0.78,UP.quick);
+const hitR=()=>HIT_R_BASE+2.2*UP.wide;
 const REVEAL=1.6;           // seconds your position is given away after a shot
 const TRICKLE=1/150;        // cell per second, idle recharge
 const CRYSTAL_GAIN=0.35, CRYSTAL_REACH=3.2;
@@ -59,16 +64,16 @@ const _f=new THREE.Vector3(), _p=new THREE.Vector3(), _q=new THREE.Vector3();
 
 function fire(){
   const free=S.energyMode!=='drain';
-  if(!free&&S.energy<COST){
+  if(!free&&S.energy<shotCost()){
     if(!GUN.empty){ GUN.empty=true; banner(t('w.banner.empty')); }
     beep(140,0.08,0.05); GUN.cool=0.35; return;
   }
-  if(!free)S.energy=Math.max(0,S.energy-COST);
-  GUN.cool=COOLDOWN;
+  if(!free)S.energy=Math.max(0,S.energy-shotCost());
+  GUN.cool=cooldown();
   P.revealT=REVEAL; P.kick=1;
   camera.getWorldDirection(_f);
   handEmitPos(_p);
-  const s=sprite(1.4,1);
+  const s=sprite(1.4*(1+0.35*UP.wide),1);
   s.position.copy(_p);
   shots.push({s,vx:_f.x*SPEED,vy:_f.y*SPEED,vz:_f.z*SPEED,life:LIFE});
   sweep(900,240,0.22,0.08); noiseBurst(0.12,0.03,'highpass',2000,800,0.7);
@@ -89,12 +94,12 @@ export function updateGun(dt,fireHeld){
   GUN.cool=Math.max(0,GUN.cool-dt);
   if(fireHeld&&GUN.cool<=0&&!P.inBarn)fire();
   if(S.energyMode==='drain')S.energy=Math.min(1,S.energy+TRICKLE*dt);
-  if(S.energy>=COST)GUN.empty=false;
+  if(S.energy>=shotCost())GUN.empty=false;
 
   // the hand: thrust on the shot, curl while recharging, sway with the walk
-  const ready=GUN.cool<=0&&(S.energyMode!=='drain'||S.energy>=COST);
+  const ready=GUN.cool<=0&&(S.energyMode!=='drain'||S.energy>=shotCost());
   const spd=Math.hypot(P.vx,P.vz);
-  updateHand(dt,{kick:P.kick,ready,empty:S.energyMode==='drain'&&S.energy<COST,
+  updateHand(dt,{kick:P.kick,ready,empty:S.energyMode==='drain'&&S.energy<shotCost(),
     beamed:AI.playerLock,inside:!!P.inBarn,bob:P.bob,bobA:Math.min(1,spd/9)*0.09});
 
   const ships=shipsForHit();
@@ -108,7 +113,8 @@ export function updateGun(dt,fireHeld){
       const p=sh.s.position;
       for(const s of ships){
         const dx=p.x-s.x, dy=(p.y-s.y)*1.6, dz=p.z-s.z;
-        if(dx*dx+dy*dy+dz*dz<HIT_R*HIT_R){ hit=s; break; }
+        const HR=hitR();
+        if(dx*dx+dy*dy+dz*dz<HR*HR){ hit=s; break; }
       }
       if(!hit&&p.y<heightAt(p.x,p.z))dead=true;
     }

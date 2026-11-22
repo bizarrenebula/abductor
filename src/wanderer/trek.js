@@ -191,6 +191,9 @@ function inSave(s,P){
   if(s.kind==='barn')return P.inBarn===s.shelter;
   return P.cover==='bridge'&&Math.hypot(P.x-s.x,P.z-s.z)<16;
 }
+/* Index of the save point the wanderer is properly sheltering in, or -1. */
+export function saveAt(P){ for(let i=0;i<Trek.saves.length;i++)if(inSave(Trek.saves[i],P))return i; return -1; }
+
 /* Returns 'won' when the escape door is reached, a save index when one is
    reached this frame, else null. */
 export function updateTrek(dt,time,P){

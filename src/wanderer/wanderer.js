@@ -26,16 +26,20 @@ import { specV } from '../ui/dom.js';
 import { Trek, planTrek, buildTrek, clearTrek, updateTrek, trekDistances, respawnSpot, saveReachedFX } from './trek.js';
 import { banner } from '../ui/banner.js';
 import { H, updateHeat, resetHeat } from './heat.js';
+import { UP, resetShop, openShop, closeShop, shopIsOpen, shopButton, onBuy } from './shop.js';
+import { saveAt } from './trek.js';
+import { shotCost } from './gun.js';
+import { keys } from '../core/input.js';
 import { t } from '../i18n.js';
 
-let running=false, wasLocked=false;
+let running=false, wasLocked=false, atSave=-1, bWas=false;
 const _e=new THREE.Euler(0,0,0,'YXZ');
 
 /* Losing pointer lock mid-run (Esc, alt-tab) pauses, the way any first-person
    game does — otherwise the mouse is free and the run carries on without you. */
 document.addEventListener('pointerlockchange',()=>{
   const locked=document.pointerLockElement===renderer.domElement;
-  if(running&&wasLocked&&!locked&&S.state==='playing')
+  if(running&&wasLocked&&!locked&&S.state==='playing'&&!shopIsOpen())
     dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
   wasLocked=locked;
 });
@@ -55,6 +59,8 @@ export const Wanderer={
     P.takenT=0;
     this.won=false;
     resetHeat();
+    resetShop(); onBuy.wind=()=>{ Trek.lives++; };
+    atSave=-1;
     startSaucers();
     clearShots();
     showGun(true);
@@ -65,6 +71,7 @@ export const Wanderer={
     if(!running)return;
     running=false;
     stopSaucers();
+    closeShop(); shopButton(false);
     clearTrek();
     clearShots();
     showGun(false);
@@ -95,6 +102,15 @@ export const Wanderer={
       saveReachedFX(ev);
       if(S.energyMode==='drain')S.energy=1;          // a save point refills the cell
     }
+    // ---- the shop: open on arriving at a save point, close on leaving it ----
+    const at=saveAt(P);
+    if(at>=0&&atSave<0)openShop();
+    if(at<0&&shopIsOpen())closeShop();
+    atSave=at;
+    const b=!!keys['b'];
+    if(b&&!bWas&&at>=0){ if(shopIsOpen())closeShop(); else openShop(); }
+    bWas=b;
+    shopButton(at>=0);
 
     beam.visible=disc.visible=false; sparks.visible=false;
     // a small pool of light around you, so the night is walkable
@@ -105,7 +121,7 @@ export const Wanderer={
 
     drawWanderHUD({
       energy:S.energyMode==='drain'?S.energy:1,
-      cool:GUN.cool>0||(S.energyMode==='drain'&&S.energy<0.11),
+      cool:GUN.cool>0||(S.energyMode==='drain'&&S.energy<shotCost()),
       cover:P.cover, revealed:P.revealT>0, lock:AI.playerLock,
       nearShelter:!!P.nearShelter, inBarn:!!P.inBarn,
       locked:!!document.pointerLockElement,

@@ -131,6 +131,20 @@ respawn halves it. Stages drop with a little hysteresis so they don't flicker.
   wider pulse, faster recharge, a larger energy cell and a sprint boost. Field
   parts on the map can also grant upgrades.
 
+**Built** (`src/wanderer/shop.js`): the shop opens by itself when you're
+properly inside a save point and closes when you walk out; SHOP / B reopens
+it. Spending draws on a wallet (points earned minus spent), so it never lowers
+the final score. Upgrades last the whole run, through a respawn:
+
+| upgrade | levels (pts) | per level |
+|---|---|---|
+| Wide Pulse | 30 / 50 / 80 | hit radius +2.2, bigger pulse |
+| Quick Hands | 30 / 50 / 80 | recharge ×0.78 |
+| Deep Cell | 40 / 70 | energy per shot ×0.75 |
+| Long Legs | 30 / 60 | run speed +1.3 |
+| Firm Footing | 40 / 80 | a beam locks onto you ×0.78 as fast |
+| Second Wind | 120 | one more run-it-back |
+
 ## Kept systems
 
 - **Day/night:** at night beams are easier to spot from far off, and cover is

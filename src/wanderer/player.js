@@ -26,6 +26,7 @@ import { props, buildings, shelters } from '../entities/registry.js';
 import { saucer } from '../systems/saucer.js';
 import { W_IN } from './controls.js';
 import { beep } from '../audio/music.js';
+import { UP } from './shop.js';
 
 export const EYE=2.0;          // eye height above the feet (a person is ~2.2 units)
 const WALK=5.2, RUN=9.0;       // units / s
@@ -135,7 +136,7 @@ export function updatePlayer(dt){
 
   if(!P.inBarn){
     // ---- walk ----
-    const sp=(W_IN.run?RUN:WALK)*P.beamSlow;
+    const sp=(W_IN.run?RUN+1.3*UP.legs:WALK)*P.beamSlow;
     const fx=-Math.sin(P.yaw), fz=-Math.cos(P.yaw);      // camera forward on the ground
     const rx=Math.cos(P.yaw),  rz=-Math.sin(P.yaw);      // camera right
     const tvx=(fx*W_IN.my+rx*W_IN.mx)*sp, tvz=(fz*W_IN.my+rz*W_IN.mx)*sp;

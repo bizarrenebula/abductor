@@ -36,6 +36,7 @@ import { beep } from '../audio/music.js';
 import { spawnPop } from '../ui/pop.js';
 import { t } from '../i18n.js';
 import { H, addHeat, HEAT_GAIN, tune } from './heat.js';
+import { UP } from './shop.js';
 
 export const AI={
   max:3,                      // live saucers at the start; heat raises it (heat.js)
@@ -232,7 +233,7 @@ export function updateSaucers(dt,time){
         const inside=d<BEAM_R&&(!player||playerVisible());
         const LT=LOCK_T[s.kind]||4.5;
         if(inside){
-          s.prog+=dt/LT*(0.65+0.7*(1-d/BEAM_R));         // faster at the beam's heart
+          s.prog+=dt/LT*(0.65+0.7*(1-d/BEAM_R))*(player?Math.pow(0.78,UP.grip):1);   // faster at the beam's heart; Firm Footing slows it on you
           if(!player){
             const u=s.target.userData;
             u.aiHeld=true; u.hop=null; u.phase='idle'; u.fleeT=0;

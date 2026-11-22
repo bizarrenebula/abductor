@@ -22,6 +22,7 @@ import { P } from './player.js';
 import { shipsForHit, stunShip } from './saucers.js';
 import { updateHand, handEmitPos, showHand, handPrana } from './hand.js';
 import { AI } from './saucers.js';
+import { addHeat, HEAT_GAIN } from './heat.js';
 import { beep } from '../audio/music.js';
 import { sweep, noiseBurst } from '../audio/sfx.js';
 import { spawnPop } from '../ui/pop.js';
@@ -116,6 +117,7 @@ export function updateGun(dt,fireHeld){
       burst(sh.s.position,14);
       if(r){
         S.score+=REPEL_PTS; S.repels=(S.repels||0)+1;
+        addHeat(HEAT_GAIN.repel+(r.saved?HEAT_GAIN.save:0));   // fighting back gets you noticed
         scoreV.textContent=S.score;
         specV.textContent=t('w.hud.repels',{n:S.repels});
         _p.set(hit.x,hit.y,hit.z);

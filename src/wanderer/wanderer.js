@@ -25,6 +25,7 @@ import { showWanderHUD, drawWanderHUD } from './hud.js';
 import { specV } from '../ui/dom.js';
 import { Trek, planTrek, buildTrek, clearTrek, updateTrek, trekDistances, respawnSpot, saveReachedFX } from './trek.js';
 import { banner } from '../ui/banner.js';
+import { H, updateHeat, resetHeat } from './heat.js';
 import { t } from '../i18n.js';
 
 let running=false, wasLocked=false;
@@ -53,6 +54,7 @@ export const Wanderer={
     resetPlayer(S.spawnX,S.spawnZ,S.yaw+Math.PI);
     P.takenT=0;
     this.won=false;
+    resetHeat();
     startSaucers();
     clearShots();
     showGun(true);
@@ -83,6 +85,9 @@ export const Wanderer={
     P.lift+=(AI.playerLock-P.lift)*Math.min(1,dt*5);
     updateGun(dt,W_IN.fire);
 
+    // ---- heat: how hard the harvest is looking for you ----
+    updateHeat(dt,P.cover,1-S.dayF,AI.nearBeam<60);
+
     // ---- the trek: save points and the escape door ----
     const ev=updateTrek(dt,time,P);
     if(ev==='won')this.won=true;
@@ -105,6 +110,7 @@ export const Wanderer={
       nearShelter:!!P.nearShelter, inBarn:!!P.inBarn,
       locked:!!document.pointerLockElement,
       trek:trekDistances(P),
+      heat:H.heat, stage:H.stage,
     });
   },
 
@@ -123,6 +129,7 @@ export const Wanderer={
     resetPlayer(sp.x,sp.z,P.yaw);
     if(sp.shelter)P.inBarn=sp.shelter;              // you come to inside the barn
     P.takenT=0; P.lift=0;
+    resetHeat(true);                                 // they lose some of their interest too
     startSaucers();                                  // they lose track of you
     if(S.energyMode==='drain')S.energy=Math.max(S.energy,0.6);
     S.state='playing';

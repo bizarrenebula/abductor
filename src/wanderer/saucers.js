@@ -35,9 +35,11 @@ import { BeamSFX, cry } from '../audio/sfx.js';
 import { beep } from '../audio/music.js';
 import { spawnPop } from '../ui/pop.js';
 import { t } from '../i18n.js';
+import { H, addHeat, HEAT_GAIN, tune } from './heat.js';
 
 export const AI={
-  max:3,                      // live saucers (heat will raise this later)
+  max:3,                      // live saucers at the start; heat raises it (heat.js)
+  nearBeam:1e9,               // distance to the nearest open beam (for heat decay)
   playerLock:0,               // 0..1, the strongest lock any saucer has on you
   abducted:false,             // set the frame a lock on you completes
 };
@@ -66,7 +68,15 @@ function makeShip(){
   const b=beam.clone(true); cloneMats(b,mats); scene.add(b);
   const dd=disc.clone(true); cloneMats(dd,mats); scene.add(dd);
   b.visible=dd.visible=false;
-  return {g,b,d:dd,mats,x:0,y:0,z:0,vx:0,vz:0,
+  // searchlight (heat stage 2+): a pale cone from the hull to a sweeping spot
+  const cg=new THREE.CylinderGeometry(0.35,3.6,1,18,1,true); cg.translate(0,-0.5,0); cg.rotateX(-Math.PI/2);
+  const cone=new THREE.Mesh(cg,new THREE.MeshBasicMaterial({color:0xfff4d0,transparent:true,opacity:0,
+    blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+  const spot=new THREE.Mesh(new THREE.CircleGeometry(4.2,28).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0xfff0c0,
+    transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
+  cone.frustumCulled=spot.frustumCulled=false; cone.visible=spot.visible=false;
+  scene.add(cone); scene.add(spot);
+  return {g,b,d:dd,mats,cone,spot,sl:0,slA:Math.random()*6.28,slT:0,x:0,y:0,z:0,vx:0,vz:0,
     state:'roam',timer:0,target:null,kind:'',prog:0,pow:0,
     stunT:0,aggro:false,lx:0,lz:0,thinkT:0,spin:Math.random()*6,wob:0,wx:0,wz:0,away:0};
 }
@@ -93,12 +103,17 @@ export function startSaucers(){
 export function stopSaucers(){
   for(const s of ships){
     releaseTarget(s);
-    scene.remove(s.g); scene.remove(s.b); scene.remove(s.d);
-    for(const m of s.mats)m.dispose();
+    disposeShip(s);
   }
   ships.length=0; threats.n=0;
   AI.playerLock=0;
   BeamSFX.stop(); sfxOn=false;
+}
+
+function disposeShip(s){
+  scene.remove(s.g); scene.remove(s.b); scene.remove(s.d); scene.remove(s.cone); scene.remove(s.spot);
+  for(const m of s.mats)m.dispose();
+  s.cone.geometry.dispose(); s.cone.material.dispose(); s.spot.geometry.dispose(); s.spot.material.dispose();
 }
 
 /* ---- targets ---- */
@@ -118,7 +133,8 @@ function chooseTarget(s){
   const pv=playerVisible();
   const dP=Math.hypot(P.x-s.x,P.z-s.z);
   // A saucer that was shot comes back for the shooter.
-  if(pv&&dP<(s.aggro?SIGHT*1.6:SIGHT)&&(s.aggro||Math.random()<0.38)){
+  const sight=tune.sight();
+  if(pv&&dP<(s.aggro?sight*1.6:sight)&&(s.aggro||Math.random()<tune.huntChance())){
     s.kind='player'; s.target=null; s.state='chase'; return true;
   }
   // Prefer what is near the wanderer: the harvest should happen where you can
@@ -164,12 +180,13 @@ export function stunShip(s){
   const wasHolding=s.state==='beam'&&s.prog>0.05;
   releaseTarget(s);
   s.state='stunned'; s.stunT=STUN_T; s.aggro=true;
-  s.timer=15+Math.random()*5;                          // how long it stays away
+  const rt=tune.retreat();
+  s.timer=rt[0]+Math.random()*(rt[1]-rt[0]);           // how long it stays away (shorter at high heat)
   return {saved:wasHolding};
 }
 
 /* ---- per frame ---- */
-let sfxOn=false;
+let sfxOn=false, fleetT=0;
 export function updateSaucers(dt,time){
   let lockP=0, nearBeam=1e9, nearBeamShip=null, nearShip=null, nearD=1e9;
   AI.abducted=false;
@@ -178,19 +195,23 @@ export function updateSaucers(dt,time){
     const gy=Math.max(heightAt(s.x,s.z),WATER_Y);
     let tx=s.x, tz=s.z, spd=SPD_ROAM, alt=CRUISE;
     s.thinkT-=dt;
+    const active=s.state!=='stunned'&&s.state!=='retreat'&&s.state!=='leave';
+    // every saucer that can see you in the open makes the harvest more aware of you
+    if(active&&playerVisible()&&Math.hypot(P.x-s.x,P.z-s.z)<tune.sight())addHeat(HEAT_GAIN.seenPerSec*dt);
 
     if(s.state==='roam'){
       tx=s.wx; tz=s.wz;
       if(Math.hypot(s.x-P.x,s.z-P.z)>110)spd=SPD_CHASE+3;   // far out: close in quickly
+      if(s.dismiss){ s.state='leave'; s.timer=6; }
       if(Math.hypot(s.wx-s.x,s.wz-s.z)<8||Math.hypot(s.wx-P.x,s.wz-P.z)>160)pickWander(s);
       if(s.thinkT<=0){ s.thinkT=0.8+Math.random()*0.6; chooseTarget(s); }
     }
     else if(s.state==='chase'){
       if(s.kind==='player'){
         if(!playerVisible()){ s.state='search'; s.timer=4+Math.random()*2; s.lx=P.x; s.lz=P.z; s.kind=''; }
-        else { tx=P.x; tz=P.z; spd=SPD_HUNT; s.lx=P.x; s.lz=P.z; }
+        else { tx=P.x; tz=P.z; spd=SPD_HUNT*tune.speed(); s.lx=P.x; s.lz=P.z; }
       }else if(!validCreature(s.target)){ releaseTarget(s); s.state='roam'; }
-      else { tx=s.target.position.x; tz=s.target.position.z; spd=SPD_CHASE; }
+      else { tx=s.target.position.x; tz=s.target.position.z; spd=SPD_CHASE*tune.speed(); }
       if(s.state==='chase'){
         alt=BEAM_ALT+3;
         if(Math.hypot(tx-s.x,tz-s.z)<3){ s.state='beam'; s.prog=0; }
@@ -228,7 +249,7 @@ export function updateSaucers(dt,time){
             else s.state='roam';
           }
         }
-        if(s.state==='beam'&&player)lockP=Math.max(lockP,s.prog);
+        if(s.state==='beam'&&player){ lockP=Math.max(lockP,s.prog); if(inside)addHeat(HEAT_GAIN.beamPerSec*dt); }
         if(s.state==='beam'&&s.prog>=1){
           if(player){ AI.abducted=true; }
           else takeCreature(s);
@@ -258,7 +279,7 @@ export function updateSaucers(dt,time){
       s.timer-=dt;
       let ax=s.x-P.x, az=s.z-P.z; const l=Math.hypot(ax,az)||1;
       tx=s.x+ax/l*50; tz=s.z+az/l*50; spd=SPD_RETREAT; alt=CRUISE+60;
-      if(s.timer<=0)placeFar(s);
+      if(s.timer<=0){ if(s.dismiss)s.gone=true; else placeFar(s); }
     }
 
     // ---- fly ----
@@ -298,6 +319,30 @@ export function updateSaucers(dt,time){
       for(const m of s.mats){ m.uniforms.uTime.value=time; m.uniforms.uPow.value=s.pow; m.uniforms.uLock.value=Math.min(1,s.prog); }
     }
 
+    // ---- searchlight (heat stage 2+) ----
+    const slOn=tune.searchlights()&&(s.state==='roam'||s.state==='search'||(s.state==='chase'&&s.kind!=='player'));
+    s.sl+=((slOn?1:0)-s.sl)*Math.min(1,dt*2);
+    s.cone.visible=s.spot.visible=s.sl>0.02;
+    if(s.sl>0.02){
+      s.slA+=dt*(s.state==='search'?1.6:0.9);
+      const R=s.state==='search'?10:16+6*Math.sin(time*0.37+i);
+      const sx=s.x+Math.cos(s.slA)*R, sz=s.z+Math.sin(s.slA)*R;
+      const sy=Math.max(heightAt(sx,sz),WATER_Y);
+      s.spot.position.set(sx,sy+0.2,sz);
+      s.spot.material.opacity=0.32*s.sl;
+      s.cone.position.set(s.x,s.y-1.2,s.z);
+      _v.set(sx,sy,sz); s.cone.lookAt(_v);
+      s.cone.scale.set(1,1,Math.hypot(sx-s.x,sy-(s.y-1.2),sz-s.z));
+      s.cone.material.opacity=0.10*s.sl;
+      // caught in it: open ground or under a tree (a deck or a roof still hides you)
+      s.slT-=dt;
+      if(s.sl>0.6&&s.slT<=0&&Math.hypot(P.x-sx,P.z-sz)<4.6&&(P.cover===null||P.cover==='tree')){
+        s.slT=2.5; P.revealT=Math.max(P.revealT,1.6); addHeat(HEAT_GAIN.spotlit);
+        releaseTarget(s); s.kind='player'; s.state='chase'; s.aggro=true;
+        beep(880,0.08,0.06); setTimeout(()=>beep(880,0.08,0.06),120);
+      }
+    }
+
     // ---- publish for humans / minimap ----
     const th=threats.list[i]||(threats.list[i]={});
     th.x=s.x; th.y=s.y; th.z=s.z; th.beaming=s.state==='beam'; th.stunned=s.state==='stunned'||s.state==='retreat';
@@ -306,7 +351,20 @@ export function updateSaucers(dt,time){
     if(dP<nearD){nearD=dP;nearShip=s;}
     if(s.state==='beam'&&dP<nearBeam){nearBeam=dP;nearBeamShip=s;}
   }
+  // ---- fleet size follows the heat ----
+  for(let i=ships.length-1;i>=0;i--)if(ships[i].gone){ releaseTarget(ships[i]); disposeShip(ships[i]); ships.splice(i,1); }
+  const want=tune.ships();
+  fleetT-=dt;
+  const live=ships.filter(s=>!s.dismiss).length;
+  if(live<want&&fleetT<=0){ const s=makeShip(); ships.push(s); placeFar(s); fleetT=3+Math.random()*3; }
+  else if(live>want&&fleetT<=0){ const s=ships.find(x=>!x.dismiss&&x.state==='roam'); if(s){ s.dismiss=true; fleetT=4; } }
+  // a ship added (or removed) above has no up-to-date entry yet: write them all
+  for(let i=0;i<ships.length;i++){
+    const sh=ships[i], th=threats.list[i]||(threats.list[i]={});
+    th.x=sh.x; th.y=sh.y; th.z=sh.z; th.beaming=sh.state==='beam'; th.stunned=sh.state==='stunned'||sh.state==='retreat';
+  }
   threats.n=ships.length;
+  AI.nearBeam=nearBeam;
 
   AI.playerLock=lockP;
 

@@ -53,6 +53,12 @@ body.wander #wHud{display:block}
 #wTrek{position:absolute;left:50%;top:44px;transform:translateX(-50%);font-size:11px;letter-spacing:.16em;
   color:rgba(220,255,240,.8);white-space:nowrap;text-shadow:0 1px 3px #000}
 #wTrek .d{color:#ffc870}#wTrek .s{color:#7dffbe}
+#wHeat{position:absolute;right:16px;top:70px;width:118px;text-align:right}
+@media (pointer:coarse){#wHeat{top:166px}}
+#wHeat .lbl{font-size:10px;letter-spacing:.2em;color:rgba(220,255,240,.7);margin-bottom:3px}
+#wHeat .lbl b{font-weight:700}
+#wHeatBar{height:5px;border-radius:3px;background:rgba(10,20,18,.6);border:1px solid rgba(255,255,255,.18);overflow:hidden}
+#wHeatFill{height:100%;width:0;background:#8fe8b8;transition:width .2s,background .4s}
 #wHint{position:absolute;left:50%;top:50%;transform:translate(-50%,28px);font-size:12px;letter-spacing:.14em;
   color:rgba(220,255,240,.85);text-shadow:0 1px 3px #000;white-space:nowrap}
 #wDark{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.35) 20%,rgba(0,0,0,.85) 100%);opacity:0;transition:opacity .4s}
@@ -68,6 +74,7 @@ root.innerHTML=`
 <div id="wCover">EXPOSED</div>
 <div id="wHint"></div>
 <div id="wTrek"></div>
+<div id="wHeat"><div class="lbl">HEAT · <b id="wHeatSt">QUIET</b></div><div id="wHeatBar"><div id="wHeatFill"></div></div></div>
 <div id="wLock"><div class="lbl">BEAM LOCK</div><div id="wLockBar"><div id="wLockFill"></div></div></div>
 <div id="wCell"><div class="lbl">PULSE CELL</div><div id="wCellBar"><div id="wCellFill"></div></div></div>
 <button id="wHide">HIDE</button>
@@ -76,7 +83,7 @@ document.body.appendChild(root);
 
 const $=id=>document.getElementById(id);
 const el={cross:$('wCross'),cover:$('wCover'),hint:$('wHint'),lock:$('wLock'),lockFill:$('wLockFill'),lockV:$('wLockV'),
-  cell:$('wCell'),trek:$('wTrek'),cellFill:$('wCellFill'),fire:$('wFire'),hide:$('wHide'),dark:$('wDark')};
+  cell:$('wCell'),trek:$('wTrek'),heatFill:$('wHeatFill'),heatSt:$('wHeatSt'),cellFill:$('wCellFill'),fire:$('wFire'),hide:$('wHide'),dark:$('wDark')};
 if(!TOUCH_ONLY)el.fire.style.display='none';
 wireButtons(el.fire,el.hide);
 
@@ -110,6 +117,12 @@ export function drawWanderHUD(s){
     const tx='<span class="d">'+t('w.hud.escape')+' '+km(s.trek.dest)+'</span>'
       +(s.trek.save!=null?' · <span class="s">'+t('w.hud.save',{n:s.trek.saves+1,total:s.trek.total})+' '+km(s.trek.save)+'</span>':'');
     if(tx!==last.tx){ el.trek.innerHTML=tx; last.tx=tx; }
+  }
+  if(s.heat!=null){
+    const HC=['#8fe8b8','#ffd36a','#ff8a4a','#ff4a3a'];
+    el.heatFill.style.width=(s.heat*100).toFixed(1)+'%';
+    el.heatFill.style.background=HC[s.stage];
+    if(s.stage!==last.st){ el.heatSt.textContent=t('w.heat.st'+s.stage); el.heatSt.style.color=HC[s.stage]; last.st=s.stage; }
   }
   let hint='';
   if(!TOUCH_ONLY&&!s.locked)hint=t('w.hint.click');

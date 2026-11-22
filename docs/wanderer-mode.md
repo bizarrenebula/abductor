@@ -86,6 +86,21 @@ This adapts `docs/awareness.md` to the new viewpoint.
 - **Heat goes down** over time, faster in cover (barns fastest) and at night
   when you're out of beams.
 
+**Built** (`src/wanderer/heat.js`):
+
+| stage | heat | saucers | what changes |
+|---|---|---|---|
+| QUIET | 0–25% | 3 | mostly harvesting; ~30% chance a free saucer comes for you |
+| NOTICED | 25–50% | 5 | more of them pick you, and see you further off |
+| HUNTED | 50–78% | 7 | searchlights sweep the ground and find you under trees (not under bridges or indoors) |
+| SWARM | 78%+ | 8 | faster; a stunned saucer comes back after 9–13 s instead of 15–20 |
+
+Heat rises with each repel (more if you broke an abduction), for every saucer
+that sees you in the open, while you're in a beam, and when a searchlight
+catches you. It falls over time: about 2.6× faster in tree or bridge cover,
+5.5× faster inside a shelter, and faster at night when no beam is near. A
+respawn halves it. Stages drop with a little hysteresis so they don't flicker.
+
 ## The trek
 
 - The escape destination sits at the end of the **lane**

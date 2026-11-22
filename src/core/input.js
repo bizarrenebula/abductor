@@ -134,7 +134,7 @@ addEventListener('keydown',e=>{
     return;
   }
   keys[k]=true;
-  if(k===binds.cloak&&!e.repeat&&S.state==='playing')toggleCloak();
+  if(k===binds.cloak&&!e.repeat&&S.state==='playing'&&!S.wanderer)toggleCloak();
   if(k===' '||k.startsWith('arrow'))e.preventDefault();});
 addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 
@@ -228,6 +228,7 @@ function cancelCloakHold(){ if(cloakTimer){clearTimeout(cloakTimer);cloakTimer=0
 
 renderer.domElement.addEventListener('pointerdown',e=>{
   if(S.state!=='playing')return;
+  if(S.wanderer)return;                                     // on foot: wanderer/controls.js owns touch
   if(e.pointerType==='mouse')return;                        // PC is handled below (mouse-look + LMB/RMB)
   // Press-and-hold on the saucer toggles cloak (touch). A press
   // that moves past SHIP_SLOP cancels — so it never fights a nearby joystick drag.

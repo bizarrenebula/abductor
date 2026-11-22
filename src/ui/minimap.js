@@ -9,6 +9,7 @@ import { saucer } from '../systems/saucer.js';
 import { Story } from '../story/story.js';
 import { townsWithin } from '../world/settlements.js';
 import { regionWeights, regionAt, REGION_NAME } from '../world/regions.js';
+import { threats } from '../wanderer/threats.js';
 
 const CRYSTAL_COL='#8fe8b8';
 
@@ -159,6 +160,12 @@ export function drawMinimap(dt){
   for(const it of upgradeItems){
     const col='#'+it.userData.col.toString(16).padStart(6,'0');
     plot(it.position.x,it.position.z,col,it.userData.onScreen?3.8:2.6,true);
+  }
+
+  // Wanderer mode: the AI saucers, in red — bright and pulsing while beaming.
+  if(S.wanderer)for(let i=0;i<threats.n;i++){
+    const th=threats.list[i];
+    plot(th.x,th.z,th.stunned?'#ff9a8a':'#ff4a3a',th.beaming?3.6:2.8,th.beaming);
   }
 
   // current mission's objective markers only (no creature swarm)

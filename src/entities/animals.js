@@ -253,7 +253,8 @@ function stepOK(u,x0,z0,tx,tz){
    system with a short duration and an `away` heading; a blocked escape just calms. */
 function panicHop(a,u,dt){
   u.panic-=dt;
-  const dx=a.position.x-saucer.position.x, dz=a.position.z-saucer.position.z;
+  const src=u.panicSrc||saucer.position;           // wanderer: the AI saucer that dropped it
+  const dx=a.position.x-src.x, dz=a.position.z-src.z;
   const d=Math.hypot(dx,dz)||0.001;
   if(!u.hop||!u.hop.panic){
     const dist=3.6, tx=a.position.x+dx/d*dist, tz=a.position.z+dz/d*dist;
@@ -275,6 +276,7 @@ export function updateAnimals(dt){
     const u=a.userData;
     if(u.humanKind){updateHuman(a,u,dt);continue;}
     if(u.wormKind){updateWorm(a,u,dt);continue;}
+    if(u.aiHeld)continue;                          // an AI saucer's beam has it (wanderer/saucers.js)
 
     // Dropped by the beam: a short panic of fast hops directly away, then it calms
     // back into its normal wander.

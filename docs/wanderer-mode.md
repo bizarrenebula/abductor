@@ -22,7 +22,8 @@ don't get abducted, and push the saucers back along the way.
 
 - **First-person** camera at eye height.
 - **Touch:** an on-screen joystick (left) to walk, and dragging anywhere else to
-  look. A fire button shoots the pulse.
+  look. A fire button shoots the pulse. The minimap moves to the top right so
+  it's clear of the joystick.
 - **Desktop:** WASD to walk, Shift to sprint, mouse-look (pointer lock),
   left-click to fire, E to enter or leave a barn.
 - The wanderer is grounded and follows the terrain. Water is impassable, or
@@ -37,10 +38,28 @@ don't get abducted, and push the saucers back along the way.
 - While in cover, the pulse gun can still fire, but firing reveals your
   position.
 
-## Pulse gun
+## The hand (no gun)
+
+The pulse comes from the wanderer's own palm. The hand in the lower right of
+the view speaks in mudras, so its shape always shows the state of the pulse:
+
+| state | mudra |
+|---|---|
+| ready | relaxed hand, faint palm glow |
+| firing | **Abhaya**: open palm thrust forward ("fear not") |
+| recharging | **Gyan**: thumb to index finger |
+| cell empty | fist |
+| crystal taken | **Prana**: ring and little finger to the thumb (brief) |
+| beamed by a saucer | fingers splayed and trembling |
+| inside a shelter | hand lowered |
+
+Poses blend smoothly into each other.
+
+## Pulse
 
 - Each shot costs **energy**. Crystals on the ground refill it when you walk
-  over them (or hold to collect them).
+  over them. A very slow trickle recharge keeps an empty cell from leaving you
+  with nothing at all.
 - A hit **stuns** the saucer. It wobbles, drops whatever it was beaming and
   **retreats for about 15–20 s** before it comes back. Saucers can't be
   destroyed.

@@ -53,6 +53,7 @@ import { banner } from './banner.js';
 import { setFX } from './postfx.js';
 import { scoreV, specV, spBtn } from './dom.js';
 import { t, setLang, onLang } from '../i18n.js';
+import { Wanderer } from '../wanderer/wanderer.js';
 
 const startScreen=document.getElementById('startScreen');
 const overScreen=document.getElementById('overScreen');
@@ -72,7 +73,9 @@ const oExtra=document.getElementById('oExtra');   // "Tuning" sector chip summar
 export function startGame(opts){
   const keepUpgrades=!!(opts&&opts.keep===true);
   const after=opts&&typeof opts.after==='function'?opts.after:null;
-  const film=!(opts&&opts.film===false)&&!keepUpgrades;
+  // Wanderer mode has no arrival film: you are already on the ground.
+  const film=!(opts&&opts.film===false)&&!keepUpgrades&&!S.wanderer;
+  Wanderer.stop();                 // a previous wanderer run, if any
   /* The tutorial has to be known HERE, not when Tutorial.start() runs — the
      world is built in this function and a tutorial run builds a smaller one. */
   const isTutorial=!!(opts&&opts.tutorial===true);
@@ -120,7 +123,7 @@ export function startGame(opts){
   // start grounded. Then scatter whichever field parts aren't installed yet.
   if(keepUpgrades)Upgrades.restore(); else Upgrades.reset();
   ModuleIcons.reset();        // ...and nothing left showing over the ship
-  spawnUpgradeItems();
+  if(!S.wanderer)spawnUpgradeItems();   // ship parts are no use on foot
   CropCircles.reset();
   Clouds.spawnField(saucer.position.x,saucer.position.z);
   Fireflies.reset(saucer.position.x,saucer.position.z);
@@ -139,7 +142,8 @@ export function startGame(opts){
     hud.classList.add('on');
     S.safePos.copy(saucer.position);S.safeYaw=S.yaw;   // the arrival point is the first safe point
     // Story briefings wait for the film to end — nothing overlays the cinematic.
-    if(S.storyMode)Story.begin(S.world);
+    if(S.storyMode&&!S.wanderer)Story.begin(S.world);
+    if(S.wanderer){ Wanderer.start(); setTimeout(()=>banner(t('w.banner.start')),400); }
     if(S.world==='mars')setTimeout(()=>banner(t('banner.mars')),900);
     if(S.world==='moon')setTimeout(()=>banner(t('banner.moon')),900);
     if(after)after();
@@ -173,6 +177,8 @@ export function respawn(){
 }
 export function endGame(reason){
   S.state='over';
+  const wasWanderer=Wanderer.active;
+  Wanderer.stop();
   BeamSFX.stop();S.prevBeam=false;
   hud.classList.remove('on');
   document.getElementById('finalScore').textContent=S.score;
@@ -190,11 +196,16 @@ export function endGame(reason){
     :reason==='lightning'?t('over.msg.lightning')
     :reason==='impact'?t('over.msg.impact')
     :(reason==='crash'||reason==='energy')?t('over.msg.crash'):msg;
+  if(wasWanderer){
+    bk.innerHTML='<div class="bk"><span>'+t('w.over.repels',{n:S.repels||0})+'</span><span>'+S.score+' pts</span></div>';
+    document.getElementById('overMsg').textContent=reason==='abducted'?t('w.over.abducted'):t('w.over.end');
+  }
   overScreen.classList.remove('hidden');
 }
 // Play offers the guided tutorial first; either choice starts the game, and
 // "Show me" then kicks off the walkthrough in the freshly-started world.
 document.getElementById('startBtn').addEventListener('click',()=>{
+  if(S.wanderer){ startGame(); return; }        // no flight tutorial on foot
   Tutorial.prompt(()=>startGame({tutorial:true,after:()=>Tutorial.start()}), ()=>startGame());
 });
 /* Injected so the tutorial's closing modal can restart the run or switch to
@@ -257,7 +268,7 @@ export function pauseGame(){ if(S.state!=='playing')return; S.state='paused'; Be
 function resumeGame(){ if(S.state!=='paused')return; S.state='playing'; pauseScreen.classList.add('hidden'); }
 function toMenu(){ pauseScreen.classList.add('hidden'); overScreen.classList.add('hidden');
   startScreen.classList.remove('hidden'); hud.classList.remove('on'); S.state='menu';
-  Intro.stop();
+  Intro.stop();Wanderer.stop();
   BeamSFX.stop();S.prevBeam=false;Music.set('off');Story.reset();clearUpgradeItems();resetSaucerMenu(); }
 document.getElementById('pauseBtn').addEventListener('click',pauseGame);
 // The floating PULL button (shown by special.js only when charged) is a
@@ -281,6 +292,7 @@ addEventListener('keydown',e=>{ if(e.key==='Escape'){
 /* Music / soundtrack removed — only in-game SFX remain (see audio/music.js). */
 
 /* ---------- world + reactor + mode selection ---------- */
+const modeKey=()=>S.wanderer?'mode.wander':S.storyMode?'mode.story':'mode.exploreShort';
 document.getElementById('segWorld').addEventListener('click',e=>{
   const b=e.target.closest('[data-w]');if(!b)return;
   if(b.disabled||b.classList.contains('locked'))return;   // Moon/Mars not playable yet
@@ -312,8 +324,9 @@ syncAmbSeg();
 document.getElementById('segMode').addEventListener('click',e=>{
   const b=e.target.closest('[data-m]');if(!b)return;
   S.storyMode=(b.dataset.m==='story');
+  S.wanderer=(b.dataset.m==='wander');
   document.querySelectorAll('#segMode [data-m]').forEach(x=>x.classList.toggle('on',x===b));
-  document.getElementById('oMode').textContent=t(S.storyMode?'mode.story':'mode.exploreShort');
+  document.getElementById('oMode').textContent=t(modeKey());
 });
 document.getElementById('stBtn').addEventListener('click',storyProceed);
 
@@ -456,7 +469,7 @@ syncTuningChip();
 onLang(()=>{
   // re-render dynamic menu bits that aren't plain [data-i18n] elements
   document.getElementById('oWorld').textContent=t('world.'+S.world);
-  document.getElementById('oMode').textContent=t(S.storyMode?'mode.story':'mode.exploreShort');
+  document.getElementById('oMode').textContent=t(modeKey());
   document.getElementById('oEnergy').textContent=t(S.energyMode==='drain'?'reactor.drain':'reactor.inf');
   syncTuningChip();
   if(specV)specV.textContent=t('hud.taken',{n:S.taken});

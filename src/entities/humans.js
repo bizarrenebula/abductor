@@ -10,6 +10,7 @@ import { heightAt, walkableGround } from '../world/terrain.js';
 import { LOADED, spawnModel } from '../assets.js';
 import { shelters, buildings } from './registry.js';
 import { saucer } from '../systems/saucer.js';
+import { nearestThreat } from '../wanderer/threats.js';
 
 /* Warm window helper — a glowing amber pane that reads as an inhabited building
    from across the valley (art brief). */
@@ -146,7 +147,14 @@ export function updateHuman(a,u,dt){
     if(u.hidden<=0){a.visible=true;u.fleeT=0;u.progress=0;}
     return;
   }
-  const dx=a.position.x-saucer.position.x,dz=a.position.z-saucer.position.z;
+  /* Held in an AI saucer's beam (wanderer mode): the beam owns them now —
+     see wanderer/saucers.js, which lifts them after this update has run. */
+  if(u.aiHeld)return;
+  /* WANDERER MODE: the thing to run from is the nearest AI saucer, not the
+     player — the player is one of them now, on foot. */
+  let srcX=saucer.position.x, srcZ=saucer.position.z;
+  if(S.wanderer){ const nt=nearestThreat(a.position.x,a.position.z); srcX=nt.d<1e8?nt.x:1e9; srcZ=nt.d<1e8?nt.z:1e9; }
+  const dx=a.position.x-srcX,dz=a.position.z-srcZ;
   const d=Math.hypot(dx,dz)||0.001;
   /* THEY RUN ON SIGHT.
 
@@ -165,7 +173,7 @@ export function updateHuman(a,u,dt){
      Cloaked, none of this applies: they never notice, which is the whole point
      of the module and the reason the urban land is the one worth being careful
      in. */
-  const notice = S.cloak ? false : (d<SIGHT || (S.beamPower>0.4 && d<SIGHT_BEAM));
+  const notice = (S.cloak&&!S.wanderer) ? false : (d<SIGHT || (S.beamPower>0.4 && d<SIGHT_BEAM));
   if(notice)u.fleeT=FLEE_T;
   /* PARALYSED. A cloaked ship with the beam already open is not something you
      run from: nothing announced itself, the light simply arrived, and whatever
@@ -173,7 +181,7 @@ export function updateHuman(a,u,dt){
      progress as well as preventing a new one — the case that prompted it was a
      villager who bolted as the cloak dropped and kept running for the whole
      1.8s of flee time while the beam had them. */
-  const held = S.cloak && (u.progress>0.001 || (S.beamPower>0.4 && d<26));
+  const held = !S.wanderer && S.cloak && (u.progress>0.001 || (S.beamPower>0.4 && d<26));
   if(held){
     u.fleeT=0; u.bolt=null;
     a.position.y=heightAt(a.position.x,a.position.z);

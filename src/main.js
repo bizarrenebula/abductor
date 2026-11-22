@@ -62,6 +62,7 @@ import { drawMinimap } from './ui/minimap.js';
 import { updateFlare } from './ui/flare.js';
 import { renderFrame, allocRT, setFX } from './ui/postfx.js';
 import { endGame, respawn } from './ui/screens.js';
+import { Wanderer } from './wanderer/wanderer.js';
 
 import { diagFinish, loadAllAssets, spawnModel } from './assets.js';
 import { t as tr, applyStaticDOM, onLang } from './i18n.js';   // aliased: `t` is used locally for time in animate()
@@ -240,7 +241,42 @@ function animate(){
   stars.position.set(camera.position.x,0,camera.position.z);
   moon.position.copy(camera.position).addScaledVector(_v.copy(sun.position).sub(saucer.position).normalize(),820);
 
-  if(S.state==='playing'){
+  if(S.state==='playing'&&S.wanderer){
+    /* ---- WANDERER MODE: on foot, under the saucers (src/wanderer/) ----
+       The player saucer is hidden and parked over the wanderer, so everything
+       that reads saucer.position as "where the player is" (chunk streaming,
+       weather, minimap, ambience) keeps working unchanged. */
+    perfGuard(dt);
+    Wanderer.update(dt,t);
+    updateChunks(saucer.position.x,saucer.position.z);
+    updateAnimals(dt);
+    Wanderer.afterAnimals(dt);
+    weather.biome=sample(saucer.position.x,saucer.position.z).biome;
+    tickWeather(dt,saucer.position.x,saucer.position.z,weather.biome);
+    scene.fog.density=lerp(scene.fog.density,weather.fogTarget,Math.min(1,dt*0.6));
+    updateWeatherParticles(dt);
+    updateProps(dt,false);
+    updateWindmills(dt);
+    updateVehicles(dt,false);
+    ebarBG.material.opacity=0;ebarFill3.material.opacity=0;
+    sun.target.position.copy(saucer.position);
+    sun.position.set(saucer.position.x+60,saucer.position.y+90,saucer.position.z+30);
+    S.elapsed+=dt;
+    dayNightUpdate(dt);
+    applyDayNightLight();
+    Ambience.setLevel(1);
+    updateAmbCtx(dt); Ambience.update(dt,ambCtx);
+    clearWaypoints();
+    if(Wanderer.abducted()){ S.state='taken'; S.takenT=2.2; BeamSFX.set(1); }
+  } else if(S.state==='taken'){
+    // wanderer: the lock completed — drawn up into the beam, then the card
+    Wanderer.taken(dt,t);
+    updateAnimals(dt);
+    dayNightUpdate(dt); applyDayNightLight();
+    Ambience.setLevel(0.5); updateAmbCtx(dt); Ambience.update(dt,ambCtx);
+    S.takenT-=dt;
+    if(S.takenT<=0)endGame('abducted');
+  } else if(S.state==='playing'){
     perfGuard(dt);
     /* ---- beam hold: pointer down or space ----
        The beam works from the very start, but a raw beam DRAINS the reactor

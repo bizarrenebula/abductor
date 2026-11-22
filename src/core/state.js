@@ -16,7 +16,9 @@ export const S={
   // leaks, a complete one only pays for the cloak. Infinite is the opt-out.
   world:'earth', energyMode:'drain', energy:1, vy:0,
   crystals:0, missionIdx:0, prevBeam:false, crashReason:null,
-  isDay:false, dayF:0, storyMode:false,   // runs begin at night (see dayNightUpdate)
+  isDay:false, dayF:0, storyMode:false,
+  wanderer:false,          // Wanderer mode: on foot, defending the land from AI saucers (src/wanderer/)
+  repels:0,                // wanderer: saucers driven off this run (they are the score)   // runs begin at night (see dayNightUpdate)
   cloak:false, warnLevel:0, elapsed:0,
   tutorial:false,          // guided intro running — suppresses lethal hazards (see hazards/lightning.js)
   tutorialLesson:false,    // ...and still on a taught step: other objectives stay un-arrowed

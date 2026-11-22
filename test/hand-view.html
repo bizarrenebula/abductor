@@ -1,0 +1,36 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Hand rig viewer</title>
+<style>body{margin:0;background:#1b1d22;overflow:hidden}#l{position:fixed;left:8px;top:8px;color:#ccc;font:12px monospace}</style></head>
+<body><div id="l"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+/* Dev viewer for models/hand.glb (scripts/gen-hand.py). ?pose=relaxed|fist|gyan|abhaya|prana|strain
+   &view=back|palm|side  &wire=1 */
+const q=new URLSearchParams(location.search);
+const R=new THREE.WebGLRenderer({antialias:true});R.setSize(innerWidth,innerHeight);R.outputEncoding=THREE.sRGBEncoding;
+R.physicallyCorrectLights=false;document.body.appendChild(R.domElement);
+const S=new THREE.Scene();S.background=new THREE.Color(0x1b1d22);
+const C=new THREE.PerspectiveCamera(35,innerWidth/innerHeight,0.1,200);
+S.add(new THREE.HemisphereLight(0xdfe8ff,0x302820,0.55));
+const k=new THREE.DirectionalLight(0xfff2e0,1.0);k.position.set(10,20,25);S.add(k);
+const r=new THREE.DirectionalLight(0x9fc0ff,0.6);r.position.set(-20,8,-15);S.add(r);
+const POSES={relaxed:{c:[0.22,0.28,0.34,0.4],sp:1,tIn:0,tOut:0.8,tB:0.2},abhaya:{c:[0,0,0,0],sp:0.25,tIn:0,tOut:0.45,tB:0},
+ gyan:{c:[0.62,0.06,0.1,0.14],sp:1.4,tIn:0.75,tOut:0.35,tB:0.35},fist:{c:[1,1,1,1],sp:0.2,tIn:0.85,tOut:0.2,tB:0.6},
+ prana:{c:[0,0,0.78,0.82],sp:0.8,tIn:0.8,tOut:0.3,tB:0.4},strain:{c:[0.1,0.05,0.1,0.15],sp:2.6,tIn:0,tOut:1.1,tB:0}};
+new THREE.GLTFLoader().load('../models/hand.glb',g=>{
+  const root=g.scene;S.add(root);let mesh;root.traverse(o=>{if(o.isSkinnedMesh)mesh=o;});
+  const bones={};mesh.skeleton.bones.forEach(b=>bones[b.name]=b);
+  if(q.get('wire'))mesh.material.forEach?mesh.material.forEach(m=>m.wireframe=true):mesh.material.wireframe=true;
+  const ms=Array.isArray(mesh.material)?mesh.material:[mesh.material];ms.forEach(m=>{m.vertexColors=true;m.needsUpdate=true;});
+  window.applyPose=(n)=>{const p=POSES[n];['index','middle','ring','little'].forEach((f,i)=>{const c=p.c[i];
+    const sp=[0.09,0.03,-0.03,-0.1][i];bones[f+'1'].rotation.set(-c*1.5,0,sp*(p.sp-1)*-1);bones[f+'2'].rotation.x=-c*1.7;bones[f+'3'].rotation.x=-c*1.2;});
+    if(window.thumbPose)window.thumbPose(bones,p);};
+  applyPose(q.get('pose')||'relaxed');
+  const v=q.get('view')||'back';
+  const tgt=new THREE.Vector3(0,1.5,0);
+  if(v==='back')C.position.set(4,4,34);else if(v==='palm')C.position.set(-4,4,-34);else if(v==='side')C.position.set(-34,4,4);else C.position.set(18,10,26);
+  C.lookAt(tgt);R.render(S,C);document.getElementById('l').textContent='tris '+(mesh.geometry.index.count/3|0)+' bones '+mesh.skeleton.bones.length;
+  window.__ready=true;
+  (function loop(){requestAnimationFrame(loop);R.render(S,C);})();
+});
+</script></body></html>
